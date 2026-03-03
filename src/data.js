@@ -4,6 +4,8 @@ export const STATUSES = ['New', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 
 export const OWNERS = ['Bob', 'Erica', 'Walker'];
 
+export const FREQUENCIES = ['daily', 'weekly', 'monthly'];
+
 export const SEED_TASKS = [
   {
     id: 'seed-cv-1',
@@ -13,6 +15,7 @@ export const SEED_TASKS = [
     status: 'In Progress',
     owner: 'Bob',
     waiting: false,
+    deadline: null,
     updatedAt: new Date('2026-02-07T09:30:00').toISOString(),
   },
   {
@@ -23,6 +26,7 @@ export const SEED_TASKS = [
     status: 'Waiting',
     owner: 'Erica',
     waiting: true,
+    deadline: '2026-03-15',
     updatedAt: new Date('2026-02-06T14:00:00').toISOString(),
   },
   {
@@ -33,6 +37,7 @@ export const SEED_TASKS = [
     status: 'New',
     owner: 'Walker',
     waiting: false,
+    deadline: null,
     updatedAt: new Date('2026-02-08T11:15:00').toISOString(),
   },
   {
@@ -43,6 +48,7 @@ export const SEED_TASKS = [
     status: 'In Progress',
     owner: 'Erica',
     waiting: false,
+    deadline: null,
     updatedAt: new Date('2026-02-05T16:45:00').toISOString(),
   },
   {
@@ -53,6 +59,7 @@ export const SEED_TASKS = [
     status: 'In Progress',
     owner: 'Bob',
     waiting: false,
+    deadline: null,
     updatedAt: new Date('2026-02-09T08:00:00').toISOString(),
   },
   {
@@ -63,6 +70,7 @@ export const SEED_TASKS = [
     status: 'Waiting',
     owner: 'Walker',
     waiting: true,
+    deadline: null,
     updatedAt: new Date('2026-02-08T17:30:00').toISOString(),
   },
 ];

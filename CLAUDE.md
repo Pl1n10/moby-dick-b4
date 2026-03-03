@@ -102,7 +102,26 @@ Header shows "Auth: OFF (Demo)" badge. README describes future Azure AD integrat
 - `window.confirm()` for delete/reset confirmations
 - Sorting always by `updatedAt` descending
 
-## Known Issues / Cleanup Needed
+## Upgrade TODO
 
-- `moby-dick-b4/` subdirectory at root is a stale leftover (duplicate README only) — can be deleted
-- README mentions "match highlighting" and "match counter" features that don't exist in the code
+### P1 — Refactor strutturale
+- [ ] Spezzare App.jsx in componenti separati (Header, TabNav, Toolbar, TaskTable, TaskRow, EditableText, EditableSelect, EditableCheckbox, StatusBadge)
+- [ ] Estrarre logica task in custom hook `useTasks.js` (stato + CRUD + persistence)
+- [ ] Centralizzare stili in `styles.js`
+- [ ] Sostituire hover JS (`onMouseEnter`/`onMouseLeave`) con CSS `:hover`
+
+### P2 — Feature UX
+- [ ] Export CSV (task del gruppo attivo, rispetta filtri)
+- [ ] Sostituire `window.confirm()` con dialog/modal custom (coerente col dark theme)
+- [ ] Drag & drop per riordinamento manuale task
+
+### P3 — Solidità tecnica
+- [ ] Aggiungere ESLint + Prettier
+- [ ] Aggiungere Vitest + React Testing Library (testare waiting/status sync, filtri, localStorage)
+- [ ] Migrazione TypeScript (progressiva .jsx → .tsx)
+
+### P4 — Futuro (fuori scope per ora)
+- [ ] Autenticazione Azure AD
+- [ ] Backend API per sync multi-dispositivo
+- [ ] Task comments / history / audit trail
+- [ ] Priority field sui task
