@@ -535,6 +535,7 @@ export default function App() {
         if (filterGroup && t.group !== filterGroup) return false
       } else {
         if (t.group !== activeGroup) return false
+        if (t.status === 'Closed') return false
       }
       return true
     })
@@ -551,7 +552,7 @@ export default function App() {
 
   const totalGroupTasks = isStorico
     ? tasks.filter(t => t.status === 'Closed').length
-    : tasks.filter(t => t.group === activeGroup).length
+    : tasks.filter(t => t.group === activeGroup && t.status !== 'Closed').length
   const hasActiveFilters = search || filterStatus || filterOwner || (isStorico && filterGroup)
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
@@ -639,7 +640,7 @@ export default function App() {
       {/* Tabs */}
       <nav style={{ padding: '0 32px', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center' }}>
         {GROUPS.map(g => {
-          const count = tasks.filter(t => t.group === g).length
+          const count = tasks.filter(t => t.group === g && t.status !== 'Closed').length
           const isActive = g === activeGroup
           return (
             <button key={g} onClick={() => setActiveGroup(g)} style={{
@@ -868,11 +869,9 @@ export default function App() {
 
 // --- Task row component ---
 function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false }) {
-  const isClosed = task.status === 'Closed'
   return (
     <tr style={{
       borderBottom: '1px solid #21262d', transition: 'background 0.1s',
-      ...(isClosed && !readOnly ? { opacity: 0.5 } : {}),
     }}
       onMouseEnter={e => e.currentTarget.style.background = '#161b22'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
