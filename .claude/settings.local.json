@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs:/c/Users/Utente/AppData/Roaming/npm\")",
+      "Bash(cmd.exe /c \"where node 2>&1 && where npm 2>&1\")",
+      "Bash(cmd.exe /c \"where node\")",
+      "Bash(cmd.exe /c \"node --version\")"
+    ]
+  }
+}

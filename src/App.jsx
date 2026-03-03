@@ -26,6 +26,19 @@ function formatDate(iso) {
   })
 }
 
+// --- Highlight search matches ---
+function Highlight({ text, query }) {
+  if (!query || !text) return text
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escaped})`, 'gi')
+  const parts = text.split(regex)
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} style={{ background: '#58a6ff44', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
+      : part
+  )
+}
+
 const S = {
   mono: "'JetBrains Mono', monospace",
   sans: "'IBM Plex Sans', sans-serif",
@@ -51,7 +64,7 @@ const S = {
 }
 
 // --- Editable text cell ---
-function EditableText({ value, onChange, mono, placeholder, multiline }) {
+function EditableText({ value, onChange, mono, placeholder, multiline, highlight }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const ref = useRef(null)
@@ -116,7 +129,7 @@ function EditableText({ value, onChange, mono, placeholder, multiline }) {
       onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      {isEmpty ? (placeholder || 'click to edit') : value}
+      {isEmpty ? (placeholder || 'click to edit') : (highlight ? <Highlight text={value} query={highlight} /> : value)}
     </span>
   )
 }
@@ -222,6 +235,7 @@ export default function App() {
     })
     .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
 
+  const totalGroupTasks = tasks.filter(t => t.group === activeGroup).length
   const hasActiveFilters = search || filterStatus || filterOwner
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner('') }
 
@@ -394,6 +408,15 @@ export default function App() {
             >✕ Clear</button>
           )}
 
+          {/* Result counter */}
+          {hasActiveFilters && (
+            <span style={{
+              fontSize: '12px', fontFamily: S.mono, color: '#8b949e',
+            }}>
+              {filteredTasks.length} of {totalGroupTasks}
+            </span>
+          )}
+
           {/* Spacer + Add */}
           <div style={{ flex: '1' }} />
           <button onClick={handleAdd} style={{
@@ -431,6 +454,7 @@ export default function App() {
                   <TaskRow
                     key={task.id}
                     task={task}
+                    search={search}
                     onUpdate={(field, val) => updateTask(task.id, field, val)}
                     onDelete={() => handleDelete(task.id)}
                   />
@@ -446,7 +470,7 @@ export default function App() {
 
 
 // --- Task row component ---
-function TaskRow({ task, onUpdate, onDelete }) {
+function TaskRow({ task, search, onUpdate, onDelete }) {
   return (
     <tr style={{ borderBottom: '1px solid #21262d', transition: 'background 0.1s' }}
       onMouseEnter={e => e.currentTarget.style.background = '#161b22'}
@@ -458,6 +482,7 @@ function TaskRow({ task, onUpdate, onDelete }) {
           onChange={v => onUpdate('reference', v)}
           mono
           placeholder="add reference"
+          highlight={search}
         />
       </td>
       <td style={{ padding: '8px 14px', maxWidth: '400px' }}>
@@ -466,6 +491,7 @@ function TaskRow({ task, onUpdate, onDelete }) {
           onChange={v => onUpdate('description', v)}
           placeholder="add description"
           multiline
+          highlight={search}
         />
       </td>
       <td style={{ padding: '8px 14px' }}>

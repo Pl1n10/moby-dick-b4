@@ -12,7 +12,7 @@ Built with **React 18 + Vite**. Purely static — no backend, no database. Data 
 - **Inline editing**: click any cell to edit (text, textarea, dropdown, checkbox)
 - **Add / Delete rows**: green "+ New Task" button, ✕ delete with confirmation
 - **Search**: real-time filter by reference or description (case-insensitive) with match highlighting
-- **Filters**: dropdown filters for Status and Owner, with "✕ Clear" button and match counter
+- **Filters**: dropdown filters for Status and Owner, with "✕ Clear" button and result counter
 - **Waiting sync logic**:
   - Status → Waiting auto-checks the ⏳ flag
   - Status → anything else auto-unchecks ⏳
