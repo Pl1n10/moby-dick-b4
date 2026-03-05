@@ -16,7 +16,10 @@
       "Bash(npm install)",
       "Bash(where npm)",
       "Bash(cmd.exe /c \"where node && where npm\")",
-      "Bash(cmd.exe /c \"npm --version\")"
+      "Bash(cmd.exe /c \"npm --version\")",
+      "Bash(git add docker-compose.yml)",
+      "Bash(git commit:*)",
+      "Bash(git push)"
     ]
   }
 }
