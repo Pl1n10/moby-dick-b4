@@ -1,31 +1,43 @@
-import { useState, useEffect } from 'react'
-import { OWNERS, SEED_TASKS } from '../data.js'
+import { useState, useEffect, useRef } from 'react'
+import { OWNERS } from '../data.js'
 
-const STORAGE_KEY = 'moby-dick-b4-tasks'
-
-function loadTasks() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed) && parsed.length > 0)
-        return parsed.map(t => ({ deadline: null, ...t }))
-    }
-  } catch (e) { console.warn('localStorage load failed:', e) }
-  return [...SEED_TASKS]
-}
-
-function saveTasks(tasks) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)) }
-  catch (e) { console.warn('localStorage save failed:', e) }
-}
+const API = '/api'
 
 export default function useTasks() {
-  const [tasks, setTasks] = useState(loadTasks)
+  const [tasks, setTasks] = useState([])
+  const lastUpdateRef = useRef(0)
 
-  useEffect(() => { saveTasks(tasks) }, [tasks])
+  // ── Fetch tasks on mount + poll every 60s ──────────────
+  useEffect(() => {
+    const fetchTasks = () => {
+      // Skip poll if a local update happened in the last 5 seconds
+      if (Date.now() - lastUpdateRef.current < 5000) return
+      fetch(`${API}/tasks`)
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setTasks(data) })
+        .catch(err => console.error('Failed to fetch tasks:', err))
+    }
 
+    fetchTasks()
+    const interval = setInterval(fetchTasks, 60_000)
+
+    // Also refetch when tab regains focus (picks up recurring tasks)
+    const onFocus = () => {
+      if (Date.now() - lastUpdateRef.current > 5000) fetchTasks()
+    }
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [])
+
+  // ── Update a single field (optimistic + API sync) ──────
   const updateTask = (taskId, field, value) => {
+    lastUpdateRef.current = Date.now()
+
+    // Optimistic update (same sync logic as before)
     setTasks(prev => prev.map(t => {
       if (t.id !== taskId) return t
       const updated = { ...t, [field]: value }
@@ -43,11 +55,21 @@ export default function useTasks() {
 
       return updated
     }))
+
+    // Persist to server
+    fetch(`${API}/tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, value }),
+    }).catch(err => console.error('Failed to update task:', err))
   }
 
+  // ── Add new task ───────────────────────────────────────
   const handleAdd = (activeGroup, clearFilters) => {
     clearFilters()
-    setTasks(prev => [{
+    lastUpdateRef.current = Date.now()
+
+    const newTask = {
       id: crypto.randomUUID(),
       group: activeGroup,
       reference: '',
@@ -57,19 +79,41 @@ export default function useTasks() {
       waiting: false,
       deadline: null,
       updatedAt: new Date().toISOString(),
-    }, ...prev])
+    }
+
+    // Optimistic insert
+    setTasks(prev => [newTask, ...prev])
+
+    // Persist to server
+    fetch(`${API}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTask),
+    }).catch(err => console.error('Failed to create task:', err))
   }
 
+  // ── Delete task ────────────────────────────────────────
   const handleDelete = (taskId) => {
     const task = tasks.find(t => t.id === taskId)
     if (window.confirm(`Delete "${task?.reference || 'this task'}"?`)) {
+      lastUpdateRef.current = Date.now()
       setTasks(prev => prev.filter(t => t.id !== taskId))
+
+      fetch(`${API}/tasks/${taskId}`, { method: 'DELETE' })
+        .catch(err => console.error('Failed to delete task:', err))
     }
   }
 
+  // ── Reset all data ─────────────────────────────────────
   const handleReset = (clearRecurring, clearFilters) => {
     if (window.confirm('Reset all data to defaults? This cannot be undone.')) {
-      setTasks([...SEED_TASKS])
+      lastUpdateRef.current = Date.now()
+
+      fetch(`${API}/tasks/reset`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (Array.isArray(data)) setTasks(data) })
+        .catch(err => console.error('Failed to reset:', err))
+
       clearRecurring()
       clearFilters()
     }

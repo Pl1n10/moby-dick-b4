@@ -2,76 +2,150 @@
 
 ## What This Is
 
-A lightweight, static task board for tracking backup-related work items across three platforms: **Commvault**, **Cohesity**, and **NetBackup + Data Domain**. Built for a small team (Bob, Erica, Walker) managing backup incidents and requests.
+A task board for tracking backup-related work items across three platforms: **Commvault**, **Cohesity**, and **NetBackup + Data Domain**. Built for a small team (Bob, Erica, Walker) managing backup incidents and requests.
 
-No backend, no database — all data persists in browser `localStorage` under key `moby-dick-b4-tasks`.
+Data persists in **PostgreSQL** via a REST API. Deployed with **Docker Compose** (PostgreSQL + Express API + Nginx).
 
 ## Tech Stack
 
-- **React 18.3** + **Vite 6.4** (ES modules)
-- CSS-in-JS (all inline styles, no CSS framework)
-- Fonts: JetBrains Mono (mono), IBM Plex Sans (UI) via Google Fonts
-- Deployed on **Netlify** (static SPA)
-- Date formatting: Italian locale (`it-IT`)
+- **Frontend**: React 18.3 + Vite 6.4 (ES modules, CSS-in-JS)
+- **Backend**: Express 4 + pg (Node 20)
+- **Database**: PostgreSQL 16
+- **Deploy**: Docker Compose (3 services: db, api, nginx)
+- **Fonts**: JetBrains Mono (mono), IBM Plex Sans (UI) via Google Fonts
+- **Date formatting**: Italian locale (`it-IT`)
 
 ## Commands
 
 ```bash
-npm run dev       # Dev server at localhost:5173
-npm run build     # Production build → ./dist
-npm run preview   # Preview production build
+# Frontend dev (requires backend running on :3000)
+npm run dev          # Dev server at localhost:5173 (proxies /api → :3000)
+npm run build        # Production build → ./dist
+npm run preview      # Preview production build
+
+# Backend dev
+cd backend && npm run dev   # Express on :3000 with --watch
+
+# Docker (production)
+docker compose up --build   # Starts db → api → nginx on :80
+docker compose down         # Stop all services
 ```
 
 ## Project Structure
 
 ```
-├── index.html          # Entry point (loads Google Fonts + /src/main.jsx)
-├── vite.config.js      # Vite config (react plugin, outDir: dist)
-├── netlify.toml        # SPA redirect /* → /index.html
-├── src/
-│   ├── main.jsx        # ReactDOM.createRoot, StrictMode
-│   ├── App.jsx         # ENTIRE app in one file (~510 lines)
-│   ├── data.js         # Constants: GROUPS, STATUSES, OWNERS, SEED_TASKS
-│   └── index.css       # Minimal global reset
-└── moby-dick-b4/       # Stale duplicate dir (only contains a README copy)
+├── index.html                    # Entry point (Google Fonts + /src/main.jsx)
+├── vite.config.js                # Vite config (react plugin, proxy /api → :3000)
+├── netlify.toml                  # Legacy SPA redirect (Netlify no longer used)
+├── docker-compose.yml            # Orchestration: db + api + nginx
+├── .dockerignore
+│
+├── src/                          # ── Frontend ──────────────────────
+│   ├── main.jsx                  # ReactDOM.createRoot, StrictMode
+│   ├── App.jsx                   # Root component (~90 lines, orchestrates everything)
+│   ├── data.js                   # Constants: GROUPS, STATUSES, OWNERS, FREQUENCIES
+│   ├── styles.js                 # Centralized style object S (palette, fonts, inputs)
+│   ├── utils.js                  # Shared utilities
+│   ├── index.css                 # Minimal global reset
+│   ├── components/
+│   │   ├── Header.jsx
+│   │   ├── TabNav.jsx
+│   │   ├── Toolbar.jsx
+│   │   ├── TaskTable.jsx
+│   │   ├── TaskRow.jsx
+│   │   ├── StatusBadge.jsx
+│   │   ├── Highlight.jsx
+│   │   ├── RecurringModal.jsx
+│   │   └── editable/
+│   │       ├── EditableText.jsx
+│   │       ├── EditableSelect.jsx
+│   │       ├── EditableCheckbox.jsx
+│   │       └── EditableDate.jsx
+│   └── hooks/
+│       ├── useTasks.js           # Task CRUD + optimistic updates + polling
+│       └── useRecurring.js       # Recurring templates CRUD (processing is server-side)
+│
+├── backend/                      # ── Backend ───────────────────────
+│   ├── package.json
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── migrations/
+│   │   └── 001_init.sql          # Schema + seed data (idempotent)
+│   └── src/
+│       ├── index.js              # Express app, startup, recurring scheduler
+│       ├── db.js                 # pg Pool, waitForDb(), runMigrations()
+│       ├── recurring-processor.js # Server-side recurring task creation
+│       └── routes/
+│           ├── tasks.js          # CRUD + reset + waiting↔status sync
+│           └── recurring.js      # Templates CRUD
+│
+└── nginx/                        # ── Reverse Proxy ─────────────────
+    ├── Dockerfile                # Multi-stage: builds frontend, serves via nginx
+    └── nginx.conf                # SPA fallback + /api/ proxy to api:3000
 ```
 
-## Architecture (src/App.jsx)
+## Architecture
 
-Everything lives in `App.jsx` — monolithic by design. Key parts:
+### Docker Compose Services
 
-### Components (all inline, not separate files)
-- `EditableText` — click-to-edit text/textarea with draft state
-- `EditableSelect` — click-to-edit dropdown (status, owner)
-- `EditableCheckbox` — toggle waiting flag (⏳ / —)
-- `StatusBadge` — colored pill per status
-- `TaskRow` — table row composing the above
-- `App` — header, tab nav, toolbar (search + filters), table
+```
+nginx:80  →  /api/*  →  api:3000 (Express)  →  db:5432 (PostgreSQL 16)
+          →  /*      →  static files (React build)
+```
 
-### State (App component)
-- `activeGroup` — selected tab (Commvault | Cohesity | NetBackup + Data Domain)
-- `tasks` — full task array (all groups combined, persisted to localStorage on every change)
-- `search` — free-text filter (matches reference + description, case-insensitive)
-- `filterStatus` / `filterOwner` — dropdown filters
+Startup chain: **db healthy** → **api healthy** → **nginx starts**
+
+### Frontend (src/)
+
+- **App.jsx** — root component, composes Header + TabNav + Toolbar + TaskTable + RecurringModal
+- **useTasks hook** — fetches tasks from API on mount, polls every 60s, refetches on window focus, optimistic updates with `lastUpdateRef` debounce
+- **useRecurring hook** — CRUD only, processing moved server-side
+- **Storico tab** — shows only Closed tasks across all groups
+
+### Backend API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check (used by Docker healthcheck) |
+| GET | `/api/tasks` | All tasks, sorted by updated_at DESC |
+| POST | `/api/tasks` | Create task |
+| POST | `/api/tasks/reset` | Truncate + re-seed |
+| PATCH | `/api/tasks/:id` | Update single field (with waiting↔status sync) |
+| DELETE | `/api/tasks/:id` | Delete task |
+| GET | `/api/recurring` | List recurring templates |
+| PUT | `/api/recurring` | Replace all templates |
+| DELETE | `/api/recurring` | Clear all templates |
+
+### Database Schema (001_init.sql)
+
+**tasks** table:
+- `id` UUID PK, `group_name`, `reference`, `description`, `status` (CHECK), `owner`, `waiting`, `deadline` DATE, `recurring_template_id` UUID FK, `updated_at`, `created_at`
+- FK: `recurring_template_id → recurring_templates(id) ON DELETE SET NULL`
+
+**recurring_templates** table:
+- `id` UUID PK, `group_name`, `reference`, `description`, `owner`, `frequency` (CHECK: daily/weekly/monthly), `scheduled_time`, `last_created_date`, `active`, `created_at`
 
 ### Key Business Logic: Waiting ↔ Status Sync
-In `updateTask()` (line ~231):
+
+Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `routes/tasks.js` (backend, authoritative):
+
 - Setting status → "Waiting" auto-checks `waiting: true`
 - Setting status → anything else auto-unchecks `waiting: false`
 - Unchecking waiting while status is "Waiting" → status becomes "In Progress"
 - Checking waiting manually → status becomes "Waiting"
 - **Waiting flag changes do NOT update `updatedAt`** (prevents row jumping in sort)
 
-### Task Data Model
+### Task Data Model (client-side shape)
 ```js
 {
-  id: string,          // crypto.randomUUID()
+  id: string,          // UUID (generated by DB or crypto.randomUUID())
   group: string,       // "Commvault" | "Cohesity" | "NetBackup + Data Domain"
   reference: string,   // Incident number or email subject
   description: string, // Multiline problem description
   status: string,      // "New" | "In Progress" | "Waiting" | "Resolved" | "Closed"
   owner: string,       // "Bob" | "Erica" | "Walker"
   waiting: boolean,    // Synced with status (see logic above)
+  deadline: string,    // "YYYY-MM-DD" or null
   updatedAt: string,   // ISO 8601 (auto-updated on edit, except waiting)
 }
 ```
@@ -80,34 +154,34 @@ In `updateTask()` (line ~231):
 - `GROUPS`: ['Commvault', 'Cohesity', 'NetBackup + Data Domain']
 - `STATUSES`: ['New', 'In Progress', 'Waiting', 'Resolved', 'Closed']
 - `OWNERS`: ['Bob', 'Erica', 'Walker']
-- `SEED_TASKS`: 6 sample tasks (2 per group), loaded on first visit
+- `FREQUENCIES`: ['daily', 'weekly', 'monthly']
 
 ## Design System
 
 - **Dark theme**: bg `#0d1117`, text `#e6edf3`, borders `#21262d` / `#30363d`
 - **Accent blue**: `#58a6ff` (links, active tab, focus rings)
 - **Status colors**: New (blue), In Progress (orange), Waiting (red), Resolved (green), Closed (gray)
-- **Hover effects**: all via inline `onMouseEnter`/`onMouseLeave` (not CSS `:hover`)
-- **Style object `S`**: defined at top of App.jsx with `mono`, `sans`, `statusColors`, `inputBase`
+- **Style object `S`**: centralized in `styles.js` with `mono`, `sans`, `statusColors`, `inputBase`
 
 ## Auth Placeholder
 
-Header shows "Auth: OFF (Demo)" badge. README describes future Azure AD integration via `@azure/msal-browser` + `@azure/msal-react`.
+Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 
 ## Conventions
 
 - No TypeScript, no tests, no linting configured
 - All styling is inline (CSS-in-JS objects) — no external CSS files besides index.css reset
-- UUIDs via `crypto.randomUUID()`
+- UUIDs via `crypto.randomUUID()` (frontend) or `gen_random_uuid()` (PostgreSQL)
 - `window.confirm()` for delete/reset confirmations
 - Sorting always by `updatedAt` descending
+- Commit messages: `feat:`, `fix:`, `refactor:`, `chore:` prefixes
 
 ## Upgrade TODO
 
-### P1 — Refactor strutturale
-- [ ] Spezzare App.jsx in componenti separati (Header, TabNav, Toolbar, TaskTable, TaskRow, EditableText, EditableSelect, EditableCheckbox, StatusBadge)
-- [ ] Estrarre logica task in custom hook `useTasks.js` (stato + CRUD + persistence)
-- [ ] Centralizzare stili in `styles.js`
+### P1 — Refactor strutturale (DONE)
+- [x] Spezzare App.jsx in componenti separati
+- [x] Estrarre logica task in custom hook `useTasks.js`
+- [x] Centralizzare stili in `styles.js`
 - [ ] Sostituire hover JS (`onMouseEnter`/`onMouseLeave`) con CSS `:hover`
 
 ### P2 — Feature UX
@@ -117,11 +191,12 @@ Header shows "Auth: OFF (Demo)" badge. README describes future Azure AD integrat
 
 ### P3 — Solidità tecnica
 - [ ] Aggiungere ESLint + Prettier
-- [ ] Aggiungere Vitest + React Testing Library (testare waiting/status sync, filtri, localStorage)
+- [ ] Aggiungere Vitest + React Testing Library (testare waiting/status sync, filtri)
 - [ ] Migrazione TypeScript (progressiva .jsx → .tsx)
 
-### P4 — Futuro (fuori scope per ora)
+### P4 — Futuro
 - [ ] Autenticazione Azure AD
-- [ ] Backend API per sync multi-dispositivo
 - [ ] Task comments / history / audit trail
 - [ ] Priority field sui task
+- [x] Backend API per sync multi-dispositivo
+- [x] Docker Compose deployment

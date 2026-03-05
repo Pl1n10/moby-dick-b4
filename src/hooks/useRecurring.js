@@ -1,92 +1,40 @@
 import { useState, useEffect } from 'react'
 
-const RECURRING_KEY = 'moby-dick-b4-recurring'
+const API = '/api'
 
-function loadRecurring() {
-  try {
-    const stored = localStorage.getItem(RECURRING_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      if (Array.isArray(parsed)) return parsed
-    }
-  } catch (e) { console.warn('Recurring load failed:', e) }
-  return []
-}
-
-function saveRecurring(templates) {
-  try { localStorage.setItem(RECURRING_KEY, JSON.stringify(templates)) }
-  catch (e) { console.warn('Recurring save failed:', e) }
-}
-
-function shouldSkipRecurring(tmpl) {
-  if (!tmpl.lastCreatedDate) return false
-  const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
-  switch (tmpl.frequency) {
-    case 'daily':
-      return tmpl.lastCreatedDate === todayStr
-    case 'weekly': {
-      const last = new Date(tmpl.lastCreatedDate + 'T00:00:00')
-      return Math.floor((now - last) / (1000 * 60 * 60 * 24)) < 7
-    }
-    case 'monthly': {
-      const last = new Date(tmpl.lastCreatedDate + 'T00:00:00')
-      return last.getFullYear() === now.getFullYear() && last.getMonth() === now.getMonth()
-    }
-    default: return false
-  }
-}
-
-function processRecurring(templates) {
-  const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-
-  const newTasks = []
-  const updatedTemplates = templates.map(tmpl => {
-    if (!tmpl.active) return tmpl
-    if (currentTime < tmpl.scheduledTime) return tmpl
-    if (shouldSkipRecurring(tmpl)) return tmpl
-
-    newTasks.push({
-      id: crypto.randomUUID(),
-      group: tmpl.group,
-      reference: tmpl.reference,
-      description: tmpl.description,
-      status: 'New',
-      owner: tmpl.owner,
-      waiting: false,
-      deadline: null,
-      updatedAt: now.toISOString(),
-      recurringTemplateId: tmpl.id,
-    })
-    return { ...tmpl, lastCreatedDate: todayStr }
-  })
-
-  return { newTasks, updatedTemplates }
-}
-
-export default function useRecurring(setTasks) {
-  const [recurring, setRecurring] = useState(loadRecurring)
+/**
+ * Recurring templates hook — CRUD only.
+ * Processing (task creation) now happens server-side via setInterval in Express.
+ * The setTasks parameter is accepted for interface compatibility but not used.
+ */
+export default function useRecurring(/* setTasks — unused, kept for API compat */) {
+  const [recurring, setRecurringState] = useState([])
   const [showRecurringModal, setShowRecurringModal] = useState(false)
 
-  useEffect(() => { saveRecurring(recurring) }, [recurring])
-
+  // ── Fetch templates on mount ───────────────────────────
   useEffect(() => {
-    const check = () => {
-      const freshTemplates = loadRecurring()
-      const { newTasks, updatedTemplates } = processRecurring(freshTemplates)
-      if (newTasks.length > 0) {
-        setTasks(prev => [...newTasks, ...prev])
-        setRecurring(updatedTemplates)
-      }
-    }
-    check()
-    const interval = setInterval(check, 60000)
-    return () => clearInterval(interval)
-  }, [setTasks])
+    fetch(`${API}/recurring`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setRecurringState(data) })
+      .catch(err => console.error('Failed to fetch recurring:', err))
+  }, [])
 
-  const clearRecurring = () => setRecurring([])
+  // ── Save all templates (called by RecurringModal onSave) ─
+  const setRecurring = (templates) => {
+    setRecurringState(templates)
+    fetch(`${API}/recurring`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(templates),
+    }).catch(err => console.error('Failed to save recurring:', err))
+  }
+
+  // ── Clear all (called during reset) ────────────────────
+  const clearRecurring = () => {
+    setRecurringState([])
+    fetch(`${API}/recurring`, { method: 'DELETE' })
+      .catch(err => console.error('Failed to clear recurring:', err))
+  }
 
   return { recurring, setRecurring, showRecurringModal, setShowRecurringModal, clearRecurring }
 }

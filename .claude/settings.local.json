@@ -6,7 +6,17 @@
       "Bash(cmd.exe /c \"where node 2>&1 && where npm 2>&1\")",
       "Bash(cmd.exe /c \"where node\")",
       "Bash(cmd.exe /c \"node --version\")",
-      "Bash(cmd.exe /c \"where npm\")"
+      "Bash(cmd.exe /c \"where npm\")",
+      "Bash(ls -la /c/Users/Utente/OneDrive*/Documenti/moby-dick-b4/backend/)",
+      "Bash(find /c/Users/Utente/OneDrive*/Documenti/moby-dick-b4 -name \"package-lock.json\" -type f)",
+      "Bash(ls -la /c/Users/Utente/OneDrive*/Documenti/moby-dick-b4/nginx/)",
+      "Bash(ls -la /c/Users/Utente/OneDrive*/Documenti/moby-dick-b4/src/)",
+      "Bash(find /c/Users/Utente/OneDrive*/Documenti/moby-dick-b4/backend -type f)",
+      "Bash(test -f \"/c/Users/Utente/OneDrive - mauden.com/Documenti/moby-dick-b4/backend/package-lock.json\")",
+      "Bash(npm install)",
+      "Bash(where npm)",
+      "Bash(cmd.exe /c \"where node && where npm\")",
+      "Bash(cmd.exe /c \"npm --version\")"
     ]
   }
 }
