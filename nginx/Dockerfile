@@ -4,7 +4,10 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+# Using `npm install` (not `npm ci`) so the build tolerates a stale lockfile
+# after dependency bumps. TODO: regenerate package-lock.json locally after
+# bumping deps and switch back to `npm ci` for reproducible builds.
+RUN npm install
 
 COPY index.html vite.config.js ./
 COPY src ./src
