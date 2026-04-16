@@ -1,4 +1,5 @@
 import S from '../styles.js'
+import UserMenu from '../auth/UserMenu.jsx'
 
 export default function Header({ onReset }) {
   return (
@@ -10,12 +11,7 @@ export default function Header({ onReset }) {
         <h1 style={{ margin: 0, fontSize: '20px', fontFamily: S.mono, fontWeight: 700, letterSpacing: '-0.02em' }}>
           🐋 Moby Dick B4
         </h1>
-        <span style={{
-          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-          fontFamily: S.mono, background: '#1f2937', color: '#f59e0b', border: '1px solid #374151',
-        }}>
-          Auth: OFF (Demo)
-        </span>
+        <UserMenu />
       </div>
       <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: S.sans, display: 'flex', alignItems: 'center', gap: '12px' }}>
         Backup Task Tracker

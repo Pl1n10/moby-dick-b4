@@ -195,8 +195,45 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - [ ] Migrazione TypeScript (progressiva .jsx → .tsx)
 
 ### P4 — Futuro
-- [ ] Autenticazione Azure AD
+- [~] **Autenticazione Entra ID** — predisposizione codice in corso (vedi sotto)
 - [ ] Task comments / history / audit trail
 - [ ] Priority field sui task
 - [x] Backend API per sync multi-dispositivo
 - [x] Docker Compose deployment
+
+### Entra ID — Stato e TODO
+
+**Decisioni architetturali (concordate):**
+- Flow: MSAL.js SPA + JWT validation backend (jwks-rsa)
+- Tenant: single-tenant Mauden + utenti guest B2B per esterni (@ricoh, @npo, …)
+- Mapping owner + ruoli admin/viewer: tabella DB `users`
+- Feature flag `AUTH_ENABLED` (env var, default `false`) per spegnere tutto finché la registrazione Entra non è pronta
+
+**DONE — predisposizione codice:**
+- [x] Frontend: `src/auth/` (authConfig, AuthProvider, useAuth, LoginGate, UserMenu, apiFetch)
+- [x] Frontend: `main.jsx` wrappa `<App>` con `AuthProvider` + `LoginGate`
+- [x] Frontend: `Header.jsx` mostra `UserMenu` (badge demo se flag off, nome+initials+logout se on)
+- [x] Frontend: `useTasks` / `useRecurring` usano `apiFetch` (inietta Bearer token)
+- [x] Backend: `src/auth.js` middleware `requireAuth` (verifica firma con JWKS Microsoft, valida `aud` e `iss`)
+- [x] Backend: `src/routes/me.js` endpoint `GET /api/me`
+- [x] Backend: `index.js` applica `requireAuth` a `/api/tasks`, `/api/recurring`, `/api/me` (health resta pubblico)
+- [x] `.env.example` frontend + backend con tutte le variabili e commenti
+- [x] `docker-compose.yml` propaga `AUTH_ENABLED`, `AZURE_*` al container `api`
+
+**TODO — da fare prima di accendere il flag:**
+- [ ] Coordinare con owner Entra Mauden la registrazione app:
+  - Tipo: SPA (Single-Page Application)
+  - Redirect URI: `http://localhost:5173` (dev) + URL produzione
+  - Esporre custom API: Application ID URI = `api://<client-id>`, scope `access_as_user`
+  - (Opzionale, per ruoli) definire App Roles: `Admin`, `Viewer`
+- [ ] Scrivere `AUTH_SETUP.md` con la checklist passo-passo per l'owner Entra
+- [ ] Compilare `.env.local` (frontend) e `.env` (backend) con i valori reali
+- [ ] Migrazione DB `002_users.sql`:
+  - Tabella `users` (id, email UNIQUE, display_owner ENUM Bob/Erica/Walker, role ENUM admin/viewer, created_at)
+  - Seed iniziale: bob@mauden.com → Bob/admin, erica@mauden.com → Erica/admin, walker@mauden.com → Walker/admin
+- [ ] Backend: arricchire `/api/me` con `owner` e `role` mappati da DB tramite email del JWT
+- [ ] Backend: endpoint `/api/users` (CRUD, solo per role=admin) per gestire mapping a runtime
+- [ ] Frontend: usare `owner` di `/api/me` come default in `handleAdd` invece di `OWNERS[0]`
+- [ ] Frontend: gating UI per ruolo viewer (nascondere bottoni delete/reset/add)
+- [ ] Backend: enforcement ruolo `admin` sugli endpoint mutating
+- [ ] Test end-to-end con un guest @ricoh (o tenant di test) prima del rollout

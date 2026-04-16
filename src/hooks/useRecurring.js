@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import apiFetch from '../auth/apiFetch.js'
 
 const API = '/api'
 
@@ -13,7 +14,7 @@ export default function useRecurring(/* setTasks — unused, kept for API compat
 
   // ── Fetch templates on mount ───────────────────────────
   useEffect(() => {
-    fetch(`${API}/recurring`)
+    apiFetch(`${API}/recurring`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setRecurringState(data) })
       .catch(err => console.error('Failed to fetch recurring:', err))
@@ -22,7 +23,7 @@ export default function useRecurring(/* setTasks — unused, kept for API compat
   // ── Save all templates (called by RecurringModal onSave) ─
   const setRecurring = (templates) => {
     setRecurringState(templates)
-    fetch(`${API}/recurring`, {
+    apiFetch(`${API}/recurring`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(templates),
@@ -32,7 +33,7 @@ export default function useRecurring(/* setTasks — unused, kept for API compat
   // ── Clear all (called during reset) ────────────────────
   const clearRecurring = () => {
     setRecurringState([])
-    fetch(`${API}/recurring`, { method: 'DELETE' })
+    apiFetch(`${API}/recurring`, { method: 'DELETE' })
       .catch(err => console.error('Failed to clear recurring:', err))
   }
 

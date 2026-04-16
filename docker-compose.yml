@@ -24,6 +24,12 @@ services:
     environment:
       DATABASE_URL: postgresql://moby:moby@db:5432/moby
       PORT: "3000"
+      # Auth (Entra ID) — leave AUTH_ENABLED=false until the IT team
+      # provisions the app registration. See backend/.env.example.
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
+      AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
+      AZURE_API_AUDIENCE: ${AZURE_API_AUDIENCE:-}
     depends_on:
       db:
         condition: service_healthy

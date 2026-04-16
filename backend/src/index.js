@@ -2,8 +2,10 @@ import express from 'express'
 import cors from 'cors'
 import { waitForDb, runMigrations } from './db.js'
 import { processRecurring } from './recurring-processor.js'
+import { requireAuth, AUTH_ENABLED } from './auth.js'
 import tasksRouter from './routes/tasks.js'
 import recurringRouter from './routes/recurring.js'
+import meRouter from './routes/me.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -13,9 +15,15 @@ app.use(cors())
 app.use(express.json())
 
 // ── Routes ──────────────────────────────────────────────
+// Health stays public — used by Docker healthcheck.
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
-app.use('/api/tasks', tasksRouter)
-app.use('/api/recurring', recurringRouter)
+
+// All other /api routes require auth when AUTH_ENABLED=true (no-op otherwise).
+app.use('/api/me', requireAuth, meRouter)
+app.use('/api/tasks', requireAuth, tasksRouter)
+app.use('/api/recurring', requireAuth, recurringRouter)
+
+console.log(`Auth: ${AUTH_ENABLED ? 'ENABLED (Entra ID)' : 'DISABLED (demo mode)'}`)
 
 // ── Startup ─────────────────────────────────────────────
 async function start() {

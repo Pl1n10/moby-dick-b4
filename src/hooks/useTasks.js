@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { OWNERS } from '../data.js'
+import apiFetch from '../auth/apiFetch.js'
 
 const API = '/api'
 
@@ -12,7 +13,7 @@ export default function useTasks() {
     const fetchTasks = () => {
       // Skip poll if a local update happened in the last 5 seconds
       if (Date.now() - lastUpdateRef.current < 5000) return
-      fetch(`${API}/tasks`)
+      apiFetch(`${API}/tasks`)
         .then(r => r.json())
         .then(data => { if (Array.isArray(data)) setTasks(data) })
         .catch(err => console.error('Failed to fetch tasks:', err))
@@ -57,7 +58,7 @@ export default function useTasks() {
     }))
 
     // Persist to server
-    fetch(`${API}/tasks/${taskId}`, {
+    apiFetch(`${API}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value }),
@@ -85,7 +86,7 @@ export default function useTasks() {
     setTasks(prev => [newTask, ...prev])
 
     // Persist to server
-    fetch(`${API}/tasks`, {
+    apiFetch(`${API}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTask),
@@ -99,7 +100,7 @@ export default function useTasks() {
       lastUpdateRef.current = Date.now()
       setTasks(prev => prev.filter(t => t.id !== taskId))
 
-      fetch(`${API}/tasks/${taskId}`, { method: 'DELETE' })
+      apiFetch(`${API}/tasks/${taskId}`, { method: 'DELETE' })
         .catch(err => console.error('Failed to delete task:', err))
     }
   }
@@ -109,7 +110,7 @@ export default function useTasks() {
     if (window.confirm('Reset all data to defaults? This cannot be undone.')) {
       lastUpdateRef.current = Date.now()
 
-      fetch(`${API}/tasks/reset`, { method: 'POST' })
+      apiFetch(`${API}/tasks/reset`, { method: 'POST' })
         .then(r => r.json())
         .then(data => { if (Array.isArray(data)) setTasks(data) })
         .catch(err => console.error('Failed to reset:', err))
