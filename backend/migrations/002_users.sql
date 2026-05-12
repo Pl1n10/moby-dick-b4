@@ -22,10 +22,15 @@ CREATE TABLE IF NOT EXISTS users (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Initial admin seed. ON CONFLICT keeps re-runs idempotent and lets the team
--- update rows manually (or via /api/users) without losing edits on restart.
+-- Placeholder admin seed using RFC 2606 reserved dummy emails. The real
+-- mapping between Entra accounts and display_owner is done at deploy time
+-- via UPDATE/INSERT against this table (or via the future /api/users CRUD),
+-- so this seed only exists to make local/dev runs render correctly.
+--
+-- ON CONFLICT keeps re-runs idempotent: rows edited manually on a deployed
+-- DB are never overwritten on restart.
 INSERT INTO users (email, display_owner, role) VALUES
-  ('bob@mauden.com',    'Bob',    'admin'),
-  ('erica@mauden.com',  'Erica',  'admin'),
-  ('walker@mauden.com', 'Walker', 'admin')
+  ('pippo@example.com',     'Bob',    'admin'),
+  ('pluto@example.com',     'Erica',  'admin'),
+  ('paperino@example.com',  'Walker', 'admin')
 ON CONFLICT (email) DO NOTHING;
