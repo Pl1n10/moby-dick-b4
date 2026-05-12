@@ -106,18 +106,27 @@ export default function useTasks() {
   }
 
   // ── Reset all data ─────────────────────────────────────
+  // Conferma testuale anti-click-accidentale: l'utente deve scrivere RESET.
   const handleReset = (clearRecurring, clearFilters) => {
-    if (window.confirm('Reset all data to defaults? This cannot be undone.')) {
-      lastUpdateRef.current = Date.now()
-
-      apiFetch(`${API}/tasks/reset`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => { if (Array.isArray(data)) setTasks(data) })
-        .catch(err => console.error('Failed to reset:', err))
-
-      clearRecurring()
-      clearFilters()
+    const input = window.prompt(
+      '⚠️  Questa azione cancellerà TUTTI i task e ripristinerà i dati di esempio.\n\n' +
+      'Per confermare, scrivi RESET (maiuscolo) qui sotto:'
+    )
+    if (input === null) return
+    if (input.trim() !== 'RESET') {
+      window.alert('Conferma non valida — operazione annullata.')
+      return
     }
+
+    lastUpdateRef.current = Date.now()
+
+    apiFetch(`${API}/tasks/reset`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setTasks(data) })
+      .catch(err => console.error('Failed to reset:', err))
+
+    clearRecurring()
+    clearFilters()
   }
 
   return { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset }
