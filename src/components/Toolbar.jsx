@@ -9,7 +9,7 @@ export default function Toolbar({
   hasActiveFilters, onClearFilters,
   filteredCount, totalCount,
   recurring, onOpenRecurring,
-  onAdd,
+  onAdd, onExport,
 }) {
   return (
     <div style={{
@@ -122,8 +122,31 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* Spacer + Add */}
+      {/* Spacer + Export + Add */}
       <div style={{ flex: '1' }} />
+      <button
+        onClick={onExport}
+        disabled={filteredCount === 0}
+        title={filteredCount === 0 ? 'Nessun task da esportare' : `Esporta ${filteredCount} task in CSV`}
+        style={{
+          padding: '7px 12px', background: 'none', border: '1px solid #30363d',
+          borderRadius: '6px',
+          color: filteredCount === 0 ? '#484f58' : '#8b949e',
+          fontSize: '13px', fontFamily: S.sans,
+          cursor: filteredCount === 0 ? 'not-allowed' : 'pointer',
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => {
+          if (filteredCount === 0) return
+          e.currentTarget.style.borderColor = '#58a6ff'
+          e.currentTarget.style.color = '#58a6ff'
+        }}
+        onMouseLeave={e => {
+          if (filteredCount === 0) return
+          e.currentTarget.style.borderColor = '#30363d'
+          e.currentTarget.style.color = '#8b949e'
+        }}
+      >↓ Export CSV</button>
       {!isStorico && (
         <button onClick={onAdd} style={{
           padding: '7px 16px', background: '#238636', border: '1px solid #2ea043',

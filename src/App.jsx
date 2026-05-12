@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { GROUPS } from './data.js'
+import { exportTasksToCsv } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
 import Header from './components/Header.jsx'
@@ -66,6 +67,7 @@ export default function App() {
           filteredCount={filteredTasks.length} totalCount={totalGroupTasks}
           recurring={recurring} onOpenRecurring={() => setShowRecurringModal(true)}
           onAdd={() => handleAdd(activeGroup, clearFilters)}
+          onExport={() => exportTasksToCsv(filteredTasks, isStorico ? 'storico' : activeGroup)}
         />
 
         <TaskTable

@@ -186,8 +186,8 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 
 ### P2 — Feature UX
 - [x] **Separazione tab "NetBackup + Data Domain"** (richiesta stakeholder): split in due tab distinte — "Data Domain" e "NBU - Banche Estere". `GROUPS` aggiornato in `src/data.js`, seed dati riassegnati nella migration `001_init.sql` e in `SEED_SQL` di `routes/tasks.js`. Nessuna migrazione runtime necessaria (DB vuoto in produzione).
-- [ ] Export CSV (task del gruppo attivo, rispetta filtri)
-- [ ] Sostituire `window.confirm()` con dialog/modal custom (coerente col dark theme)
+- [x] Export CSV (task del gruppo attivo, rispetta filtri) — separator `;` + BOM UTF-8 per Excel italiano, filename `moby-dick-<group>-<date>.csv`. Helper in `utils.js`.
+- [ ] Sostituire `window.confirm()` con dialog/modal custom (coerente col dark theme) — ⚠️ parzialmente: il Reset è ora conferma testuale "RESET" via `window.prompt`, ma è ancora un dialog di sistema. Il dialog custom resta TODO per delete + reset.
 - [ ] Drag & drop per riordinamento manuale task
 
 ### P3 — Solidità tecnica
