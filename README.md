@@ -1,6 +1,6 @@
 # 🐋 Moby Dick B4
 
-A lightweight, static task board for tracking backup-related work items across **Commvault**, **Cohesity**, and **NetBackup + Data Domain**.
+A lightweight, static task board for tracking backup-related work items across **Commvault**, **Cohesity**, **Data Domain**, and **NBU - Banche Estere**.
 
 Built with **React 18 + Vite**. Purely static — no backend, no database. Data lives in `localStorage`.
 
@@ -8,7 +8,7 @@ Built with **React 18 + Vite**. Purely static — no backend, no database. Data 
 
 ## Features
 
-- **Three tab groups**: Commvault, Cohesity, NetBackup + Data Domain
+- **Four tab groups**: Commvault, Cohesity, Data Domain, NBU - Banche Estere
 - **Inline editing**: click any cell to edit (text, textarea, dropdown, checkbox)
 - **Add / Delete rows**: green "+ New Task" button, ✕ delete with confirmation
 - **Search**: real-time filter by reference or description (case-insensitive) with match highlighting
@@ -28,7 +28,7 @@ Built with **React 18 + Vite**. Purely static — no backend, no database. Data 
 ```js
 {
   id: string,          // UUID
-  group: string,       // "Commvault" | "Cohesity" | "NetBackup + Data Domain"
+  group: string,       // "Commvault" | "Cohesity" | "Data Domain" | "NBU - Banche Estere"
   reference: string,   // Incident number or email subject
   description: string, // Multiline problem description
   status: string,      // "New" | "In Progress" | "Waiting" | "Resolved" | "Closed"

@@ -64,11 +64,11 @@ VALUES
    'Email: Cohesity cluster expansion', 'Client requested 3 additional nodes — sizing document needed',
    'In Progress', 'Erica', false, NULL, '2026-02-05T16:45:00Z'),
 
-  ('a1b2c3d4-0005-4000-8000-000000000005', 'NetBackup + Data Domain',
+  ('a1b2c3d4-0005-4000-8000-000000000005', 'NBU - Banche Estere',
    'INC00420100', 'NetBackup master server certificate expired — all policies suspended',
    'In Progress', 'Bob', false, NULL, '2026-02-09T08:00:00Z'),
 
-  ('a1b2c3d4-0006-4000-8000-000000000006', 'NetBackup + Data Domain',
+  ('a1b2c3d4-0006-4000-8000-000000000006', 'Data Domain',
    'Email: DD replication lag alert', 'Data Domain replication to DR site lagging >24h — bandwidth issue suspected',
    'Waiting', 'Walker', true, NULL, '2026-02-08T17:30:00Z')
 ON CONFLICT (id) DO NOTHING;
