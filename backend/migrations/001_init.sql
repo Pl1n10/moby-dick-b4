@@ -70,5 +70,29 @@ VALUES
 
   ('a1b2c3d4-0006-4000-8000-000000000006', 'Data Domain',
    'Email: DD replication lag alert', 'Data Domain replication to DR site lagging >24h — bandwidth issue suspected',
-   'Waiting', 'Walker', true, NULL, '2026-02-08T17:30:00Z')
+   'Waiting', 'Walker', true, NULL, '2026-02-08T17:30:00Z'),
+
+  ('a1b2c3d4-0007-4000-8000-000000000007', 'Commvault',
+   'INC00408234', 'CommServe gridstore offline dopo patch — ripristinato da backup config',
+   'Resolved', 'Walker', false, NULL, '2026-01-30T15:00:00Z'),
+
+  ('a1b2c3d4-0008-4000-8000-000000000008', 'Cohesity',
+   'Email: Report mensile gennaio', 'Report capacity + jobs gennaio inviato al cliente — archiviato',
+   'Closed', 'Bob', false, NULL, '2026-01-31T16:00:00Z'),
+
+  ('a1b2c3d4-0009-4000-8000-000000000009', 'Data Domain',
+   'INC00425667', 'DD9300 allarme ventola — RMA sostituzione hardware programmata',
+   'New', 'Erica', false, '2026-05-20', '2026-02-10T10:00:00Z'),
+
+  ('a1b2c3d4-0010-4000-8000-000000000010', 'Data Domain',
+   'Email: Aumento spazio Mtree banking', 'Cliente richiede +20TB su mtree /data/banking — design sizing in corso',
+   'In Progress', 'Bob', false, '2026-06-30', '2026-02-09T15:00:00Z'),
+
+  ('a1b2c3d4-0011-4000-8000-000000000011', 'NBU - Banche Estere',
+   'INC00423901', 'Restore job stuck su client RHEL7 — case vendor aperto, in attesa patch',
+   'Waiting', 'Erica', true, NULL, '2026-02-10T14:00:00Z'),
+
+  ('a1b2c3d4-0012-4000-8000-000000000012', 'NBU - Banche Estere',
+   'Email: Policy refresh trimestrale', 'Refresh policy SLP + verifica retention completato — report inviato',
+   'Resolved', 'Walker', false, NULL, '2026-02-04T12:00:00Z')
 ON CONFLICT (id) DO NOTHING;
