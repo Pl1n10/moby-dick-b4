@@ -46,6 +46,15 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+      # Vite inlines VITE_* into the bundle at build time. Compose forwards
+      # them as build args; values come from the .env file next to this
+      # compose file (or shell env). Defaults keep demo mode.
+      args:
+        VITE_AUTH_ENABLED: ${VITE_AUTH_ENABLED:-false}
+        VITE_AZURE_TENANT_ID: ${VITE_AZURE_TENANT_ID:-}
+        VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID:-}
+        VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI:-http://localhost:5173}
+        VITE_AZURE_API_SCOPE: ${VITE_AZURE_API_SCOPE:-}
     container_name: moby-nginx
     ports:
       - "80:80"

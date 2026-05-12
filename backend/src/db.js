@@ -1,5 +1,5 @@
 import pg from 'pg'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -24,11 +24,18 @@ export async function waitForDb(maxRetries = 15) {
   throw new Error('Could not connect to database after ' + maxRetries + ' attempts')
 }
 
-/** Run SQL migrations (idempotent — safe to re-run) */
+/** Run SQL migrations (idempotent — safe to re-run).
+ *  Applies every *.sql file in migrations/ in lexicographic order, so naming
+ *  files NNN_description.sql is enough to control ordering. */
 export async function runMigrations() {
   const __dirname = dirname(fileURLToPath(import.meta.url))
-  const sql = readFileSync(join(__dirname, '..', 'migrations', '001_init.sql'), 'utf-8')
-  await pool.query(sql)
+  const migrationsDir = join(__dirname, '..', 'migrations')
+  const files = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort()
+  for (const file of files) {
+    const sql = readFileSync(join(migrationsDir, file), 'utf-8')
+    await pool.query(sql)
+    console.log(`Applied migration: ${file}`)
+  }
   console.log('Migrations completed')
 }
 
