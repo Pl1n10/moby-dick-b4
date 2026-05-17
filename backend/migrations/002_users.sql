@@ -22,15 +22,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Placeholder admin seed using RFC 2606 reserved dummy emails. The real
--- mapping between Entra accounts and display_owner is done at deploy time
--- via UPDATE/INSERT against this table (or via the future /api/users CRUD),
--- so this seed only exists to make local/dev runs render correctly.
+-- Bootstrap admin: Roberto (dev/owner del progetto). display_owner = NULL
+-- perché non è uno degli owner di task (Bob/Erica/Walker). Gli altri user
+-- (Bob/Erica/Walker reali) verranno aggiunti via UPDATE/INSERT manuale o
+-- tramite /api/users (quando implementato), non via seed.
 --
 -- ON CONFLICT keeps re-runs idempotent: rows edited manually on a deployed
 -- DB are never overwritten on restart.
 INSERT INTO users (email, display_owner, role) VALUES
-  ('pippo@example.com',     'Bob',    'admin'),
-  ('pluto@example.com',     'Erica',  'admin'),
-  ('paperino@example.com',  'Walker', 'admin')
+  ('roberto.novara@mauden.com', NULL, 'admin')
 ON CONFLICT (email) DO NOTHING;
