@@ -38,26 +38,12 @@ export default function useTasks() {
   const updateTask = (taskId, field, value) => {
     lastUpdateRef.current = Date.now()
 
-    // Optimistic update (same sync logic as before)
-    setTasks(prev => prev.map(t => {
-      if (t.id !== taskId) return t
-      const updated = { ...t, [field]: value }
+    setTasks(prev => prev.map(t => (
+      t.id === taskId
+        ? { ...t, [field]: value, updatedAt: new Date().toISOString() }
+        : t
+    )))
 
-      // Waiting <-> Status sync
-      if (field === 'status' && value === 'Waiting') updated.waiting = true
-      if (field === 'status' && value !== 'Waiting') updated.waiting = false
-      if (field === 'waiting' && !value && t.status === 'Waiting') updated.status = 'In Progress'
-      if (field === 'waiting' && value) updated.status = 'Waiting'
-
-      // Only update timestamp for non-waiting fields
-      if (field !== 'waiting') {
-        updated.updatedAt = new Date().toISOString()
-      }
-
-      return updated
-    }))
-
-    // Persist to server
     apiFetch(`${API}/tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -77,7 +63,6 @@ export default function useTasks() {
       description: '',
       status: 'New',
       owner: OWNERS[0],
-      waiting: false,
       deadline: null,
       updatedAt: new Date().toISOString(),
     }
@@ -109,7 +94,7 @@ export default function useTasks() {
   // Conferma testuale anti-click-accidentale: l'utente deve scrivere RESET.
   const handleReset = (clearRecurring, clearFilters) => {
     const input = window.prompt(
-      '⚠️  Questa azione cancellerà TUTTI i task e ripristinerà i dati di esempio.\n\n' +
+      '⚠️  Questa azione cancellerà TUTTI i task e i recurring template.\n\n' +
       'Per confermare, scrivi RESET (maiuscolo) qui sotto:'
     )
     if (input === null) return

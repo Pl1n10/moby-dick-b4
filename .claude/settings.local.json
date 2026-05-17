@@ -19,7 +19,14 @@
       "Bash(cmd.exe /c \"npm --version\")",
       "Bash(git add docker-compose.yml)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(mkdir -p /home/hypn0/projects/moby-dick-b4/public)",
+      "Bash(mv /home/hypn0/projects/moby-dick-b4/logowhite.png /home/hypn0/projects/moby-dick-b4/public/mauden-logo.png)",
+      "Bash(mv \"/home/hypn0/projects/moby-dick-b4/download \\(1\\).jpeg\" /home/hypn0/projects/moby-dick-b4/public/favicon.png)",
+      "WebFetch(domain:mobydick.mauden.com)",
+      "WebFetch(domain:login.microsoftonline.com)"
     ]
   }
 }

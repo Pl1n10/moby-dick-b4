@@ -39,14 +39,13 @@ function slugify(s) {
 // Build a CSV blob with `;` separator and UTF-8 BOM so Excel italian opens it
 // directly as a table. Triggers a download in the browser.
 export function exportTasksToCsv(tasks, groupLabel) {
-  const headers = ['Gruppo', 'Riferimento', 'Descrizione', 'Stato', 'Owner', 'Attesa', 'Scadenza', 'Aggiornato']
+  const headers = ['Gruppo', 'Riferimento', 'Descrizione', 'Stato', 'Owner', 'Scadenza', 'Aggiornato']
   const rows = tasks.map(t => [
     t.group,
     t.reference,
     t.description,
     t.status,
     t.owner,
-    t.waiting ? 'sì' : 'no',
     t.deadline ? formatDeadline(t.deadline) : '',
     t.updatedAt ? formatDate(t.updatedAt) : '',
   ])

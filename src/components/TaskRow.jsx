@@ -5,7 +5,6 @@ import Highlight from './Highlight.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
-import EditableCheckbox from './editable/EditableCheckbox.jsx'
 import EditableDate from './editable/EditableDate.jsx'
 
 export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false }) {
@@ -78,16 +77,6 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             value={task.owner}
             options={OWNERS}
             onChange={v => onUpdate('owner', v)}
-          />
-        )}
-      </td>
-      <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-        {readOnly ? (
-          <span style={{ fontSize: '16px' }}>{task.waiting ? '⏳' : '—'}</span>
-        ) : (
-          <EditableCheckbox
-            checked={task.waiting}
-            onChange={v => onUpdate('waiting', v)}
           />
         )}
       </td>

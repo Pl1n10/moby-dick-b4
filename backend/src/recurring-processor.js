@@ -49,8 +49,8 @@ export async function processRecurring() {
 
       await pool.query(
         `INSERT INTO tasks
-           (group_name, reference, description, status, owner, waiting, deadline, recurring_template_id, updated_at)
-         VALUES ($1, $2, $3, 'New', $4, false, NULL, $5, NOW())`,
+           (group_name, reference, description, status, owner, deadline, recurring_template_id, updated_at)
+         VALUES ($1, $2, $3, 'New', $4, NULL, $5, NOW())`,
         [tmpl.group_name, tmpl.reference, tmpl.description, tmpl.owner, tmpl.id]
       )
 
