@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import { requireAdmin } from '../auth.js'
 
 const router = Router()
 
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
 })
 
 // PUT /api/recurring — replace all templates (full save from modal)
-router.put('/', async (req, res) => {
+router.put('/', requireAdmin, async (req, res) => {
   const templates = req.body
   const client = await pool.connect()
   try {
@@ -79,7 +80,7 @@ router.put('/', async (req, res) => {
 })
 
 // DELETE /api/recurring — clear all
-router.delete('/', async (req, res) => {
+router.delete('/', requireAdmin, async (req, res) => {
   try {
     await pool.query('DELETE FROM recurring_templates')
     res.json([])

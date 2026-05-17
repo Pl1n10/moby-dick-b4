@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
+import { requireAdmin } from '../auth.js'
 
 const router = Router()
 
@@ -93,7 +94,7 @@ router.get('/', async (req, res) => {
 })
 
 // POST /api/tasks/reset — wipe everything, re-seed (before /:id routes)
-router.post('/reset', async (req, res) => {
+router.post('/reset', requireAdmin, async (req, res) => {
   try {
     await pool.query('TRUNCATE tasks, recurring_templates CASCADE')
     await pool.query(SEED_SQL)
@@ -106,7 +107,7 @@ router.post('/reset', async (req, res) => {
 })
 
 // POST /api/tasks — create a task
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const { id, group, reference, description, status, owner, waiting, deadline } = req.body
     const { rows } = await pool.query(
@@ -132,7 +133,7 @@ router.post('/', async (req, res) => {
 })
 
 // PATCH /api/tasks/:id — update single field (with waiting↔status sync)
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params
     const { field, value } = req.body
@@ -176,7 +177,7 @@ router.patch('/:id', async (req, res) => {
 })
 
 // DELETE /api/tasks/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { rowCount } = await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id])
     if (rowCount === 0) return res.status(404).json({ error: 'Task not found' })

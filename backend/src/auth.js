@@ -8,6 +8,7 @@
 
 import jwt from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
+import pool from './db.js'
 
 export const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true'
 
@@ -69,4 +70,36 @@ export function requireAuth(req, res, next) {
       console.warn('JWT verification failed:', err.message)
       res.status(401).json({ error: 'Invalid token' })
     })
+}
+
+/**
+ * Express middleware to gate mutating endpoints behind the 'admin' role.
+ * Source of truth: the `users` table (display_owner + role mapped by email).
+ *
+ * Chain after requireAuth so req.user is populated. In demo mode this is a
+ * no-op — keeps local dev open and matches the demo behaviour of requireAuth.
+ *
+ * 403 codes:
+ *  - "No email claim": JWT doesn't carry preferred_username/upn/email (optional
+ *    claims may be missing on the app registration).
+ *  - "Admin role required": user is authenticated but not in users with
+ *    role='admin' — viewers and unmapped users land here.
+ */
+export async function requireAdmin(req, res, next) {
+  if (!AUTH_ENABLED) return next()
+  if (!req.user) return res.status(401).json({ error: 'Unauthenticated' })
+
+  const email = req.user.email
+  if (!email) return res.status(403).json({ error: 'No email claim in token' })
+
+  try {
+    const { rows } = await pool.query('SELECT role FROM users WHERE email = $1', [email])
+    if (rows.length === 0 || rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Admin role required' })
+    }
+    next()
+  } catch (err) {
+    console.error('requireAdmin DB error:', err.message)
+    res.status(500).json({ error: 'Authorization check failed' })
+  }
 }
