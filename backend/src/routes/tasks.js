@@ -1,8 +1,12 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { requireAdmin } from '../auth.js'
+import subtasksRouter from './subtasks.js'
 
 const router = Router()
+
+// Subtasks live under each task; nested router shares the same auth chain.
+router.use('/:taskId/subtasks', subtasksRouter)
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -23,6 +27,9 @@ function mapTaskToClient(row) {
     deadline: formatDate(row.deadline),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
     recurringTemplateId: row.recurring_template_id || undefined,
+    // Aggregated subtask counters when present (set by GET list query).
+    subtasksTotal: row.subtasks_total != null ? Number(row.subtasks_total) : 0,
+    subtasksOpen:  row.subtasks_open  != null ? Number(row.subtasks_open)  : 0,
   }
 }
 
@@ -38,10 +45,25 @@ const FIELD_TO_COLUMN = {
 
 // ── Routes ──────────────────────────────────────────────
 
-// GET /api/tasks — all tasks, sorted by updated_at desc
+// GET /api/tasks — all tasks, sorted by updated_at desc.
+// Joins aggregated subtask counts so the client can render the "3/5" badge
+// without N extra fetches.
 router.get('/', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM tasks ORDER BY updated_at DESC')
+    const { rows } = await pool.query(`
+      SELECT t.*,
+             COALESCE(s.total, 0) AS subtasks_total,
+             COALESCE(s.open,  0) AS subtasks_open
+      FROM tasks t
+      LEFT JOIN (
+        SELECT task_id,
+               COUNT(*)                       AS total,
+               COUNT(*) FILTER (WHERE NOT done) AS open
+        FROM subtasks
+        GROUP BY task_id
+      ) s ON s.task_id = t.id
+      ORDER BY t.updated_at DESC
+    `)
     res.json(rows.map(mapTaskToClient))
   } catch (err) {
     console.error('GET /api/tasks error:', err.message)
@@ -86,7 +108,8 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 })
 
-// PATCH /api/tasks/:id — update single field
+// PATCH /api/tasks/:id — update single field.
+// Hard constraint: can't move a task to 'Closed' while it has open subtasks.
 router.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params
@@ -98,6 +121,18 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 
     const { rows: [existing] } = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
     if (!existing) return res.status(404).json({ error: 'Task not found' })
+
+    if (field === 'status' && value === 'Closed') {
+      const { rows: [{ open }] } = await pool.query(
+        'SELECT COUNT(*)::int AS open FROM subtasks WHERE task_id = $1 AND NOT done',
+        [id],
+      )
+      if (open > 0) {
+        return res.status(400).json({
+          error: `Cannot close task: ${open} subtask${open === 1 ? '' : 's'} still open`,
+        })
+      }
+    }
 
     const column = FIELD_TO_COLUMN[field]
     const dbValue = field === 'deadline' && value === '' ? null : value
