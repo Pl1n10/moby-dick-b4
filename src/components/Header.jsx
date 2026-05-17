@@ -17,7 +17,7 @@ export default function Header({ onReset }) {
           <img src="/mauden-logo.png" alt="Mauden — A RICOH Company" style={{ height: '56px', display: 'block' }} />
         </div>
         <h1 style={{ margin: 0, fontSize: '20px', fontFamily: S.mono, fontWeight: 700, letterSpacing: '-0.02em' }}>
-          🐋 Moby Dick B4
+          KanbanOps
         </h1>
         <UserMenu />
       </div>

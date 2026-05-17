@@ -22,7 +22,7 @@ export default function LoginGate({ children }) {
         border: '1px solid #21262d', borderRadius: '8px', background: '#0d1117',
       }}>
         <h1 style={{ margin: '0 0 8px', fontFamily: S.mono, fontSize: '22px' }}>
-          🐋 Moby Dick B4
+          KanbanOps
         </h1>
         <p style={{ margin: '0 0 24px', fontFamily: S.sans, fontSize: '13px', color: '#8b949e' }}>
           Accedi con il tuo account Microsoft Mauden per continuare.
