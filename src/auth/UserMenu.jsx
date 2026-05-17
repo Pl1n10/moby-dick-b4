@@ -3,6 +3,7 @@ import S from '../styles.js'
 import useAuth from './useAuth.js'
 import { AUTH_ENABLED } from './authConfig.js'
 import { useUserInfo } from './UserInfoProvider.jsx'
+import UsersModal from '../components/UsersModal.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -29,7 +30,9 @@ export default function UserMenu() {
   const { account, logout } = useAuth()
   const { role, loading } = useUserInfo()
   const [open, setOpen] = useState(false)
+  const [showUsers, setShowUsers] = useState(false)
   if (!account) return null
+  const isAdmin = !loading && role === 'admin'
   const isViewer = !loading && role !== 'admin'
 
   return (
@@ -62,13 +65,26 @@ export default function UserMenu() {
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10,
-          minWidth: '200px', background: '#0d1117',
+          minWidth: '220px', background: '#0d1117',
           border: '1px solid #30363d', borderRadius: '4px',
           padding: '8px', fontFamily: S.sans, fontSize: '12px',
         }}>
           <div style={{ padding: '4px 8px', color: '#8b949e', wordBreak: 'break-all' }}>
             {account.username}
           </div>
+          {isAdmin && (
+            <button
+              onClick={() => { setShowUsers(true); setOpen(false) }}
+              style={{
+                marginTop: '4px', width: '100%', padding: '6px 8px',
+                background: 'none', border: '1px solid #30363d', borderRadius: '4px',
+                color: '#e6edf3', cursor: 'pointer', fontFamily: S.mono, fontSize: '12px',
+                textAlign: 'left',
+              }}
+            >
+              ⚙ Gestione utenti
+            </button>
+          )}
           <button onClick={logout} style={{
             marginTop: '4px', width: '100%', padding: '6px 8px',
             background: 'none', border: '1px solid #30363d', borderRadius: '4px',
@@ -78,6 +94,7 @@ export default function UserMenu() {
           </button>
         </div>
       )}
+      {showUsers && <UsersModal onClose={() => setShowUsers(false)} />}
     </div>
   )
 }
