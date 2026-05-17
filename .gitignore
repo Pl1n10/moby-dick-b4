@@ -5,3 +5,7 @@ dist
 *.log
 .DS_Store
 dist
+
+# Misc image files placed in root by the user — not part of the build
+*.jpg
+*.jpeg
