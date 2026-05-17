@@ -1,10 +1,22 @@
+import { Fragment, useState } from 'react'
 import S from '../styles.js'
 import TaskRow from './TaskRow.jsx'
+import SubtaskList from './SubtaskList.jsx'
 import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
 
-export default function TaskTable({ filteredTasks, isStorico, hasActiveFilters, search, onUpdate, onDelete }) {
+export default function TaskTable({ filteredTasks, isStorico, hasActiveFilters, search, onUpdate, onDelete, onSubtaskCountChange }) {
   const isAdmin = useIsAdmin()
   const readOnly = isStorico || !isAdmin
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
+
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
   // Action column (delete) only renders for admins on non-storico views.
   const headers = isStorico
     ? ['Gruppo', 'Reference', 'Description', 'Status', 'Owner', 'Updated', 'Scadenza']
@@ -39,15 +51,29 @@ export default function TaskTable({ filteredTasks, isStorico, hasActiveFilters, 
             </tr>
           ) : (
             filteredTasks.map(task => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                search={search}
-                onUpdate={(field, val) => onUpdate(task.id, field, val)}
-                onDelete={() => onDelete(task.id)}
-                readOnly={readOnly}
-                showGroup={isStorico}
-              />
+              <Fragment key={task.id}>
+                <TaskRow
+                  task={task}
+                  search={search}
+                  onUpdate={(field, val) => onUpdate(task.id, field, val)}
+                  onDelete={() => onDelete(task.id)}
+                  readOnly={readOnly}
+                  showGroup={isStorico}
+                  expanded={expandedIds.has(task.id)}
+                  onToggleExpand={() => toggleExpand(task.id)}
+                />
+                {expandedIds.has(task.id) && (
+                  <tr>
+                    <td colSpan={headers.length} style={{ padding: 0 }}>
+                      <SubtaskList
+                        taskId={task.id}
+                        readOnly={readOnly}
+                        onCountChange={(delta) => onSubtaskCountChange?.(task.id, delta)}
+                      />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))
           )}
         </tbody>

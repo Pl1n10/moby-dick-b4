@@ -114,5 +114,18 @@ export default function useTasks() {
     clearFilters()
   }
 
-  return { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset }
+  // Bumps the parent task's subtask counters after a checklist mutation.
+  // Avoids a full /api/tasks refetch on every add/toggle/delete.
+  const updateSubtaskCounters = (taskId, { totalDelta = 0, openDelta = 0 }) => {
+    setTasks(prev => prev.map(t => t.id === taskId
+      ? {
+          ...t,
+          subtasksTotal: Math.max(0, (t.subtasksTotal ?? 0) + totalDelta),
+          subtasksOpen:  Math.max(0, (t.subtasksOpen  ?? 0) + openDelta),
+        }
+      : t
+    ))
+  }
+
+  return { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset, updateSubtaskCounters }
 }

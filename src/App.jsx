@@ -20,7 +20,7 @@ export default function App() {
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
-  const { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset } = useTasks()
+  const { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset, updateSubtaskCounters } = useTasks()
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal, clearRecurring } = useRecurring(setTasks)
 
   const filteredTasks = tasks
@@ -77,6 +77,7 @@ export default function App() {
           search={search}
           onUpdate={updateTask}
           onDelete={handleDelete}
+          onSubtaskCountChange={updateSubtaskCounters}
         />
       </main>
 

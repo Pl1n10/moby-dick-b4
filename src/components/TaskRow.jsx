@@ -7,7 +7,11 @@ import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
 
-export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false }) {
+export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false, expanded = false, onToggleExpand }) {
+  const total = task.subtasksTotal ?? 0
+  const open = task.subtasksOpen ?? 0
+  const hasChecklist = total > 0
+  const allDone = hasChecklist && open === 0
   return (
     <tr style={{
       borderBottom: '1px solid #21262d', transition: 'background 0.1s',
@@ -21,7 +25,24 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         </td>
       )}
       <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            onClick={onToggleExpand}
+            title={expanded ? 'Collassa checklist' : 'Espandi checklist'}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+              color: hasChecklist ? '#58a6ff' : '#484f58',
+              fontSize: '10px', fontFamily: S.mono, lineHeight: 1, flexShrink: 0,
+            }}
+          >{expanded ? '▼' : '▶'}</button>
+          {hasChecklist && (
+            <span title={`${open} aperti / ${total} totali`} style={{
+              fontSize: '10px', fontFamily: S.mono, padding: '1px 5px', borderRadius: '8px',
+              background: allDone ? '#1a3a1f' : '#1c3a5e',
+              color: allDone ? '#7ee787' : '#58a6ff',
+              flexShrink: 0,
+            }}>{total - open}/{total}</span>
+          )}
           {task.recurringTemplateId && (
             <span title="Created from recurring template" style={{
               fontSize: '12px', color: '#8b949e', flexShrink: 0,
