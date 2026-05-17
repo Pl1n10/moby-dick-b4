@@ -191,7 +191,7 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - [x] Export CSV del gruppo attivo (separator `;` + BOM UTF-8 per Excel italiano)
 - [x] Reset con conferma testuale "RESET" (`window.prompt`)
 - [x] **Subtasks checklist** — tendina espandibile sotto la row, badge "N/M", vincolo "padre non chiudibile con subtask aperti" enforced backend
-- [ ] **Paginetta admin users** (P1, prossimo step) — CRUD su tabella `users` per admin: promote/demote viewer↔admin, rename display_owner, hide (set display_owner=NULL), remove. Sostituisce SQL diretto in prod.
+- [x] **Paginetta admin users** — `UsersModal` raggiungibile dal `UserMenu` (admin-only). CRUD su tabella users: inline edit display_owner, role select, hide (set NULL), remove, manual add. Guardrail anti-lockout (admin non può demotare/cancellare se stesso).
 - [ ] Sostituire `window.confirm()` / `window.prompt()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
 - [ ] Drag & drop riordinamento task (P4)
@@ -236,6 +236,5 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 
 ### TODO Auth residui
 
-- [ ] Paginetta admin users (vedi P1 sopra) — sostituisce SQL diretto per gestione utenti runtime
 - [ ] Test E2E con guest @ricoh / B2B (verifica funzionamento con tenant esterno)
 - [ ] `AUTH_SETUP.md` con checklist passo-passo (per ri-onboarding o tenant diverso)
