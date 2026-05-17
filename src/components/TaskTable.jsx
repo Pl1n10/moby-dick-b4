@@ -1,10 +1,16 @@
 import S from '../styles.js'
 import TaskRow from './TaskRow.jsx'
+import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
 
 export default function TaskTable({ filteredTasks, isStorico, hasActiveFilters, search, onUpdate, onDelete }) {
+  const isAdmin = useIsAdmin()
+  const readOnly = isStorico || !isAdmin
+  // Action column (delete) only renders for admins on non-storico views.
   const headers = isStorico
     ? ['Gruppo', 'Reference', 'Description', 'Status', 'Owner', 'W', 'Updated', 'Scadenza']
-    : ['Reference', 'Description', 'Status', 'Owner', 'W', 'Updated', 'Scadenza', '']
+    : isAdmin
+      ? ['Reference', 'Description', 'Status', 'Owner', 'W', 'Updated', 'Scadenza', '']
+      : ['Reference', 'Description', 'Status', 'Owner', 'W', 'Updated', 'Scadenza']
 
   return (
     <div style={{ border: '1px solid #21262d', borderRadius: '8px', overflow: 'hidden' }}>
@@ -39,7 +45,7 @@ export default function TaskTable({ filteredTasks, isStorico, hasActiveFilters, 
                 search={search}
                 onUpdate={(field, val) => onUpdate(task.id, field, val)}
                 onDelete={() => onDelete(task.id)}
-                readOnly={isStorico}
+                readOnly={readOnly}
                 showGroup={isStorico}
               />
             ))

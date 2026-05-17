@@ -2,6 +2,7 @@ import { useState } from 'react'
 import S from '../styles.js'
 import useAuth from './useAuth.js'
 import { AUTH_ENABLED } from './authConfig.js'
+import { useUserInfo } from './UserInfoProvider.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -26,11 +27,13 @@ export default function UserMenu() {
   }
 
   const { account, logout } = useAuth()
+  const { role, loading } = useUserInfo()
   const [open, setOpen] = useState(false)
   if (!account) return null
+  const isViewer = !loading && role !== 'admin'
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
       <button onClick={() => setOpen(o => !o)} style={{
         display: 'flex', alignItems: 'center', gap: '8px',
         padding: '4px 8px', background: 'none', border: '1px solid #30363d',
@@ -48,6 +51,14 @@ export default function UserMenu() {
           {account.name || account.username}
         </span>
       </button>
+      {isViewer && (
+        <span title="You don't have admin privileges — task editing is disabled" style={{
+          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+          fontFamily: S.mono, background: '#1f2937', color: '#8b949e', border: '1px solid #374151',
+        }}>
+          Read-only
+        </span>
+      )}
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 4px)', zIndex: 10,

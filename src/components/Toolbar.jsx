@@ -1,5 +1,6 @@
 import S from '../styles.js'
 import { GROUPS, STATUSES, OWNERS } from '../data.js'
+import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
 
 export default function Toolbar({
   isStorico, search, onSearchChange,
@@ -11,6 +12,7 @@ export default function Toolbar({
   recurring, onOpenRecurring,
   onAdd, onExport,
 }) {
+  const isAdmin = useIsAdmin()
   return (
     <div style={{
       marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
@@ -102,8 +104,8 @@ export default function Toolbar({
         </span>
       )}
 
-      {/* Recurring button */}
-      {!isStorico && (
+      {/* Recurring button — admin-only (modal can edit/delete templates) */}
+      {!isStorico && isAdmin && (
         <button onClick={onOpenRecurring} title="Manage recurring tasks" style={{
           padding: '7px 12px', background: 'none', border: '1px solid #30363d',
           borderRadius: '6px', color: '#8b949e', fontSize: '13px', fontFamily: S.sans,
@@ -147,7 +149,7 @@ export default function Toolbar({
           e.currentTarget.style.color = '#8b949e'
         }}
       >↓ Export CSV</button>
-      {!isStorico && (
+      {!isStorico && isAdmin && (
         <button onClick={onAdd} style={{
           padding: '7px 16px', background: '#238636', border: '1px solid #2ea043',
           borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: S.sans,
