@@ -30,7 +30,8 @@ INSERT INTO users (email, display_owner, role) VALUES
   ('roberto.novara@mauden.com',  'Roberto Novara',  'admin'),
   ('amilcare.iacono@mauden.com', 'Amilcare Iacono', 'admin'),
   ('alessio.coletta@mauden.com', 'Alessio Coletta', 'admin'),
-  ('marco.fauci@mauden.com',     'Marco Fauci',     'admin')
+  ('marco.fauci@mauden.com',     'Marco Fauci',     'admin'),
+  ('andrea.craparo@mauden.com',  'Andrea Craparo',  'admin')
 ON CONFLICT (email) DO UPDATE
   SET display_owner = EXCLUDED.display_owner,
       role          = EXCLUDED.role;
