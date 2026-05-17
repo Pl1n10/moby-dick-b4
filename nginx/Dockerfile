@@ -26,6 +26,7 @@ ENV VITE_AUTH_ENABLED=$VITE_AUTH_ENABLED \
 
 COPY index.html vite.config.js ./
 COPY src ./src
+COPY public ./public
 RUN npm run build
 
 # Stage 2 — Serve via nginx
