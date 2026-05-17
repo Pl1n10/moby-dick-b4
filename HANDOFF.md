@@ -1,11 +1,13 @@
-# HANDOFF.md — Moby Dick B4
+# HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
 Stato al 2026-05-17 (chiusura sessione, fine giornata).
+
+⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
 - Branch: `main` (allineato con `origin/main`)
-- Ultimo commit: `3f3299b` — feat: admin users management page
+- Ultimo commit: `4d7a100` — chore: rename UI from "Moby Dick B4" to "KanbanOps"
 - Working tree: clean (eccetto `.claude/settings.local.json` modifica residua irrilevante)
 
 ## Step completati in questa sessione (cronologico)
@@ -36,6 +38,9 @@ Stato al 2026-05-17 (chiusura sessione, fine giornata).
 
 ### Admin users management
 - `3f3299b` — Backend `/api/users` CRUD admin-only (list/create/patch/delete) con guardrail anti-lockout. Frontend `useUsers` + `UsersModal` (tabella con inline edit display_owner, role select, hide, remove, manual add). Linkato dal UserMenu solo per admin. Refresh `OwnersProvider` dopo ogni modifica.
+
+### Rinomina UI
+- `4d7a100` — Header, LoginGate, browser tab title da "🐋 Moby Dick B4" a "KanbanOps". Repo/deploy path/container/package invariati (rinominare li romperebbe).
 
 ## Deploy in produzione
 

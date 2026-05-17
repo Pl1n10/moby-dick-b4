@@ -1,10 +1,12 @@
-# Moby Dick B4 — Project Guide
+# KanbanOps — Project Guide
+
+> Repo / deploy path / Docker image names still use the legacy slug `moby-dick-b4` (renaming would break the GitHub remote and `/opt/moby-dick-b4/` on the prod VM). The product name as shown in the UI and to users is **KanbanOps**.
 
 ## What This Is
 
-A task board for tracking backup-related work items across four platforms: **Commvault**, **Cohesity**, **Data Domain**, and **NBU - Banche Estere**. Built for a small team (Bob, Erica, Walker) managing backup incidents and requests.
+A task board for tracking backup-related work items across four platforms: **Commvault**, **Cohesity**, **Data Domain**, and **NBU - Banche Estere**. Built for the Mauden backup team (Roberto, Amilcare, Alessio, Marco, Andrea — admins; any other @mauden colleague auto-registers as viewer at first login).
 
-Data persists in **PostgreSQL** via a REST API. Deployed with **Docker Compose** (PostgreSQL + Express API + Nginx).
+Data persists in **PostgreSQL** via a REST API. Deployed with **Docker Compose** (PostgreSQL + Express API + Nginx) behind the Mauden reverse proxy at `https://mobydick.mauden.com`.
 
 ## Tech Stack
 
