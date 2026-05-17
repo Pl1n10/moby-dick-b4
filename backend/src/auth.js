@@ -18,7 +18,13 @@ const CLIENT_ID = process.env.AZURE_CLIENT_ID || ''
 // the format Entra emits when you expose a custom API in the app registration.
 const AUDIENCE = process.env.AZURE_API_AUDIENCE || (CLIENT_ID ? `api://${CLIENT_ID}` : '')
 
-const ISSUER = TENANT_ID ? `https://login.microsoftonline.com/${TENANT_ID}/v2.0` : ''
+// Accept both v2 and v1 issuers. Entra emits v1 access tokens by default;
+// switching to v2 requires `accessTokenAcceptedVersion: 2` in the app
+// manifest, which not all tenants set. Both shapes are valid.
+const ISSUERS = TENANT_ID ? [
+  `https://login.microsoftonline.com/${TENANT_ID}/v2.0`,
+  `https://sts.windows.net/${TENANT_ID}/`,
+] : []
 const JWKS_URI = TENANT_ID ? `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys` : ''
 
 const client = AUTH_ENABLED && JWKS_URI
@@ -37,7 +43,7 @@ function verifyToken(token) {
     jwt.verify(
       token,
       getKey,
-      { audience: AUDIENCE, issuer: ISSUER, algorithms: ['RS256'] },
+      { audience: AUDIENCE, issuer: ISSUERS, algorithms: ['RS256'] },
       (err, decoded) => (err ? reject(err) : resolve(decoded)),
     )
   })
