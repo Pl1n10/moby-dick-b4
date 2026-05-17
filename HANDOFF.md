@@ -1,11 +1,11 @@
 # HANDOFF.md — Moby Dick B4
 
-Stato al 2026-05-17 (chiusura sessione).
+Stato al 2026-05-17 (chiusura sessione, fine giornata).
 
 ## Stato git
 
 - Branch: `main` (allineato con `origin/main`)
-- Ultimo commit: `48c975f` — feat: self-service owners — auto-register on login + dynamic picker
+- Ultimo commit: `3f3299b` — feat: admin users management page
 - Working tree: clean (eccetto `.claude/settings.local.json` modifica residua irrilevante)
 
 ## Step completati in questa sessione (cronologico)
@@ -34,6 +34,9 @@ Stato al 2026-05-17 (chiusura sessione).
 ### Self-service owners
 - `48c975f` — `/api/me` auto-INSERT al primo login (display_owner=name JWT, role=viewer). Nuovo router `/api/users` con `GET /owners`. `OwnersProvider` context FE con refresh on focus. `OWNERS` hardcoded rimosso da `src/data.js`.
 
+### Admin users management
+- `3f3299b` — Backend `/api/users` CRUD admin-only (list/create/patch/delete) con guardrail anti-lockout. Frontend `useUsers` + `UsersModal` (tabella con inline edit display_owner, role select, hide, remove, manual add). Linkato dal UserMenu solo per admin. Refresh `OwnersProvider` dopo ogni modifica.
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
@@ -55,43 +58,29 @@ Stato al 2026-05-17 (chiusura sessione).
 
 ## Step pending (in ordine di priorità)
 
-### 1. Paginetta admin per gestione users [P1, prossimo]
-
-**Scope ridotto** rispetto a quanto pianificato in precedenza (la popolazione lista è già self-service via auto-register). Restano:
-
-Backend `/api/users` CRUD (admin-only):
-- `GET /api/users` — lista tutti
-- `PATCH /api/users/:id` — modifica `display_owner` / `role`
-- `DELETE /api/users/:id` — rimuovi
-- (POST opzionale — non strettamente necessario dato l'auto-register, ma utile per casi limite tipo "aggiungo email che non si è ancora loggata")
-
-UI:
-- Sezione "Admin → Utenti" raggiungibile da UserMenu solo per admin
-- Tabella users con inline edit di display_owner + role, bottoni promote/demote/hide/remove
-- Conferma su delete
-
-### 2. Backup off-host [P1, già pending dal 2026-05-12]
+### 1. Backup off-host [P1, già pending dal 2026-05-12]
 
 Backup locale attuale (`/var/backups/moby/` cron daily) protegge solo da errori applicativi. Decisione utente: chiedere al team backup Mauden se la VM è coperta dal job NBU/Cohesity.
 
-### 3. Test suite minima [P3]
+### 2. Test suite minima [P3]
 
 Vitest + RTL + Supertest:
 - Role enforcement backend (admin vs viewer su POST/PATCH/DELETE)
 - Vincolo close con subtask aperti
 - Auto-register su `/api/me` (mock JWT)
+- Anti-lockout guardrail (admin che prova a demotare/cancellare se stesso → 400)
 - `useSubtasks` optimistic updates + counter sync via `updateSubtaskCounters`
 - Filtri toolbar
 
-### 4. Dialog custom [P2]
+### 3. Dialog custom [P2]
 
-Sostituire `window.confirm()` di delete + `window.prompt()` di reset con modal coerente dark theme.
+Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.confirm` di remove utente con modal coerente dark theme.
 
-### 5. Drag & drop ordinamento subtasks [P3]
+### 4. Drag & drop ordinamento subtasks [P3]
 
 `subtasks.position` esiste già nel schema. Aggiungere drag handle + PATCH del campo. Library candidata: `@dnd-kit/sortable`.
 
-### 6. Feature UX residue [P4]
+### 5. Feature UX residue [P4]
 
 - Drag & drop riordinamento task (non solo subtasks)
 - Campo priority
