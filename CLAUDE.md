@@ -169,72 +169,73 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 
 ## Conventions
 
-- No TypeScript, no tests, no linting configured
+- No TypeScript, no tests, no linting configured (debito tecnico noto)
 - All styling is inline (CSS-in-JS objects) — no external CSS files besides index.css reset
 - UUIDs via `crypto.randomUUID()` (frontend) or `gen_random_uuid()` (PostgreSQL)
-- `window.confirm()` for delete/reset confirmations
-- Sorting always by `updatedAt` descending
-- Commit messages: `feat:`, `fix:`, `refactor:`, `chore:` prefixes
+- `window.confirm()` per delete, `window.prompt('RESET')` per reset — system dialog, da sostituire
+- Sorting sempre per `updatedAt` desc
+- Commit messages: `feat:`, `fix:`, `refactor:`, `chore:` prefissi
+- **Owners list dinamica**: `display_owner` valorizzati nella tabella `users`. Popolazione self-service via `/api/me` (auto-INSERT al primo login). Frontend via `OwnersProvider` context, no più `OWNERS` hardcoded.
+- **Migrations idempotenti**: `runMigrations()` (`backend/src/db.js`) riapplica TUTTI i file `.sql` ad ogni boot. Ogni migration usa `IF NOT EXISTS`, `ON CONFLICT`, guard `DO $$ BEGIN ... EXCEPTION`, ecc.
 
 ## Upgrade TODO
 
-### P1 — Refactor strutturale (DONE)
+### Refactor strutturale
 - [x] Spezzare App.jsx in componenti separati
-- [x] Estrarre logica task in custom hook `useTasks.js`
+- [x] Estrarre logica task in custom hook `useTasks.js` + `useRecurring.js` + `useSubtasks.js`
 - [x] Centralizzare stili in `styles.js`
-- [ ] Sostituire hover JS (`onMouseEnter`/`onMouseLeave`) con CSS `:hover`
+- [ ] Sostituire hover JS (`onMouseEnter`/`onMouseLeave`) con CSS `:hover` (P3)
 
-### P2 — Feature UX
-- [x] **Separazione tab "NetBackup + Data Domain"** (richiesta stakeholder): split in due tab distinte — "Data Domain" e "NBU - Banche Estere". `GROUPS` aggiornato in `src/data.js`, seed dati riassegnati nella migration `001_init.sql` e in `SEED_SQL` di `routes/tasks.js`. Nessuna migrazione runtime necessaria (DB vuoto in produzione).
-- [x] Export CSV (task del gruppo attivo, rispetta filtri) — separator `;` + BOM UTF-8 per Excel italiano, filename `moby-dick-<group>-<date>.csv`. Helper in `utils.js`.
-- [ ] Sostituire `window.confirm()` con dialog/modal custom (coerente col dark theme) — ⚠️ parzialmente: il Reset è ora conferma testuale "RESET" via `window.prompt`, ma è ancora un dialog di sistema. Il dialog custom resta TODO per delete + reset.
-- [ ] Drag & drop per riordinamento manuale task
+### Feature UX
+- [x] Split tab "NetBackup + Data Domain" → "Data Domain" + "NBU - Banche Estere"
+- [x] Export CSV del gruppo attivo (separator `;` + BOM UTF-8 per Excel italiano)
+- [x] Reset con conferma testuale "RESET" (`window.prompt`)
+- [x] **Subtasks checklist** — tendina espandibile sotto la row, badge "N/M", vincolo "padre non chiudibile con subtask aperti" enforced backend
+- [ ] **Paginetta admin users** (P1, prossimo step) — CRUD su tabella `users` per admin: promote/demote viewer↔admin, rename display_owner, hide (set display_owner=NULL), remove. Sostituisce SQL diretto in prod.
+- [ ] Sostituire `window.confirm()` / `window.prompt()` con modal custom dark theme (P2)
+- [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
+- [ ] Drag & drop riordinamento task (P4)
 
-### P3 — Solidità tecnica
-- [ ] Aggiungere ESLint + Prettier
-- [ ] Aggiungere Vitest + React Testing Library (testare waiting/status sync, filtri)
-- [ ] Migrazione TypeScript (progressiva .jsx → .tsx)
+### Solidità tecnica
+- [ ] ESLint + Prettier (P3)
+- [ ] Vitest + React Testing Library + Supertest (P3): role enforcement BE, vincolo close con subtask aperti, optimistic updates useSubtasks, filtri toolbar
+- [ ] Migrazione TypeScript progressiva (P4)
+- [ ] **Backup off-host** (P1, decisione utente pending dal 2026-05-12) — chiedere al team backup Mauden se la VM `mauden-ubuntu` è coperta dai job NBU/Cohesity esistenti
 
-### P4 — Futuro
-- [~] **Autenticazione Entra ID** — predisposizione codice in corso (vedi sotto)
-- [ ] Task comments / history / audit trail
-- [ ] Priority field sui task
-- [x] Backend API per sync multi-dispositivo
-- [x] Docker Compose deployment
+### Futuro
+- [ ] Task comments / history / audit trail (P4)
+- [ ] Priority field sui task (P4)
+- [x] Backend API per sync multi-dispositivo (Express + Postgres)
+- [x] Docker Compose deployment (3 servizi: db + api + nginx)
+- [x] Auth Entra ID (vedi sotto)
 
-### Entra ID — Stato e TODO
+## Entra ID — Stato
 
-**Decisioni architetturali (concordate):**
-- Flow: MSAL.js SPA + JWT validation backend (jwks-rsa)
-- Tenant: single-tenant Mauden + utenti guest B2B per esterni (@ricoh, @npo, …)
-- Mapping owner + ruoli admin/viewer: tabella DB `users`
-- Feature flag `AUTH_ENABLED` (env var, default `false`) per spegnere tutto finché la registrazione Entra non è pronta
+✅ **Live in produzione** dal 2026-05-17.
 
-**DONE — predisposizione codice:**
-- [x] Frontend: `src/auth/` (authConfig, AuthProvider, useAuth, LoginGate, UserMenu, apiFetch)
-- [x] Frontend: `main.jsx` wrappa `<App>` con `AuthProvider` + `LoginGate`
-- [x] Frontend: `Header.jsx` mostra `UserMenu` (badge demo se flag off, nome+initials+logout se on)
-- [x] Frontend: `useTasks` / `useRecurring` usano `apiFetch` (inietta Bearer token)
-- [x] Backend: `src/auth.js` middleware `requireAuth` (verifica firma con JWKS Microsoft, valida `aud` e `iss`)
-- [x] Backend: `src/routes/me.js` endpoint `GET /api/me`
-- [x] Backend: `index.js` applica `requireAuth` a `/api/tasks`, `/api/recurring`, `/api/me` (health resta pubblico)
-- [x] `.env.example` frontend + backend con tutte le variabili e commenti
-- [x] `docker-compose.yml` propaga `AUTH_ENABLED`, `AZURE_*` al container `api`
+- Tenant Mauden: `3c187334-ba7e-4a38-985e-b9bcf958cb27`
+- Client ID: `7e8814ac-13e9-4133-84dc-4673e4773977`
+- App registration: SPA + custom API (`api://<client-id>/access_as_user`) + optional claims email/upn + single-tenant
+- Flow: MSAL.js (frontend) + JWKS-rsa (backend), accetta sia issuer v1 (`sts.windows.net`) che v2 (`login.microsoftonline.com/.../v2.0`)
+- `.env` su `/opt/moby-dick-b4/.env` sulla VM (mai committato)
 
-**TODO — da fare prima di accendere il flag:**
-- [ ] Coordinare con owner Entra Mauden la registrazione app:
-  - Tipo: SPA (Single-Page Application)
-  - Redirect URI: `http://localhost:5173` (dev) + URL produzione
-  - Esporre custom API: Application ID URI = `api://<client-id>`, scope `access_as_user`
-  - (Opzionale, per ruoli) definire App Roles: `Admin`, `Viewer`
-- [ ] Scrivere `AUTH_SETUP.md` con la checklist passo-passo per l'owner Entra
-- [ ] Compilare `.env.local` (frontend) e `.env` (backend) con i valori reali
-- [ ] Migrazione DB `002_users.sql`:
-  - Tabella `users` (id, email UNIQUE, display_owner ENUM Bob/Erica/Walker, role ENUM admin/viewer, created_at)
-  - Seed iniziale: bob@mauden.com → Bob/admin, erica@mauden.com → Erica/admin, walker@mauden.com → Walker/admin
-- [ ] Backend: arricchire `/api/me` con `owner` e `role` mappati da DB tramite email del JWT
-- [ ] Backend: endpoint `/api/users` (CRUD, solo per role=admin) per gestire mapping a runtime
-- [ ] Frontend: usare `owner` di `/api/me` come default in `handleAdd` invece di `OWNERS[0]`
-- [ ] Frontend: gating UI per ruolo viewer (nascondere bottoni delete/reset/add)
-- [ ] Backend: enforcement ruolo `admin` sugli endpoint mutating
-- [ ] Test end-to-end con un guest @ricoh (o tenant di test) prima del rollout
+### Modello permessi
+
+- Chiunque `@mauden` può loggarsi (single-tenant Entra)
+- **Auto-register su `/api/me`**: primo login → INSERT in `users` con `display_owner = name dal JWT`, `role = 'viewer'`. ON CONFLICT DO NOTHING preserva modifiche manuali admin.
+- `role='admin'` → enforce backend su tutti i mutating endpoint (POST/PATCH/DELETE tasks + recurring + subtasks + tasks/reset)
+- `role='viewer'` (default) → solo lettura. Frontend nasconde Add/Reset/Recurring/Delete + badge "Read-only"
+- **Lista owner dinamica**: `GET /api/users/owners` ritorna gli `display_owner` non-NULL → frontend `OwnersProvider` popola le select. Set `display_owner=NULL` per nascondere un user dal picker senza cancellarlo.
+
+### Admin attualmente registrati (in `migration 004_team_real.sql`)
+- `roberto.novara@mauden.com` → "Roberto Novara"
+- `amilcare.iacono@mauden.com` → "Amilcare Iacono"
+- `alessio.coletta@mauden.com` → "Alessio Coletta"
+- `marco.fauci@mauden.com` → "Marco Fauci"
+- `andrea.craparo@mauden.com` → "Andrea Craparo"
+
+### TODO Auth residui
+
+- [ ] Paginetta admin users (vedi P1 sopra) — sostituisce SQL diretto per gestione utenti runtime
+- [ ] Test E2E con guest @ricoh / B2B (verifica funzionamento con tenant esterno)
+- [ ] `AUTH_SETUP.md` con checklist passo-passo (per ri-onboarding o tenant diverso)
