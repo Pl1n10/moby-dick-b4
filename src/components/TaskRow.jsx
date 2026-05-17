@@ -1,5 +1,6 @@
 import S from '../styles.js'
-import { STATUSES, OWNERS } from '../data.js'
+import { STATUSES } from '../data.js'
+import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDate, formatDeadline, isOverdue } from '../utils.js'
 import Highlight from './Highlight.jsx'
 import StatusBadge from './StatusBadge.jsx'
@@ -8,6 +9,7 @@ import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
 
 export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false, expanded = false, onToggleExpand }) {
+  const owners = useOwners()
   const total = task.subtasksTotal ?? 0
   const open = task.subtasksOpen ?? 0
   const hasChecklist = total > 0
@@ -96,7 +98,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         ) : (
           <EditableSelect
             value={task.owner}
-            options={OWNERS}
+            options={owners}
             onChange={v => onUpdate('owner', v)}
           />
         )}

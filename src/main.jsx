@@ -4,6 +4,7 @@ import App from './App.jsx'
 import AuthProvider from './auth/AuthProvider.jsx'
 import LoginGate from './auth/LoginGate.jsx'
 import { UserInfoProvider } from './auth/UserInfoProvider.jsx'
+import { OwnersProvider } from './auth/OwnersProvider.jsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <LoginGate>
         <UserInfoProvider>
-          <App />
+          <OwnersProvider>
+            <App />
+          </OwnersProvider>
         </UserInfoProvider>
       </LoginGate>
     </AuthProvider>

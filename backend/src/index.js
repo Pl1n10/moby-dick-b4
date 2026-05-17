@@ -6,6 +6,7 @@ import { requireAuth, AUTH_ENABLED } from './auth.js'
 import tasksRouter from './routes/tasks.js'
 import recurringRouter from './routes/recurring.js'
 import meRouter from './routes/me.js'
+import usersRouter from './routes/users.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -20,6 +21,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 
 // All other /api routes require auth when AUTH_ENABLED=true (no-op otherwise).
 app.use('/api/me', requireAuth, meRouter)
+app.use('/api/users', requireAuth, usersRouter)
 app.use('/api/tasks', requireAuth, tasksRouter)
 app.use('/api/recurring', requireAuth, recurringRouter)
 

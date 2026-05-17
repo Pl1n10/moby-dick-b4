@@ -1,6 +1,7 @@
 import S from '../styles.js'
-import { GROUPS, STATUSES, OWNERS } from '../data.js'
+import { GROUPS, STATUSES } from '../data.js'
 import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
+import { useOwners } from '../auth/OwnersProvider.jsx'
 
 export default function Toolbar({
   isStorico, search, onSearchChange,
@@ -13,6 +14,7 @@ export default function Toolbar({
   onAdd, onExport,
 }) {
   const isAdmin = useIsAdmin()
+  const owners = useOwners()
   return (
     <div style={{
       marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
@@ -82,7 +84,7 @@ export default function Toolbar({
         }}
       >
         <option value="">All owners</option>
-        {OWNERS.map(o => <option key={o} value={o}>{o}</option>)}
+        {owners.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
 
       {/* Clear filters */}

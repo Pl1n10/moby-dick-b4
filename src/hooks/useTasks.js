@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { OWNERS } from '../data.js'
 import apiFetch from '../auth/apiFetch.js'
 
 const API = '/api'
@@ -52,7 +51,9 @@ export default function useTasks() {
   }
 
   // ── Add new task ───────────────────────────────────────
-  const handleAdd = (activeGroup, clearFilters) => {
+  // `defaultOwner` comes from /api/me (the logged-in user's display_owner)
+  // with a fallback to the first available owner — caller picks both.
+  const handleAdd = (activeGroup, clearFilters, defaultOwner) => {
     clearFilters()
     lastUpdateRef.current = Date.now()
 
@@ -62,7 +63,7 @@ export default function useTasks() {
       reference: '',
       description: '',
       status: 'New',
-      owner: OWNERS[0],
+      owner: defaultOwner || '',
       deadline: null,
       updatedAt: new Date().toISOString(),
     }

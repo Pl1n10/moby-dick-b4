@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import S from '../styles.js'
-import { GROUPS, OWNERS, FREQUENCIES } from '../data.js'
+import { GROUPS, FREQUENCIES } from '../data.js'
+import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDeadline } from '../utils.js'
 
 export default function RecurringModal({ templates, onSave, onClose }) {
   const [drafts, setDrafts] = useState(templates)
+  const owners = useOwners()
 
   const addTemplate = () => {
     setDrafts(prev => [...prev, {
@@ -12,7 +14,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
       group: GROUPS[0],
       reference: '',
       description: '',
-      owner: OWNERS[0],
+      owner: owners[0] || '',
       frequency: 'daily',
       scheduledTime: '08:00',
       lastCreatedDate: null,
@@ -72,7 +74,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
                 Owner
                 <select value={tmpl.owner} onChange={e => updateDraft(tmpl.id, 'owner', e.target.value)}
                   style={{ ...S.inputBase, display: 'block', marginTop: '4px' }}>
-                  {OWNERS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {owners.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </label>
 
