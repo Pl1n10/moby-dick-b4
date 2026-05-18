@@ -45,7 +45,7 @@ Stato al 2026-05-17 (chiusura sessione, fine giornata).
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
-- Hostname pubblico: **`https://mobydick.mauden.com`** (TLS terminato da RP Mauden)
+- Hostname pubblico: **`https://kanbanops.mauden.com`** (TLS terminato da RP Mauden) — *cutover dal precedente `mobydick.mauden.com` in attesa team RP/Entra, vedi § Cutover hostname*
 - Stack: 3 container Docker Compose, tutti `Up (healthy)`
   - `moby-db` (postgres:16-alpine, volume `pgdata`)
   - `moby-api` (Express, `AUTH_ENABLED=true`)
@@ -62,6 +62,40 @@ Stato al 2026-05-17 (chiusura sessione, fine giornata).
 5 admin attualmente in DB: Roberto, Amilcare, Alessio, Marco, Andrea.
 
 ## Step pending (in ordine di priorità)
+
+### 0. Cutover hostname `kanbanops.mauden.com` [P0, attesa team RP/Entra dal 2026-05-18]
+
+Strategia: **cutover secco** (nessun utente in prod, downtime accettabile, niente convivenza dei due hostname).
+
+Pre-requisiti esterni (richiesti il 2026-05-18, in attesa):
+1. Team RP Mauden: vhost `kanbanops.mauden.com` + cert TLS sull'RP, dismissione `mobydick.mauden.com`.
+2. Owner Entra: sostituire redirect URI nell'app registration `7e8814ac-13e9-4133-84dc-4673e4773977` da `https://mobydick.mauden.com` a `https://kanbanops.mauden.com` (Authentication blade → Single-page application). Stesso valore anche come *Front-channel logout URL* se valorizzato.
+
+Una volta arrivata conferma, sulla VM (`/opt/moby-dick-b4/`):
+
+```bash
+# 1. Backup .env corrente (rollback safety)
+sudo cp /opt/moby-dick-b4/.env /opt/moby-dick-b4/.env.bak-pre-kanbanops
+
+# 2. Update redirect URI nel .env
+sudo sed -i 's|VITE_AZURE_REDIRECT_URI=https://mobydick.mauden.com|VITE_AZURE_REDIRECT_URI=https://kanbanops.mauden.com|' /opt/moby-dick-b4/.env
+
+# 3. Verifica
+sudo grep VITE_AZURE_REDIRECT_URI /opt/moby-dick-b4/.env
+
+# 4. Rebuild nginx (Vite inietta VITE_* a build time → serve rebuild)
+cd /opt/moby-dick-b4 && docker compose up -d --build nginx
+
+# 5. Smoke test
+curl -I https://kanbanops.mauden.com/         # 200 dal nuovo host
+curl -s https://kanbanops.mauden.com/api/health
+```
+
+Verifica browser (tab incognito): login MSAL → no errore `AADSTS50011` → crea task → espandi subtask → admin panel users visibile.
+
+Rollback se esplode: `sudo cp .env.bak-pre-kanbanops .env && docker compose up -d --build nginx` (richiede però che il vecchio redirect URI sia ancora in Entra — coordinarsi col team Entra prima del cutover per non bruciare entrambi).
+
+Nessuna modifica codice/CORS necessaria: `authConfig.js` ha fallback `window.location.origin`, backend usa `cors()` aperto, l'application ID URI `api://7e8814ac-…` non cambia (token cache resta valida ma utenti rilogghano comunque per cambio origin).
 
 ### 1. Backup off-host [P1, già pending dal 2026-05-12]
 
@@ -139,7 +173,7 @@ docker logs moby-api --tail 30             # niente "JWT verification failed"
 ```
 
 Smoke pubblico (browser):
-- `https://mobydick.mauden.com/` → login MSAL → SSO Mauden
+- `https://kanbanops.mauden.com/` → login MSAL → SSO Mauden
 - Admin: bottoni Add/Reset/Recurring/Delete visibili. Espansione checklist + vincolo "Cannot close task"
 - Viewer auto-registrato: badge "Read-only", solo lettura, ma è già selezionabile come owner di task creati dagli admin
 

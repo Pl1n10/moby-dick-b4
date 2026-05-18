@@ -6,7 +6,7 @@
 
 A task board for tracking backup-related work items across four platforms: **Commvault**, **Cohesity**, **Data Domain**, and **NBU - Banche Estere**. Built for the Mauden backup team (Roberto, Amilcare, Alessio, Marco, Andrea — admins; any other @mauden colleague auto-registers as viewer at first login).
 
-Data persists in **PostgreSQL** via a REST API. Deployed with **Docker Compose** (PostgreSQL + Express API + Nginx) behind the Mauden reverse proxy at `https://mobydick.mauden.com`.
+Data persists in **PostgreSQL** via a REST API. Deployed with **Docker Compose** (PostgreSQL + Express API + Nginx) behind the Mauden reverse proxy at `https://kanbanops.mauden.com`.
 
 ## Tech Stack
 
@@ -216,7 +216,7 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 Il prodotto si chiama **KanbanOps** ma diverse cose tecniche mantengono lo slug `moby-dick-b4`. Lista in ordine di costo/rischio crescente. Ogni voce è opzionale.
 
 - [ ] **Display name app Entra** (oggi: "Moby Dick B4") — Portal Entra → App registrations → Branding & properties → cambia in "KanbanOps". **Zero rischio**, zero downtime, niente da toccare in codice. Lo cambierei senza pensarci.
-- [ ] **Hostname produzione** (oggi: `mobydick.mauden.com`) — Richiede coordinamento col team RP Mauden per assegnare `kanbanops.mauden.com` + certificato TLS. Aggiungere il nuovo URL come redirect URI nell'app Entra (può convivere con quello vecchio durante la transizione), update `VITE_AZURE_REDIRECT_URI` nel `.env` della VM, rebuild nginx. Medio rischio, durata 1-2 giorni.
+- [~] **Hostname produzione** — cutover a `kanbanops.mauden.com` pianificato (cutover secco, nessun utente in prod). Richieste inoltrate al team RP/Entra il 2026-05-18: (1) vhost `kanbanops.mauden.com` + TLS sull'RP, (2) sostituzione redirect URI nell'app Entra. In attesa di conferma per fare il build. Checklist VM completa in `HANDOFF.md` § Cutover hostname.
 - [ ] **Repo GitHub** (oggi: `Pl1n10/moby-dick-b4`) — Rinomina il repo. GitHub mantiene un redirect dal vecchio URL, ma il `git remote` sulla VM va aggiornato. `/opt/moby-dick-b4` può rimanere come path locale o si sposta in `/opt/kanbanops` con un `mv`. Medio rischio se gestito con cura.
 - [ ] **Container Docker** (`moby-db`, `moby-api`, `moby-nginx`) — Modificare `container_name` in `docker-compose.yml`. Healthchecks e logs interni hanno alcuni riferimenti hardcoded — grep prima di committare. Disservizio durante il recreate (qualche minuto).
 - [ ] **Application ID URI** (oggi: `api://7e8814ac-…`) — **Sconsigliato**. È solo nei JWT, nessuno lo legge mai. Cambiarlo significa update `AZURE_API_AUDIENCE` + `VITE_AZURE_API_SCOPE` nel `.env` + rebuild + tutti gli utenti ri-loggano (token in cache hanno l'audience vecchia). Costo > beneficio.
