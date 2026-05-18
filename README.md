@@ -1,150 +1,95 @@
-# 🐋 Moby Dick B4
+# KanbanOps
 
-A lightweight, static task board for tracking backup-related work items across **Commvault**, **Cohesity**, **Data Domain**, and **NBU - Banche Estere**.
+Task board for the Mauden backup team. Tracks work items across **Commvault**, **Cohesity**, **Data Domain** and **NBU - Banche Estere**.
 
-Built with **React 18 + Vite**. Purely static — no backend, no database. Data lives in `localStorage`.
+> Repo / deploy path / Docker image names still use the legacy slug `moby-dick-b4` (renaming would break the GitHub remote and `/opt/moby-dick-b4/` on the prod VM). The product name as shown to users is **KanbanOps**.
 
----
+Live at **https://kanbanops.mauden.com** (Mauden tenant SSO required).
 
-## Features
+## Stack
 
-- **Four tab groups**: Commvault, Cohesity, Data Domain, NBU - Banche Estere
-- **Inline editing**: click any cell to edit (text, textarea, dropdown, checkbox)
-- **Add / Delete rows**: green "+ New Task" button, ✕ delete with confirmation
-- **Search**: real-time filter by reference or description (case-insensitive) with match highlighting
-- **Filters**: dropdown filters for Status and Owner, with "✕ Clear" button and result counter
-- **Waiting sync logic**:
-  - Status → Waiting auto-checks the ⏳ flag
-  - Status → anything else auto-unchecks ⏳
-  - Unchecking ⏳ when status is Waiting → changes status to In Progress
-  - Checking ⏳ manually → sets status to Waiting
-- **localStorage persistence**: data survives page reloads and browser restarts
-- **Seed data**: 2 sample tasks per group, loaded only on first visit (empty localStorage)
-- **Reset button**: restores seed data with one click
-- **Sort**: always sorted by "Last updated" descending
-
-## Task Data Model
-
-```js
-{
-  id: string,          // UUID
-  group: string,       // "Commvault" | "Cohesity" | "Data Domain" | "NBU - Banche Estere"
-  reference: string,   // Incident number or email subject
-  description: string, // Multiline problem description
-  status: string,      // "New" | "In Progress" | "Waiting" | "Resolved" | "Closed"
-  owner: string,       // "Bob" | "Erica" | "Walker"
-  waiting: boolean,    // Waiting flag (synced with status)
-  updatedAt: string,   // ISO 8601 timestamp (auto-updated on edit)
-}
-```
-
----
-
-## Local Development
-
-```bash
-# Install dependencies
-npm install
-
-# Start dev server (http://localhost:5173)
-npm run dev
-```
-
-## Build
-
-```bash
-# Production build → ./dist
-npm run build
-
-# Preview the production build locally
-npm run preview
-```
-
-## Deploy to Netlify
-
-### Option A: Git-connected (recommended)
-
-1. Push the repo to GitHub/GitLab
-2. In Netlify → "New site from Git"
-3. Build command: `npm run build`
-4. Publish directory: `dist`
-5. Done — auto-deploys on every push
-
-### Option B: Manual drag & drop
-
-1. Run `npm run build`
-2. Drag the `dist/` folder into [Netlify Drop](https://app.netlify.com/drop)
-
-The included `netlify.toml` handles SPA routing automatically.
-
----
-
-## Data Storage
-
-All tasks are stored in the browser's `localStorage` under the key:
-
-```
-moby-dick-b4-tasks
-```
-
-### Reset data via UI
-
-Click the **↺ Reset** button in the top-right corner of the header.
-
-### Reset data via console
-
-```js
-localStorage.removeItem('moby-dick-b4-tasks');
-location.reload();
-```
-
-### View raw data
-
-```js
-JSON.parse(localStorage.getItem('moby-dick-b4-tasks'));
-```
-
----
-
-## Authentication (Placeholder)
-
-Auth is **OFF** in demo mode (shown by the yellow badge in the header).
-
-To add **Microsoft Entra ID** (Azure AD) authentication:
-
-1. Install `@azure/msal-browser` and `@azure/msal-react`
-2. Create an Azure App Registration in the Azure Portal
-3. Wrap the app with `<MsalProvider>` in `main.jsx`
-4. Add a login guard component
-5. Remove the "Auth: OFF" badge and show the logged-in user
-
-The app structure is already component-based, making this integration straightforward.
-
----
-
-## Tech Stack
-
-| Layer     | Tech               |
-|-----------|--------------------|
-| Framework | React 18           |
-| Bundler   | Vite 6             |
-| Styling   | CSS-in-JS (inline) |
+| Layer     | Tech |
+|-----------|------|
+| Frontend  | React 18.3 + Vite 6.4 (CSS-in-JS, no external CSS framework) |
+| Backend   | Express 4 + pg (Node 20) |
+| Database  | PostgreSQL 16 |
+| Auth      | Microsoft Entra ID (MSAL.js + JWKS validation) |
+| Deploy    | Docker Compose: `db` → `api` → `nginx` |
 | Fonts     | JetBrains Mono + IBM Plex Sans (Google Fonts) |
-| Storage   | localStorage       |
-| Hosting   | Netlify (static)   |
+| Locale    | Italian (`it-IT`) for date formatting |
 
-## Project Structure
+## Local development
+
+Backend (Express on `:3000`) + frontend (Vite dev server on `:5173`, proxies `/api/*` to the backend). PostgreSQL is required — either via Docker Compose or a local instance.
+
+```bash
+# 1. Database
+docker compose up -d db
+
+# 2. Backend
+cd backend && npm install && npm run dev
+
+# 3. Frontend (in another shell, from repo root)
+npm install && npm run dev
+```
+
+By default the app runs in **demo mode** (`AUTH_ENABLED=false` in `backend/.env`, `VITE_AUTH_ENABLED=false` in `.env.local`): everyone is admin, no login required. See `backend/.env.example` and `.env.example` for the Entra variables when testing auth locally.
+
+## Production deploy
+
+3 Docker Compose services behind the Mauden reverse proxy:
 
 ```
-moby-dick-b4/
-├── index.html          # Entry point
-├── netlify.toml        # Netlify SPA routing
-├── package.json
-├── vite.config.js
-├── src/
-│   ├── main.jsx        # React mount
-│   ├── App.jsx         # Main app (all components)
-│   ├── data.js         # Seed data, constants
-│   └── index.css       # Global reset
-└── dist/               # Build output (git-ignored)
+nginx:80  →  /api/*  →  api:3000 (Express)  →  db:5432 (PostgreSQL 16)
+          →  /*      →  static React build
 ```
+
+Apply changes on the VM (`/opt/moby-dick-b4/`):
+
+```bash
+git pull
+docker-compose build
+docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
+docker-compose up -d
+```
+
+⚠️ Do **not** use `docker-compose up -d --build` on the VM. The pinned `docker-compose v1.29.2` crashes with `KeyError: 'ContainerConfig'` on any recreate after rebuild. The `build → rm → up` sequence above is the documented workaround. Details in `HANDOFF.md`.
+
+DB migrations are idempotent and re-applied at every boot of `moby-api`. Adding a migration = drop a new `.sql` in `backend/migrations/`.
+
+## Permission model
+
+Single-tenant Entra (`@mauden` only). Anyone who logs in is auto-registered as a `viewer` with empty operator scope. Admins promote / assign scope via the in-app users panel.
+
+| Role | Write access |
+|------|--------------|
+| `admin` | Everywhere — tasks, subtasks, recurring, reset, user management |
+| `viewer` + `operator_groups=['Commvault', …]` | Tasks + subtasks in the listed pillars only (read-only elsewhere). Recurring stays admin-only for now. |
+| `viewer` + `operator_groups=[]` | Read-only globally |
+
+Enforcement is server-side (`backend/src/auth.js`: `loadUserContext` + `canWrite` + `requireWriteAccess`); the UI mirrors it via `useCanWrite()` in `src/auth/UserInfoProvider.jsx`.
+
+## Project structure
+
+See `CLAUDE.md` for the annotated tree. High-level:
+
+```
+├── src/                # React frontend (App.jsx, components/, hooks/, auth/)
+├── backend/            # Express API (routes/, migrations/, auth.js, recurring-processor.js)
+├── nginx/              # Multi-stage Dockerfile + nginx.conf (SPA fallback + /api proxy)
+└── docker-compose.yml  # db + api + nginx orchestration
+```
+
+## Conventions
+
+- No TypeScript, no tests, no linting (known tech debt — tracked in `CLAUDE.md`)
+- All styling is inline (CSS-in-JS objects in `src/styles.js`)
+- Sorting is always `updatedAt` desc
+- Commit prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
+- Italian for user-facing UI strings; English for code, commits and docs
+- `VALID_GROUPS` in `backend/src/auth.js` is the single source of truth for pillar names — keep it in sync with the `tasks.group_name` CHECK constraint and the `GROUPS` array in `src/data.js`
+
+## Further reading
+
+- `CLAUDE.md` — full project guide (architecture, API surface, design system, roadmap)
+- `HANDOFF.md` — session-by-session change log, pending steps, gotchas (docker-compose v1, etc.)
