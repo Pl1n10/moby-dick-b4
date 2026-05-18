@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { GROUPS } from './data.js'
 import { exportTasksToCsv } from './utils.js'
 import useTasks from './hooks/useTasks.js'
@@ -11,8 +11,18 @@ import Toolbar from './components/Toolbar.jsx'
 import TaskTable from './components/TaskTable.jsx'
 import RecurringModal from './components/RecurringModal.jsx'
 
+const ACTIVE_GROUP_KEY = 'kanbanops:activeGroup'
+const isValidGroup = (v) => v === '__storico__' || GROUPS.includes(v)
+
 export default function App() {
-  const [activeGroup, setActiveGroup] = useState(GROUPS[0])
+  const [activeGroup, setActiveGroup] = useState(() => {
+    const saved = localStorage.getItem(ACTIVE_GROUP_KEY)
+    return isValidGroup(saved) ? saved : GROUPS[0]
+  })
+
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_GROUP_KEY, activeGroup)
+  }, [activeGroup])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterOwner, setFilterOwner] = useState('')
