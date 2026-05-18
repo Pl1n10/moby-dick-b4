@@ -27,7 +27,12 @@
       "Bash(mv \"/home/hypn0/projects/moby-dick-b4/download \\(1\\).jpeg\" /home/hypn0/projects/moby-dick-b4/public/favicon.png)",
       "WebFetch(domain:kanbanops.mauden.com)",
       "WebFetch(domain:login.microsoftonline.com)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(node --check src/auth.js)",
+      "Bash(node --check src/index.js)",
+      "Bash(node --check src/routes/tasks.js)",
+      "Bash(node --check src/routes/subtasks.js)",
+      "Bash(node --check src/routes/me.js)"
     ]
   }
 }

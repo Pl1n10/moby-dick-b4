@@ -54,6 +54,10 @@ Stato al 2026-05-18.
 - `1f3f7eb` — Backend: migration 007 aggiunge `users.operator_groups TEXT[]`. `auth.js` espone `loadUserContext` middleware + helper `canWrite` + `requireWriteAccess(getGroups)`. Routes `tasks` e `subtasks` rifattorizzate: POST/PATCH/DELETE controllano il group del task (PATCH con cambio gruppo verifica vecchio E nuovo). `/api/me` ritorna `operatorGroups`; `/api/users` POST/PATCH validano e persistono il campo. Reset e CRUD users restano admin-only. Recurring NON toccato — iterazione 2 in pending.
 - `574e4a6` — Frontend: `UserInfoProvider` espone `useCanWrite()` (mirror di `canWrite` backend). `App.jsx` deriva `canAdd` per la tab attiva. `Toolbar`/`TaskTable`/`TaskRow` disabilitano azioni fuori scope; `SubtaskList` eredita il readOnly per riga. `UserMenu` badge diventa "Operator: Cmv · NBU" per viewer con scope. `UsersModal` ha nuova colonna **Scope** con 4 checkbox per riga + checkbox nel form di add.
 
+### Minor: rename pillar + link cliccabili nelle description (2026-05-18)
+- Rename pillar `Data Domain` → `Data Domain - ZFS`. Aggiornati `src/data.js` (GROUPS), `backend/src/auth.js` (VALID_GROUPS), `src/components/UsersModal.jsx` (PILLAR_SHORT key). Migration `008_rename_data_domain.sql`: UPDATE idempotente di `tasks.group_name`, `recurring_templates.group_name` e `users.operator_groups` (via `array_replace`). Doc allineati (CLAUDE.md, README.md, package.json).
+- Nuovo componente `src/components/Linkify.jsx`: parsa testo, trasforma URL `https?://` in `<a target="_blank" rel="noopener noreferrer">` e strippa punteggiatura finale dall'href. Riusa `Highlight` per la query di ricerca dentro testo e label dell'anchor. `onClick stopPropagation` evita che il click sul link triggeri l'editing nel `<span>` cliccabile di `EditableText`. Wired in: `TaskRow` (read-only description), `EditableText` con nuova prop `linkify` (usata in `TaskRow` writable per la description), `SubtaskList` (read-only). I subtask scrivibili restano `<input>` puro: il link è cliccabile solo quando il subtask non è in editing.
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)

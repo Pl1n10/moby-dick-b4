@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import S from '../../styles.js'
 import Highlight from '../Highlight.jsx'
+import Linkify from '../Linkify.jsx'
 
-export default function EditableText({ value, onChange, mono, placeholder, multiline, highlight }) {
+export default function EditableText({ value, onChange, mono, placeholder, multiline, highlight, linkify }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
   const ref = useRef(null)
@@ -67,7 +68,13 @@ export default function EditableText({ value, onChange, mono, placeholder, multi
       onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
-      {isEmpty ? (placeholder || 'click to edit') : (highlight ? <Highlight text={value} query={highlight} /> : value)}
+      {isEmpty
+        ? (placeholder || 'click to edit')
+        : linkify
+          ? <Linkify text={value} query={highlight} />
+          : highlight
+            ? <Highlight text={value} query={highlight} />
+            : value}
     </span>
   )
 }

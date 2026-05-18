@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import S from '../styles.js'
 import useSubtasks from '../hooks/useSubtasks.js'
+import Linkify from './Linkify.jsx'
 
 export default function SubtaskList({ taskId, readOnly, onCountChange }) {
   const { items, loading, add, update, remove } = useSubtasks(taskId, onCountChange)
@@ -42,7 +43,7 @@ export default function SubtaskList({ taskId, readOnly, onCountChange }) {
                   flex: 1, color: item.done ? '#484f58' : '#c9d1d9',
                   textDecoration: item.done ? 'line-through' : 'none',
                 }}>
-                  {item.description}
+                  <Linkify text={item.description} />
                 </span>
               ) : (
                 <input

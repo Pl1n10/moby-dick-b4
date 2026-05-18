@@ -3,6 +3,7 @@ import { STATUSES } from '../data.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDate, formatDeadline, isOverdue } from '../utils.js'
 import Highlight from './Highlight.jsx'
+import Linkify from './Linkify.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
@@ -68,7 +69,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       <td style={{ padding: '8px 14px', maxWidth: '400px' }}>
         {readOnly ? (
           <span style={{ color: '#c9d1d9', padding: '2px 4px', display: 'block' }}>
-            {task.description ? <Highlight text={task.description} query={search} /> : '—'}
+            {task.description ? <Linkify text={task.description} query={search} /> : '—'}
           </span>
         ) : (
           <EditableText
@@ -77,6 +78,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             placeholder="add description"
             multiline
             highlight={search}
+            linkify
           />
         )}
       </td>

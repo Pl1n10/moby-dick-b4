@@ -1,6 +1,6 @@
 # KanbanOps
 
-Task board for the Mauden backup team. Tracks work items across **Commvault**, **Cohesity**, **Data Domain** and **NBU - Banche Estere**.
+Task board for the Mauden backup team. Tracks work items across **Commvault**, **Cohesity**, **Data Domain - ZFS** and **NBU - Banche Estere**.
 
 > Repo / deploy path / Docker image names still use the legacy slug `moby-dick-b4` (renaming would break the GitHub remote and `/opt/moby-dick-b4/` on the prod VM). The product name as shown to users is **KanbanOps**.
 

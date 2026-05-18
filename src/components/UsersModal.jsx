@@ -11,7 +11,7 @@ import { useRefreshOwners } from '../auth/OwnersProvider.jsx'
 const PILLAR_SHORT = {
   'Commvault': 'Cmv',
   'Cohesity': 'Coh',
-  'Data Domain': 'DD',
+  'Data Domain - ZFS': 'DD',
   'NBU - Banche Estere': 'NBU',
 }
 

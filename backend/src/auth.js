@@ -34,7 +34,7 @@ const client = AUTH_ENABLED && JWKS_URI
 // Canonical pillar list. Kept in sync with the CHECK constraint on
 // tasks.group_name and the frontend src/data.js GROUPS array. Used to
 // validate operator_groups values incoming from the admin UI.
-export const VALID_GROUPS = ['Commvault', 'Cohesity', 'Data Domain', 'NBU - Banche Estere']
+export const VALID_GROUPS = ['Commvault', 'Cohesity', 'Data Domain - ZFS', 'NBU - Banche Estere']
 
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
