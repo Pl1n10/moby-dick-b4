@@ -4,11 +4,12 @@ import { AUTH_ENABLED } from './authConfig.js'
 import apiFetch from './apiFetch.js'
 
 // Demo stub keeps local dev permissive — everyone is admin when auth is off.
-const DEMO_INFO = { authenticated: false, demo: true, role: 'admin', owner: null, inUsersTable: false, loading: false }
+const DEMO_INFO = { authenticated: false, demo: true, role: 'admin', owner: null, operatorGroups: [], inUsersTable: false, loading: false }
 
-// Default in auth mode: viewer until /api/me resolves. Components rendering
-// during the brief loading window must not show admin-only UI prematurely.
-const DEFAULT_INFO = { role: 'viewer', owner: null, inUsersTable: false, loading: true }
+// Default in auth mode: viewer with no scope until /api/me resolves. Components
+// rendering during the brief loading window must not show admin-only UI
+// prematurely.
+const DEFAULT_INFO = { role: 'viewer', owner: null, operatorGroups: [], inUsersTable: false, loading: true }
 
 const UserInfoContext = createContext(DEMO_INFO)
 
@@ -49,4 +50,16 @@ export function useUserInfo() {
 
 export function useIsAdmin() {
   return useContext(UserInfoContext).role === 'admin'
+}
+
+// Returns a predicate (group) => boolean. Admin everywhere, otherwise the
+// pillar must be in operatorGroups. Mirrors the backend canWrite helper —
+// keep them in sync.
+export function useCanWrite() {
+  const info = useContext(UserInfoContext)
+  return (group) => {
+    if (info.role === 'admin') return true
+    if (!group) return false
+    return Array.isArray(info.operatorGroups) && info.operatorGroups.includes(group)
+  }
 }

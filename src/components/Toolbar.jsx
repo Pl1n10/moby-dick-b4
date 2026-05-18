@@ -12,6 +12,7 @@ export default function Toolbar({
   filteredCount, totalCount,
   recurring, onOpenRecurring,
   onAdd, onExport,
+  canAdd = false,
 }) {
   const isAdmin = useIsAdmin()
   const owners = useOwners()
@@ -151,7 +152,7 @@ export default function Toolbar({
           e.currentTarget.style.color = '#8b949e'
         }}
       >↓ Export CSV</button>
-      {!isStorico && isAdmin && (
+      {!isStorico && canAdd && (
         <button onClick={onAdd} style={{
           padding: '7px 16px', background: '#238636', border: '1px solid #2ea043',
           borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: S.sans,

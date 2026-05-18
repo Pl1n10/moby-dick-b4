@@ -3,7 +3,7 @@ import { GROUPS } from './data.js'
 import { exportTasksToCsv } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
-import { useUserInfo } from './auth/UserInfoProvider.jsx'
+import { useUserInfo, useCanWrite } from './auth/UserInfoProvider.jsx'
 import { useOwners } from './auth/OwnersProvider.jsx'
 import Header from './components/Header.jsx'
 import TabNav from './components/TabNav.jsx'
@@ -36,7 +36,9 @@ export default function App() {
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal, clearRecurring } = useRecurring(setTasks)
   const userInfo = useUserInfo()
   const owners = useOwners()
+  const canWrite = useCanWrite()
   const defaultOwner = userInfo.owner || owners[0] || ''
+  const canAdd = !isStorico && canWrite(activeGroup)
 
   const filteredTasks = tasks
     .filter(t => {
@@ -83,10 +85,12 @@ export default function App() {
           recurring={recurring} onOpenRecurring={() => setShowRecurringModal(true)}
           onAdd={() => handleAdd(activeGroup, clearFilters, defaultOwner)}
           onExport={() => exportTasksToCsv(filteredTasks, isStorico ? 'storico' : activeGroup)}
+          canAdd={canAdd}
         />
 
         <TaskTable
           filteredTasks={filteredTasks}
+          canWrite={canWrite}
           isStorico={isStorico}
           hasActiveFilters={hasActiveFilters}
           search={search}

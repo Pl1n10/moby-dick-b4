@@ -1,8 +1,19 @@
 import { useState } from 'react'
 import S from '../styles.js'
+import { GROUPS } from '../data.js'
 import useUsers from '../hooks/useUsers.js'
 import { useUserInfo } from '../auth/UserInfoProvider.jsx'
 import { useRefreshOwners } from '../auth/OwnersProvider.jsx'
+
+// Compact labels for the pillar scope checkboxes (the full names are too
+// long for an inline cell, especially "NBU - Banche Estere"). Tooltips
+// surface the full name on hover.
+const PILLAR_SHORT = {
+  'Commvault': 'Cmv',
+  'Cohesity': 'Coh',
+  'Data Domain': 'DD',
+  'NBU - Banche Estere': 'NBU',
+}
 
 export default function UsersModal({ onClose }) {
   const { users, loading, error, update, remove, create, clearError } = useUsers(true)
@@ -18,6 +29,9 @@ export default function UsersModal({ onClose }) {
   }
   const setRole = (u, role) => {
     update(u.id, { role }).then(afterChange).catch(() => {})
+  }
+  const setScope = (u, groups) => {
+    update(u.id, { operatorGroups: groups }).then(afterChange).catch(() => {})
   }
   const hide = (u) => {
     update(u.id, { displayOwner: null }).then(afterChange).catch(() => {})
@@ -71,6 +85,7 @@ export default function UsersModal({ onClose }) {
                 <th style={thStyle}>Email</th>
                 <th style={thStyle}>Display owner</th>
                 <th style={thStyle}>Role</th>
+                <th style={thStyle} title="Pillar in cui un viewer può scrivere. Admins hanno accesso ovunque, indipendentemente da questi flag.">Scope</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Azioni</th>
               </tr>
             </thead>
@@ -109,6 +124,9 @@ export default function UsersModal({ onClose }) {
                         <option value="admin">admin</option>
                         <option value="viewer">viewer</option>
                       </select>
+                    </td>
+                    <td style={tdStyle}>
+                      <ScopeCell user={u} onChange={(groups) => setScope(u, groups)} />
                     </td>
                     <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {u.displayOwner != null && !isSelf && (
@@ -206,18 +224,67 @@ function OwnerCell({ user, onSave }) {
   )
 }
 
+// Inline pillar-scope cell: 4 compact checkboxes, one per pillar. Disabled
+// (and visually all-on) for admins, since the column is ignored when
+// role=admin anyway and showing it crossed out would be misleading.
+function ScopeCell({ user, onChange }) {
+  const isAdmin = user.role === 'admin'
+  const groups = Array.isArray(user.operatorGroups) ? user.operatorGroups : []
+  const toggle = (g) => {
+    const next = groups.includes(g) ? groups.filter(x => x !== g) : [...groups, g]
+    onChange(next)
+  }
+  return (
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      {GROUPS.map(g => {
+        const checked = isAdmin || groups.includes(g)
+        return (
+          <label
+            key={g}
+            title={isAdmin ? `${g} — gli admin hanno accesso ovunque` : g}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '3px',
+              fontSize: '11px', fontFamily: S.mono,
+              cursor: isAdmin ? 'not-allowed' : 'pointer',
+              opacity: isAdmin ? 0.4 : 1,
+              color: checked ? '#58a6ff' : '#8b949e',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={isAdmin}
+              onChange={() => toggle(g)}
+              style={{
+                accentColor: '#58a6ff',
+                cursor: isAdmin ? 'not-allowed' : 'pointer',
+              }}
+            />
+            {PILLAR_SHORT[g] || g}
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
 function AddUserForm({ onCreate }) {
   const [email, setEmail] = useState('')
   const [displayOwner, setDisplayOwner] = useState('')
   const [role, setRole] = useState('viewer')
+  const [scope, setScope] = useState([])
   const [busy, setBusy] = useState(false)
+
+  const toggleScope = (g) => {
+    setScope(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
+  }
 
   const submit = () => {
     const e = email.trim()
     if (!e) return
     setBusy(true)
-    onCreate({ email: e, displayOwner: displayOwner.trim() || null, role })
-      .then(() => { setEmail(''); setDisplayOwner(''); setRole('viewer') })
+    onCreate({ email: e, displayOwner: displayOwner.trim() || null, role, operatorGroups: scope })
+      .then(() => { setEmail(''); setDisplayOwner(''); setRole('viewer'); setScope([]) })
       .finally(() => setBusy(false))
   }
 
@@ -258,6 +325,26 @@ function AddUserForm({ onCreate }) {
           }}
         >+ Add</button>
       </div>
+      {role !== 'admin' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', color: '#8b949e', fontFamily: S.mono }}>Scope:</span>
+          {GROUPS.map(g => (
+            <label key={g} title={g} style={{
+              display: 'flex', alignItems: 'center', gap: '3px',
+              fontSize: '11px', fontFamily: S.mono, cursor: 'pointer',
+              color: scope.includes(g) ? '#58a6ff' : '#8b949e',
+            }}>
+              <input
+                type="checkbox"
+                checked={scope.includes(g)}
+                onChange={() => toggleScope(g)}
+                style={{ accentColor: '#58a6ff', cursor: 'pointer' }}
+              />
+              {PILLAR_SHORT[g] || g}
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

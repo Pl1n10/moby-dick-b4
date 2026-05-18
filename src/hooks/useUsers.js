@@ -71,11 +71,11 @@ export default function useUsers(active) {
       })
   }
 
-  const create = ({ email, displayOwner, role }) => {
+  const create = ({ email, displayOwner, role, operatorGroups }) => {
     return apiFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, displayOwner, role }),
+      body: JSON.stringify({ email, displayOwner, role, operatorGroups }),
     })
       .then(async r => {
         if (!r.ok) {

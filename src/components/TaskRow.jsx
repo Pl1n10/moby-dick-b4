@@ -8,7 +8,7 @@ import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
 
-export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showGroup = false, expanded = false, onToggleExpand }) {
+export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, expanded = false, onToggleExpand }) {
   const owners = useOwners()
   const total = task.subtasksTotal ?? 0
   const open = task.subtasksOpen ?? 0
@@ -129,16 +129,18 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      {!readOnly && (
+      {showDelete && (
         <td style={{ padding: '8px 8px', textAlign: 'center' }}>
-          <button onClick={onDelete} title="Delete task" style={{
-            background: 'none', border: 'none', color: '#484f58',
-            cursor: 'pointer', fontSize: '14px', padding: '4px 6px',
-            borderRadius: '4px', transition: 'all 0.15s',
-          }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#f85149'; e.currentTarget.style.background = '#f8514922' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#484f58'; e.currentTarget.style.background = 'none' }}
-          >✕</button>
+          {!readOnly && (
+            <button onClick={onDelete} title="Delete task" style={{
+              background: 'none', border: 'none', color: '#484f58',
+              cursor: 'pointer', fontSize: '14px', padding: '4px 6px',
+              borderRadius: '4px', transition: 'all 0.15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#f85149'; e.currentTarget.style.background = '#f8514922' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#484f58'; e.currentTarget.style.background = 'none' }}
+            >✕</button>
+          )}
         </td>
       )}
     </tr>

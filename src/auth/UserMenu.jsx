@@ -28,12 +28,13 @@ export default function UserMenu() {
   }
 
   const { account, logout } = useAuth()
-  const { role, loading } = useUserInfo()
+  const { role, operatorGroups = [], loading } = useUserInfo()
   const [open, setOpen] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
   if (!account) return null
   const isAdmin = !loading && role === 'admin'
-  const isViewer = !loading && role !== 'admin'
+  const isOperator = !loading && role !== 'admin' && operatorGroups.length > 0
+  const isViewerPure = !loading && role !== 'admin' && operatorGroups.length === 0
 
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -54,12 +55,20 @@ export default function UserMenu() {
           {account.name || account.username}
         </span>
       </button>
-      {isViewer && (
+      {isViewerPure && (
         <span title="You don't have admin privileges — task editing is disabled" style={{
           padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
           fontFamily: S.mono, background: '#1f2937', color: '#8b949e', border: '1px solid #374151',
         }}>
           Read-only
+        </span>
+      )}
+      {isOperator && (
+        <span title={`Write access on: ${operatorGroups.join(', ')}. Read-only elsewhere.`} style={{
+          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+          fontFamily: S.mono, background: '#1c3a5e', color: '#58a6ff', border: '1px solid #1f6feb',
+        }}>
+          Operator: {operatorGroups.join(' · ')}
         </span>
       )}
       {open && (
