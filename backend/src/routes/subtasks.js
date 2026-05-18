@@ -1,9 +1,10 @@
 import { Router } from 'express'
 import pool from '../db.js'
-import { requireAdmin } from '../auth.js'
+import { canWrite, AUTH_ENABLED } from '../auth.js'
 
 // Mounted at /api/tasks/:taskId/subtasks (see index.js / tasks router).
-// Reads are open to any authenticated user; mutations require admin.
+// Reads are open to any authenticated user; mutations require write access
+// on the PARENT task's pillar group (inherited scope).
 const router = Router({ mergeParams: true })
 
 function mapSubtaskToClient(row) {
@@ -14,6 +15,27 @@ function mapSubtaskToClient(row) {
     done: row.done,
     position: row.position,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  }
+}
+
+// Loads the parent task to verify the caller can mutate its subtasks.
+// 404 if the task is gone, 403 if it exists but the caller is out of scope.
+// Demo mode (AUTH_ENABLED=false) → permissive, mirrors requireAdmin/Auth.
+async function requireParentTaskAccess(req, res, next) {
+  if (!AUTH_ENABLED) return next()
+  try {
+    const { rows: [parent] } = await pool.query(
+      'SELECT group_name FROM tasks WHERE id = $1',
+      [req.params.taskId],
+    )
+    if (!parent) return res.status(404).json({ error: 'Parent task not found' })
+    if (!canWrite(req.userCtx, parent.group_name)) {
+      return res.status(403).json({ error: `Write access denied for group: ${parent.group_name}` })
+    }
+    next()
+  } catch (err) {
+    console.error('requireParentTaskAccess error:', err.message)
+    res.status(500).json({ error: 'Failed to check parent task' })
   }
 }
 
@@ -32,7 +54,7 @@ router.get('/', async (req, res) => {
 })
 
 // POST /api/tasks/:taskId/subtasks — append new item
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireParentTaskAccess, async (req, res) => {
   try {
     const { description } = req.body
     const taskId = req.params.taskId
@@ -59,7 +81,7 @@ router.post('/', requireAdmin, async (req, res) => {
 // PATCH /api/tasks/:taskId/subtasks/:id — edit description or toggle done
 const ALLOWED_FIELDS = { description: 'description', done: 'done', position: 'position' }
 
-router.patch('/:id', requireAdmin, async (req, res) => {
+router.patch('/:id', requireParentTaskAccess, async (req, res) => {
   try {
     const { field, value } = req.body
     const column = ALLOWED_FIELDS[field]
@@ -78,7 +100,7 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 })
 
 // DELETE /api/tasks/:taskId/subtasks/:id
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireParentTaskAccess, async (req, res) => {
   try {
     const { rowCount } = await pool.query(
       'DELETE FROM subtasks WHERE id = $1 AND task_id = $2',

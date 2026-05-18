@@ -31,6 +31,11 @@ const client = AUTH_ENABLED && JWKS_URI
   ? jwksClient({ jwksUri: JWKS_URI, cache: true, rateLimit: true })
   : null
 
+// Canonical pillar list. Kept in sync with the CHECK constraint on
+// tasks.group_name and the frontend src/data.js GROUPS array. Used to
+// validate operator_groups values incoming from the admin UI.
+export const VALID_GROUPS = ['Commvault', 'Cohesity', 'Data Domain', 'NBU - Banche Estere']
+
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
     if (err) return callback(err)
@@ -79,33 +84,96 @@ export function requireAuth(req, res, next) {
 }
 
 /**
- * Express middleware to gate mutating endpoints behind the 'admin' role.
- * Source of truth: the `users` table (display_owner + role mapped by email).
+ * Loads role + operator_groups from the users table and attaches them as
+ * req.userCtx. Designed to run once per request right after requireAuth so
+ * downstream handlers and middlewares can decide write access without
+ * issuing extra DB queries.
  *
- * Chain after requireAuth so req.user is populated. In demo mode this is a
- * no-op — keeps local dev open and matches the demo behaviour of requireAuth.
- *
- * 403 codes:
- *  - "No email claim": JWT doesn't carry preferred_username/upn/email (optional
- *    claims may be missing on the app registration).
- *  - "Admin role required": user is authenticated but not in users with
- *    role='admin' — viewers and unmapped users land here.
+ * Unknown email (not in users table) → defaults to viewer with empty scope.
+ * Demo mode (AUTH_ENABLED=false) → no-op, leaves req.userCtx undefined; the
+ * permissive defaults of requireAdmin/requireWriteAccess take over.
  */
-export async function requireAdmin(req, res, next) {
-  if (!AUTH_ENABLED) return next()
+export async function loadUserContext(req, res, next) {
+  if (!AUTH_ENABLED) {
+    // Demo mode: act as admin so inline canWrite checks stay permissive,
+    // matching requireAuth/requireAdmin/requireWriteAccess which are no-ops.
+    req.userCtx = { role: 'admin', operatorGroups: [] }
+    return next()
+  }
   if (!req.user) return res.status(401).json({ error: 'Unauthenticated' })
 
   const email = req.user.email
-  if (!email) return res.status(403).json({ error: 'No email claim in token' })
+  if (!email) {
+    req.userCtx = { role: 'viewer', operatorGroups: [] }
+    return next()
+  }
 
   try {
-    const { rows } = await pool.query('SELECT role FROM users WHERE email = $1', [email])
-    if (rows.length === 0 || rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Admin role required' })
+    const { rows } = await pool.query(
+      'SELECT role, operator_groups FROM users WHERE email = $1',
+      [email],
+    )
+    if (rows.length === 0) {
+      req.userCtx = { role: 'viewer', operatorGroups: [] }
+    } else {
+      req.userCtx = {
+        role: rows[0].role,
+        operatorGroups: Array.isArray(rows[0].operator_groups) ? rows[0].operator_groups : [],
+      }
     }
     next()
   } catch (err) {
-    console.error('requireAdmin DB error:', err.message)
-    res.status(500).json({ error: 'Authorization check failed' })
+    console.error('loadUserContext error:', err.message)
+    res.status(500).json({ error: 'Authorization context load failed' })
+  }
+}
+
+/**
+ * Express middleware to gate endpoints behind the 'admin' role.
+ * Relies on loadUserContext having populated req.userCtx upstream.
+ */
+export function requireAdmin(req, res, next) {
+  if (!AUTH_ENABLED) return next()
+  if (!req.user) return res.status(401).json({ error: 'Unauthenticated' })
+  if (!req.userCtx) return res.status(500).json({ error: 'User context missing (loadUserContext not chained)' })
+  if (req.userCtx.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin role required' })
+  }
+  next()
+}
+
+/**
+ * Pure helper. Returns true when the user can write tasks/subtasks in the
+ * given pillar group: admins everywhere, viewers with that group in their
+ * operator_groups, nobody else.
+ */
+export function canWrite(userCtx, group) {
+  if (!userCtx) return false
+  if (userCtx.role === 'admin') return true
+  return Array.isArray(userCtx.operatorGroups) && userCtx.operatorGroups.includes(group)
+}
+
+/**
+ * Middleware factory. `getGroups` is a function (req) => string | string[]
+ * that extracts the pillar group(s) the request is trying to mutate. When
+ * multiple groups are returned (e.g. PATCH that moves a task between groups)
+ * the user must have write access on ALL of them.
+ *
+ * Demo mode → no-op (no enforcement off-prod).
+ */
+export function requireWriteAccess(getGroups) {
+  return (req, res, next) => {
+    if (!AUTH_ENABLED) return next()
+    if (!req.userCtx) return res.status(500).json({ error: 'User context missing' })
+
+    const raw = getGroups(req)
+    const groups = Array.isArray(raw) ? raw : [raw]
+    for (const g of groups) {
+      if (!g) return res.status(400).json({ error: 'Group not specified' })
+      if (!canWrite(req.userCtx, g)) {
+        return res.status(403).json({ error: `Write access denied for group: ${g}` })
+      }
+    }
+    next()
   }
 }

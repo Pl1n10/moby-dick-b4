@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import { waitForDb, runMigrations } from './db.js'
 import { processRecurring } from './recurring-processor.js'
-import { requireAuth, AUTH_ENABLED } from './auth.js'
+import { requireAuth, loadUserContext, AUTH_ENABLED } from './auth.js'
 import tasksRouter from './routes/tasks.js'
 import recurringRouter from './routes/recurring.js'
 import meRouter from './routes/me.js'
@@ -20,10 +20,12 @@ app.use(express.json())
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
 // All other /api routes require auth when AUTH_ENABLED=true (no-op otherwise).
-app.use('/api/me', requireAuth, meRouter)
-app.use('/api/users', requireAuth, usersRouter)
-app.use('/api/tasks', requireAuth, tasksRouter)
-app.use('/api/recurring', requireAuth, recurringRouter)
+// loadUserContext runs right after to hydrate role + operator_groups from the
+// users table, so handlers/middlewares can authorize without extra queries.
+app.use('/api/me', requireAuth, loadUserContext, meRouter)
+app.use('/api/users', requireAuth, loadUserContext, usersRouter)
+app.use('/api/tasks', requireAuth, loadUserContext, tasksRouter)
+app.use('/api/recurring', requireAuth, loadUserContext, recurringRouter)
 
 console.log(`Auth: ${AUTH_ENABLED ? 'ENABLED (Entra ID)' : 'DISABLED (demo mode)'}`)
 

@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
-import { requireAdmin } from '../auth.js'
+import { requireAdmin, requireWriteAccess, canWrite } from '../auth.js'
 import subtasksRouter from './subtasks.js'
 
 const router = Router()
@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
 })
 
 // POST /api/tasks/reset — wipe all tasks and recurring templates.
-// No re-seed: production starts empty, real tasks only.
+// Admin-only: nuclear button, never delegated to per-pillar operators.
 router.post('/reset', requireAdmin, async (req, res) => {
   try {
     await pool.query('TRUNCATE tasks, recurring_templates CASCADE')
@@ -83,8 +83,9 @@ router.post('/reset', requireAdmin, async (req, res) => {
   }
 })
 
-// POST /api/tasks — create a task
-router.post('/', requireAdmin, async (req, res) => {
+// POST /api/tasks — create a task. Authorized if the caller can write in
+// the target pillar (admin everywhere, operator on listed groups).
+router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
   try {
     const { id, group, reference, description, status, owner, deadline } = req.body
     const { rows } = await pool.query(
@@ -109,8 +110,12 @@ router.post('/', requireAdmin, async (req, res) => {
 })
 
 // PATCH /api/tasks/:id — update single field.
+// Authorization: caller must be able to write the task's CURRENT group; if
+// the field being changed is 'group', they must also be able to write the
+// TARGET group (prevents an operator from yanking a task into a pillar they
+// don't own and locking themselves out of it, or vice versa).
 // Hard constraint: can't move a task to 'Closed' while it has open subtasks.
-router.patch('/:id', requireAdmin, async (req, res) => {
+router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params
     const { field, value } = req.body
@@ -121,6 +126,13 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 
     const { rows: [existing] } = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
     if (!existing) return res.status(404).json({ error: 'Task not found' })
+
+    if (!canWrite(req.userCtx, existing.group_name)) {
+      return res.status(403).json({ error: `Write access denied for group: ${existing.group_name}` })
+    }
+    if (field === 'group' && !canWrite(req.userCtx, value)) {
+      return res.status(403).json({ error: `Write access denied for target group: ${value}` })
+    }
 
     if (field === 'status' && value === 'Closed') {
       const { rows: [{ open }] } = await pool.query(
@@ -149,11 +161,16 @@ router.patch('/:id', requireAdmin, async (req, res) => {
   }
 })
 
-// DELETE /api/tasks/:id
-router.delete('/:id', requireAdmin, async (req, res) => {
+// DELETE /api/tasks/:id — caller must be able to write the task's group.
+router.delete('/:id', async (req, res) => {
   try {
-    const { rowCount } = await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id])
-    if (rowCount === 0) return res.status(404).json({ error: 'Task not found' })
+    const { rows: [existing] } = await pool.query('SELECT group_name FROM tasks WHERE id = $1', [req.params.id])
+    if (!existing) return res.status(404).json({ error: 'Task not found' })
+    if (!canWrite(req.userCtx, existing.group_name)) {
+      return res.status(403).json({ error: `Write access denied for group: ${existing.group_name}` })
+    }
+
+    await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id])
     res.json({ ok: true })
   } catch (err) {
     console.error('DELETE /api/tasks error:', err.message)
