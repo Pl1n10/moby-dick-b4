@@ -1,14 +1,14 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-05-17 (chiusura sessione, fine giornata).
+Stato al 2026-05-18.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
 - Branch: `main` (allineato con `origin/main`)
-- Ultimo commit: `4d7a100` — chore: rename UI from "Moby Dick B4" to "KanbanOps"
-- Working tree: clean (eccetto `.claude/settings.local.json` modifica residua irrilevante)
+- Ultimo commit: `4f95b30` — feat: persist active tab across page reloads
+- Working tree: clean (più update di questo HANDOFF in commit successivo)
 
 ## Step completati in questa sessione (cronologico)
 
@@ -42,10 +42,18 @@ Stato al 2026-05-17 (chiusura sessione, fine giornata).
 ### Rinomina UI
 - `4d7a100` — Header, LoginGate, browser tab title da "🐋 Moby Dick B4" a "KanbanOps". Repo/deploy path/container/package invariati (rinominare li romperebbe).
 
+### Cutover hostname `kanbanops.mauden.com` (2026-05-18)
+- `fdf2a9d` — Doc + template: `CLAUDE.md`, `HANDOFF.md`, `.env.example`, permission WebFetch.
+- `c5cd0c9` — `.dockerignore`: pattern `.env.*` cattura anche backup file creati con sudo (intossicavano il legacy builder context).
+- VM (no commit): sostituito redirect URI in Entra dall'owner Entra, vhost+TLS dal team RP, `VITE_AZURE_REDIRECT_URI` aggiornato in `/opt/moby-dick-b4/.env`, nginx rebuildato. Login SSO confermato funzionante dal nuovo host.
+
+### Persist tab attiva (2026-05-18)
+- `4f95b30` — `App.jsx`: `activeGroup` persistito in `localStorage` (`kanbanops:activeGroup`), validato contro `GROUPS` + `__storico__`. Risolve il fastidio del refresh che riportava sempre a Commvault.
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
-- Hostname pubblico: **`https://kanbanops.mauden.com`** (TLS terminato da RP Mauden) — *cutover dal precedente `mobydick.mauden.com` in attesa team RP/Entra, vedi § Cutover hostname*
+- Hostname pubblico: **`https://kanbanops.mauden.com`** (TLS terminato da RP Mauden) — *cutover dal precedente `mobydick.mauden.com` effettuato 2026-05-18*
 - Stack: 3 container Docker Compose, tutti `Up (healthy)`
   - `moby-db` (postgres:16-alpine, volume `pgdata`)
   - `moby-api` (Express, `AUTH_ENABLED=true`)
@@ -62,40 +70,6 @@ Stato al 2026-05-17 (chiusura sessione, fine giornata).
 5 admin attualmente in DB: Roberto, Amilcare, Alessio, Marco, Andrea.
 
 ## Step pending (in ordine di priorità)
-
-### 0. Cutover hostname `kanbanops.mauden.com` [P0, attesa team RP/Entra dal 2026-05-18]
-
-Strategia: **cutover secco** (nessun utente in prod, downtime accettabile, niente convivenza dei due hostname).
-
-Pre-requisiti esterni (richiesti il 2026-05-18, in attesa):
-1. Team RP Mauden: vhost `kanbanops.mauden.com` + cert TLS sull'RP, dismissione `mobydick.mauden.com`.
-2. Owner Entra: sostituire redirect URI nell'app registration `7e8814ac-13e9-4133-84dc-4673e4773977` da `https://mobydick.mauden.com` a `https://kanbanops.mauden.com` (Authentication blade → Single-page application). Stesso valore anche come *Front-channel logout URL* se valorizzato.
-
-Una volta arrivata conferma, sulla VM (`/opt/moby-dick-b4/`):
-
-```bash
-# 1. Backup .env corrente (rollback safety)
-sudo cp /opt/moby-dick-b4/.env /opt/moby-dick-b4/.env.bak-pre-kanbanops
-
-# 2. Update redirect URI nel .env
-sudo sed -i 's|VITE_AZURE_REDIRECT_URI=https://mobydick.mauden.com|VITE_AZURE_REDIRECT_URI=https://kanbanops.mauden.com|' /opt/moby-dick-b4/.env
-
-# 3. Verifica
-sudo grep VITE_AZURE_REDIRECT_URI /opt/moby-dick-b4/.env
-
-# 4. Rebuild nginx (Vite inietta VITE_* a build time → serve rebuild)
-cd /opt/moby-dick-b4 && docker compose up -d --build nginx
-
-# 5. Smoke test
-curl -I https://kanbanops.mauden.com/         # 200 dal nuovo host
-curl -s https://kanbanops.mauden.com/api/health
-```
-
-Verifica browser (tab incognito): login MSAL → no errore `AADSTS50011` → crea task → espandi subtask → admin panel users visibile.
-
-Rollback se esplode: `sudo cp .env.bak-pre-kanbanops .env && docker compose up -d --build nginx` (richiede però che il vecchio redirect URI sia ancora in Entra — coordinarsi col team Entra prima del cutover per non bruciare entrambi).
-
-Nessuna modifica codice/CORS necessaria: `authConfig.js` ha fallback `window.location.origin`, backend usa `cors()` aperto, l'application ID URI `api://7e8814ac-…` non cambia (token cache resta valida ma utenti rilogghano comunque per cambio origin).
 
 ### 1. Backup off-host [P1, già pending dal 2026-05-12]
 
@@ -152,7 +126,14 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 - Mai assumere credenziali/secrets, mai committarli
 - `.env` vive solo sulla VM (`/opt/moby-dick-b4/.env`), `chmod 600`
 - **Gotcha Dockerfile nginx**: `COPY public ./public` nel build stage obbligatorio
-- **Gotcha docker-compose v1.29.2**: bug `KeyError: 'ContainerConfig'` su `up --force-recreate`. Workaround: `docker ps -aq --filter name=moby | xargs -r docker rm -f && docker-compose up -d`
+- **Gotcha docker-compose v1.29.2**: bug `KeyError: 'ContainerConfig'` su QUALUNQUE recreate dopo rebuild image (non solo `--force-recreate`). NON usare `docker-compose up -d --build`. **Procedura standard** per applicare modifiche che richiedono rebuild (codice FE, `.env` con VITE_*, Dockerfile):
+  ```bash
+  docker-compose build                                                               # solo build, no recreate
+  docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f   # wipe container che cambiano image (db NO)
+  docker-compose up -d                                                               # recreate clean
+  ```
+  Lasciare `moby-db` intatto: pgdata sopravvive comunque (volume nominato), ma evita restart inutili.
+- **Gotcha sudo nei file di repo**: file creati con `sudo` (es. `sudo cp .env .env.bak-...`) finiscono owned by root, illeggibili dal docker daemon che gira come utente non-root → il legacy builder fallisce con "no permission to read from ...". Mitigato dal pattern `.env.*` in `.dockerignore`, ma vale come regola: backup/temp file di root → fuori dalla repo dir (`/opt/.env.bak-*` o `/root/`).
 - **Gotcha terminal paste**: terminale dell'utente prepende 2 spazi alle righe pastate. Heredoc `<<'EOF'` fallisce. Usare `nano` per file multi-line, `psql -c` per SQL una riga.
 
 ## Come verificare lo stato verde
