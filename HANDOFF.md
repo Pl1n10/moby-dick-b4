@@ -7,7 +7,7 @@ Stato al 2026-05-18.
 ## Stato git
 
 - Branch: `main` (allineato con `origin/main`)
-- Ultimo commit: `4f95b30` — feat: persist active tab across page reloads
+- Ultimo commit: `574e4a6` — feat(ui): per-pillar operator UI gating + scope checkboxes
 - Working tree: clean (più update di questo HANDOFF in commit successivo)
 
 ## Step completati in questa sessione (cronologico)
@@ -50,6 +50,10 @@ Stato al 2026-05-18.
 ### Persist tab attiva (2026-05-18)
 - `4f95b30` — `App.jsx`: `activeGroup` persistito in `localStorage` (`kanbanops:activeGroup`), validato contro `GROUPS` + `__storico__`. Risolve il fastidio del refresh che riportava sempre a Commvault.
 
+### Ruoli operator per-pillar (2026-05-18)
+- `1f3f7eb` — Backend: migration 007 aggiunge `users.operator_groups TEXT[]`. `auth.js` espone `loadUserContext` middleware + helper `canWrite` + `requireWriteAccess(getGroups)`. Routes `tasks` e `subtasks` rifattorizzate: POST/PATCH/DELETE controllano il group del task (PATCH con cambio gruppo verifica vecchio E nuovo). `/api/me` ritorna `operatorGroups`; `/api/users` POST/PATCH validano e persistono il campo. Reset e CRUD users restano admin-only. Recurring NON toccato — iterazione 2 in pending.
+- `574e4a6` — Frontend: `UserInfoProvider` espone `useCanWrite()` (mirror di `canWrite` backend). `App.jsx` deriva `canAdd` per la tab attiva. `Toolbar`/`TaskTable`/`TaskRow` disabilitano azioni fuori scope; `SubtaskList` eredita il readOnly per riga. `UserMenu` badge diventa "Operator: Cmv · NBU" per viewer con scope. `UsersModal` ha nuova colonna **Scope** con 4 checkbox per riga + checkbox nel form di add.
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
@@ -63,13 +67,26 @@ Stato al 2026-05-18.
 
 | Chi | Cosa fa al primo login | Cosa può fare |
 |-----|------------------------|---------------|
-| Admin in tabella users | Login SSO → role=admin | Crea/modifica/elimina task + gestisce checklist + reset + recurring |
-| Viewer auto-registrato | Login SSO → INSERT auto come viewer + display_owner=name JWT | Vede tutto in read-only, **è selezionabile come owner** di task creati da admin |
+| Admin in tabella users | Login SSO → role=admin | Crea/modifica/elimina task + subtask + recurring di QUALUNQUE pillar + reset + gestione utenti |
+| Viewer + operator_groups non vuoto (Operator) | n/a (assegnato da admin) | RO globale + RW (task + subtask) sui pillar listati. Recurring: solo admin per ora. |
+| Viewer auto-registrato (operator_groups vuoto) | Login SSO → INSERT auto come viewer + display_owner=name JWT | Vede tutto in read-only, **è selezionabile come owner** di task creati da admin |
 | Non-Mauden | Bloccato da Entra (single-tenant) | — |
 
 5 admin attualmente in DB: Roberto, Amilcare, Alessio, Marco, Andrea.
 
 ## Step pending (in ordine di priorità)
+
+### 0. Recurring operator-aware (iterazione 2) [P2]
+
+Iterazione 1 (`1f3f7eb`/`574e4a6`) ha fermato lo scope a tasks + subtasks. I recurring template restano admin-only perché l'attuale API ha forma "replace all":
+
+- `PUT /api/recurring` riceve l'INTERO array di template, fa `DELETE FROM recurring_templates` + bulk insert in transazione.
+- `RecurringModal` (FE) opera col pattern "edita la lista intera, salva tutto in un colpo".
+
+Per dare write granulare ai pillar:
+1. Backend: aggiungere `POST /api/recurring`, `PATCH /api/recurring/:id`, `DELETE /api/recurring/:id`. Ognuno con check `canWrite(req.userCtx, template.group)` (PATCH che cambia group → check su vecchio E nuovo, come per task). Il `PUT` esistente può restare admin-only come "bulk replace" per uso amministrativo, oppure essere rimosso del tutto.
+2. Frontend: refactor `RecurringModal` da "save all on submit" a "save per riga" o "save delta". `useRecurring` hook adeguato. `Toolbar` espone il bottone Recurring anche agli operator, ma il modal mostra come read-only le righe di pillar fuori scope.
+3. Decisione UX: nel modal mostrare anche i template degli altri pillar (greyed) o solo i propri? Confermare con utente.
 
 ### 1. Backup off-host [P1, già pending dal 2026-05-12]
 

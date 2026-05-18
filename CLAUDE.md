@@ -193,7 +193,8 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - [x] Export CSV del gruppo attivo (separator `;` + BOM UTF-8 per Excel italiano)
 - [x] Reset con conferma testuale "RESET" (`window.prompt`)
 - [x] **Subtasks checklist** — tendina espandibile sotto la row, badge "N/M", vincolo "padre non chiudibile con subtask aperti" enforced backend
-- [x] **Paginetta admin users** — `UsersModal` raggiungibile dal `UserMenu` (admin-only). CRUD su tabella users: inline edit display_owner, role select, hide (set NULL), remove, manual add. Guardrail anti-lockout (admin non può demotare/cancellare se stesso).
+- [x] **Paginetta admin users** — `UsersModal` raggiungibile dal `UserMenu` (admin-only). CRUD su tabella users: inline edit display_owner, role select, hide (set NULL), remove, manual add. Guardrail anti-lockout (admin non può demotare/cancellare se stesso). Colonna **Scope** con 4 checkbox (Cmv/Coh/DD/NBU) per assegnare `operator_groups` ai viewer (capability additiva, ignorata per gli admin).
+- [x] **Ruoli operator per-pillar** — colonna `users.operator_groups TEXT[]`. Viewer con scope `['Commvault']` diventa RW sul pillar Commvault (RO altrove). Enforcement granulare su tasks + subtasks lato backend (`canWrite` helper + `loadUserContext` middleware). UI Toolbar/TaskTable disabilitano azioni fuori scope, badge UserMenu mostra gli scope. **Recurring resta admin-only — iterazione 2 nello HANDOFF.**
 - [ ] Sostituire `window.confirm()` / `window.prompt()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
 - [ ] Drag & drop riordinamento task (P4)
@@ -235,9 +236,12 @@ Il prodotto si chiama **KanbanOps** ma diverse cose tecniche mantengono lo slug 
 ### Modello permessi
 
 - Chiunque `@mauden` può loggarsi (single-tenant Entra)
-- **Auto-register su `/api/me`**: primo login → INSERT in `users` con `display_owner = name dal JWT`, `role = 'viewer'`. ON CONFLICT DO NOTHING preserva modifiche manuali admin.
-- `role='admin'` → enforce backend su tutti i mutating endpoint (POST/PATCH/DELETE tasks + recurring + subtasks + tasks/reset)
-- `role='viewer'` (default) → solo lettura. Frontend nasconde Add/Reset/Recurring/Delete + badge "Read-only"
+- **Auto-register su `/api/me`**: primo login → INSERT in `users` con `display_owner = name dal JWT`, `role = 'viewer'`, `operator_groups = '{}'`. ON CONFLICT DO NOTHING preserva modifiche manuali admin.
+- **`role='admin'`** → full access. Crea/modifica/elimina task, subtask e recurring template di qualunque pillar. Reset e gestione utenti restano admin-only sempre.
+- **`role='viewer'`** + `operator_groups = '{}'` → solo lettura (default per i nuovi auto-registrati). Frontend mostra badge "Read-only", nasconde Add/Reset/Recurring/Delete.
+- **`role='viewer'`** + `operator_groups` non vuoto → operatore di pillar. Read-only ovunque MA può creare/modificare/eliminare task e subtask sui pillar listati. Cumulabile (es. `['Commvault','Cohesity']` = operator su entrambi). Recurring template per ora restano admin-only (vedi iterazione 2 in `HANDOFF.md`). Frontend mostra badge "Operator: Commvault · …".
+- **Enforcement backend**: `loadUserContext` middleware (auth.js) carica role + operator_groups in `req.userCtx`. `canWrite(userCtx, group)` decide per ogni mutation. PATCH di un task che cambia gruppo richiede write su **entrambi** vecchio e nuovo (no escalation laterale).
+- **`VALID_GROUPS`** in `backend/src/auth.js` è la single source of truth per i nomi dei pillar accettati in `operator_groups`. Da mantenere in sync col CHECK constraint `tasks.group_name` e con `GROUPS` in `src/data.js`.
 - **Lista owner dinamica**: `GET /api/users/owners` ritorna gli `display_owner` non-NULL → frontend `OwnersProvider` popola le select. Set `display_owner=NULL` per nascondere un user dal picker senza cancellarlo.
 
 ### Admin attualmente registrati (in `migration 004_team_real.sql`)
