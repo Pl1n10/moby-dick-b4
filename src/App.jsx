@@ -32,8 +32,8 @@ export default function App() {
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
-  const { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset, updateSubtaskCounters } = useTasks()
-  const { recurring, setRecurring, showRecurringModal, setShowRecurringModal, clearRecurring } = useRecurring(setTasks)
+  const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters } = useTasks()
+  const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
   const userInfo = useUserInfo()
   const owners = useOwners()
   const canWrite = useCanWrite()
@@ -69,7 +69,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#0d1117', color: '#e6edf3' }}>
-      <Header onReset={() => handleReset(clearRecurring, clearFilters)} />
+      <Header />
 
       <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} />
 

@@ -1,9 +1,7 @@
 import S from '../styles.js'
 import UserMenu from '../auth/UserMenu.jsx'
-import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
 
-export default function Header({ onReset }) {
-  const isAdmin = useIsAdmin()
+export default function Header() {
   return (
     <header style={{
       padding: '20px 32px', borderBottom: '1px solid #21262d',
@@ -21,14 +19,8 @@ export default function Header({ onReset }) {
         </h1>
         <UserMenu />
       </div>
-      <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: S.sans, display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: S.sans }}>
         Backup Task Tracker
-        {isAdmin && (
-          <button onClick={onReset} title="Reset data" style={{
-            padding: '4px 10px', background: 'none', border: '1px solid #30363d',
-            borderRadius: '4px', color: '#8b949e', fontSize: '11px', fontFamily: S.mono, cursor: 'pointer',
-          }}>↺ Reset</button>
-        )}
       </span>
     </header>
   )

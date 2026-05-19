@@ -91,30 +91,6 @@ export default function useTasks() {
     }
   }
 
-  // ── Reset all data ─────────────────────────────────────
-  // Conferma testuale anti-click-accidentale: l'utente deve scrivere RESET.
-  const handleReset = (clearRecurring, clearFilters) => {
-    const input = window.prompt(
-      '⚠️  Questa azione cancellerà TUTTI i task e i recurring template.\n\n' +
-      'Per confermare, scrivi RESET (maiuscolo) qui sotto:'
-    )
-    if (input === null) return
-    if (input.trim() !== 'RESET') {
-      window.alert('Conferma non valida — operazione annullata.')
-      return
-    }
-
-    lastUpdateRef.current = Date.now()
-
-    apiFetch(`${API}/tasks/reset`, { method: 'POST' })
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setTasks(data) })
-      .catch(err => console.error('Failed to reset:', err))
-
-    clearRecurring()
-    clearFilters()
-  }
-
   // Bumps the parent task's subtask counters after a checklist mutation.
   // Avoids a full /api/tasks refetch on every add/toggle/delete.
   const updateSubtaskCounters = (taskId, { totalDelta = 0, openDelta = 0 }) => {
@@ -128,5 +104,5 @@ export default function useTasks() {
     ))
   }
 
-  return { tasks, setTasks, updateTask, handleAdd, handleDelete, handleReset, updateSubtaskCounters }
+  return { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters }
 }

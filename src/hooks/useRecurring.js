@@ -30,12 +30,5 @@ export default function useRecurring(/* setTasks — unused, kept for API compat
     }).catch(err => console.error('Failed to save recurring:', err))
   }
 
-  // ── Clear all (called during reset) ────────────────────
-  const clearRecurring = () => {
-    setRecurringState([])
-    apiFetch(`${API}/recurring`, { method: 'DELETE' })
-      .catch(err => console.error('Failed to clear recurring:', err))
-  }
-
-  return { recurring, setRecurring, showRecurringModal, setShowRecurringModal, clearRecurring }
+  return { recurring, setRecurring, showRecurringModal, setShowRecurringModal }
 }
