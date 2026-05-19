@@ -6,6 +6,7 @@ import useRecurring from './hooks/useRecurring.js'
 import { useUserInfo, useCanWrite } from './auth/UserInfoProvider.jsx'
 import { useOwners } from './auth/OwnersProvider.jsx'
 import Header from './components/Header.jsx'
+import Footer from './components/Footer.jsx'
 import TabNav from './components/TabNav.jsx'
 import Toolbar from './components/Toolbar.jsx'
 import TaskTable from './components/TaskTable.jsx'
@@ -99,6 +100,8 @@ export default function App() {
           onSubtaskCountChange={updateSubtaskCounters}
         />
       </main>
+
+      <Footer />
 
       {showRecurringModal && (
         <RecurringModal
