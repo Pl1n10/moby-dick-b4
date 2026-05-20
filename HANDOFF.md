@@ -6,9 +6,9 @@ Stato al 2026-05-20.
 
 ## Stato git
 
-- Branch: `main` (locale **avanti di 3 commit** su `origin/main` — push non ancora effettuato)
+- Branch: `main` (locale **avanti di 4 commit** su `origin/main` — push non ancora effettuato)
 - Ultimo commit pushato: `ade7da1` — refactor(ui): remove Reset button from header
-- Ultimi commit locali: `0d8aa42` footer · `9ae47b2` easter egg Bit Adder · notifiche di assegnazione (commit successivo)
+- Ultimi commit locali: `0d8aa42` footer · `9ae47b2` Bit Adder · `f5806ab` notifiche di assegnazione · (questo: aggiornamento HANDOFF)
 - Working tree: clean
 - Tag annotato `mauden-prod-2026-05-19` → `ade7da1` (stato attualmente in produzione su `mauden-ubuntu`, pre-easter-egg). Spinto su origin. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
@@ -89,7 +89,7 @@ Clicker game nascosto. Trigger: 7 tap rapidi (entro 3s) su `KanbanOps v1.0`. Dra
 - HANDOFF.md: questa sezione.
 - README.md: **deliberatamente NON aggiornato** — l'easter egg deve restare nascosto a chi clona il repo casualmente. CLAUDE.md (dev-facing) lo documenta, README (utente-facing) no.
 
-### Notifiche di assegnazione (2026-05-20)
+### Notifiche di assegnazione (2026-05-20) — `f5806ab`
 
 Notifica all'owner quando gli viene assegnato un task. Architettura: il backend rileva l'assegnazione → POST webhook → Flow Power Automate → email/Teams. La scelta del canale vive nel Flow, il backend è agnostico.
 
