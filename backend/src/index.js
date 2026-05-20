@@ -7,6 +7,7 @@ import tasksRouter from './routes/tasks.js'
 import recurringRouter from './routes/recurring.js'
 import meRouter from './routes/me.js'
 import usersRouter from './routes/users.js'
+import bitadderRouter from './routes/bitadder.js'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -26,6 +27,7 @@ app.use('/api/me', requireAuth, loadUserContext, meRouter)
 app.use('/api/users', requireAuth, loadUserContext, usersRouter)
 app.use('/api/tasks', requireAuth, loadUserContext, tasksRouter)
 app.use('/api/recurring', requireAuth, loadUserContext, recurringRouter)
+app.use('/api/bitadder', requireAuth, loadUserContext, bitadderRouter)
 
 console.log(`Auth: ${AUTH_ENABLED ? 'ENABLED (Entra ID)' : 'DISABLED (demo mode)'}`)
 

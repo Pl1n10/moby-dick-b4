@@ -1,14 +1,16 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-05-18.
+Stato al 2026-05-19.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
-- Branch: `main` (allineato con `origin/main`)
-- Ultimo commit: `574e4a6` — feat(ui): per-pillar operator UI gating + scope checkboxes
-- Working tree: clean (più update di questo HANDOFF in commit successivo)
+- Branch: `main` (locale **avanti di 2 commit** su `origin/main` — push previsto a fine giornata 2026-05-19 dopo lo smoke deploy)
+- Ultimo commit pushato: `ade7da1` — refactor(ui): remove Reset button from header
+- Ultimo commit locale: `0d8aa42` — feat(ui): add app footer with version and copyright
+- Working tree: dirty con il feature uncommitted dell'easter egg Bit Adder (backend + frontend + migration 009 + doc, vedi sezione sotto)
+- Tag annotato `mauden-prod-2026-05-19` → `ade7da1` (stato attualmente in produzione su `mauden-ubuntu`, pre-easter-egg). Spinto su origin. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
 
@@ -58,6 +60,35 @@ Stato al 2026-05-18.
 - Rename pillar `Data Domain` → `Data Domain - ZFS`. Aggiornati `src/data.js` (GROUPS), `backend/src/auth.js` (VALID_GROUPS), `src/components/UsersModal.jsx` (PILLAR_SHORT key). Migration `008_rename_data_domain.sql`: UPDATE idempotente di `tasks.group_name`, `recurring_templates.group_name` e `users.operator_groups` (via `array_replace`). Doc allineati (CLAUDE.md, README.md, package.json).
 - Nuovo componente `src/components/Linkify.jsx`: parsa testo, trasforma URL `https?://` in `<a target="_blank" rel="noopener noreferrer">` e strippa punteggiatura finale dall'href. Riusa `Highlight` per la query di ricerca dentro testo e label dell'anchor. `onClick stopPropagation` evita che il click sul link triggeri l'editing nel `<span>` cliccabile di `EditableText`. Wired in: `TaskRow` (read-only description), `EditableText` con nuova prop `linkify` (usata in `TaskRow` writable per la description), `SubtaskList` (read-only). I subtask scrivibili restano `<input>` puro: il link è cliccabile solo quando il subtask non è in editing.
 
+### Rimozione bottone Reset (2026-05-19)
+- `ade7da1` — `Header.jsx`: rimosso bottone `↺ Reset` (era admin-only, `window.prompt('RESET')`). Endpoint `POST /api/tasks/reset` rimane vivo nel backend per emergenze via curl admin. In cascata: rimossa `handleReset` da `useTasks`, `clearRecurring` da `useRecurring`, import `useIsAdmin` da `Header.jsx`. Motivazione: in produzione su dati reali un bottone che fa `TRUNCATE + reseed` è troppo rischioso anche se gated; per azzerare il DB il modo giusto è `docker exec moby-db psql ...` con accesso VM.
+
+### Footer professionale (2026-05-19)
+- `0d8aa42` — Nuovo `src/components/Footer.jsx`: layout `KanbanOps v1.0 · © 2026 Mauden`, statico a fine pagina (non fixed), border-top `#21262d` come l'header, font version in mono, copyright in sans. Montato in `App.jsx` dopo `</main>`. Posa le fondamenta per l'easter egg Bit Adder (sessione successiva).
+
+### Easter egg "Bit Adder" (2026-05-19) — UNCOMMITTED
+
+Clicker game nascosto. Trigger: 7 tap rapidi (entro 3s) su `KanbanOps v1.0`. Drawer espanso sotto il footer normale con clicker / shop / leaderboard. Tasto Hide collassa al footer normale (i bot continuano a ticchettare in background fino al refresh pagina). Tema: "aggiungo un bit", riferimento a un collega.
+
+**Backend**
+- `backend/migrations/009_bitadder.sql` — tabella `bit_adder(email PK FK → users(email) ON DELETE CASCADE, bits BIGINT, bots INT, updated_at)`. CHECK ≥ 0 su entrambi.
+- `backend/src/routes/bitadder.js` — 4 endpoint:
+  - `GET /api/bitadder/me` (auto-INSERT alla prima chiamata)
+  - `POST /api/bitadder/click` body `{delta, elapsedSec}`, server clampa silenziosamente a `(50 * elapsedSec) + (bots * elapsedSec * 1.5) + 5`
+  - `POST /api/bitadder/buy-bot` prezzo `floor(1024 * 1.15^bots)` (1 Kibit base — l'automazione si paga)
+  - `GET /api/bitadder/leaderboard` top 10 + own row se fuori top, display name = `COALESCE(display_owner, split_part(email,'@',1))`
+- Mount in `backend/src/index.js` con `requireAuth + loadUserContext` come gli altri.
+
+**Frontend**
+- `src/hooks/useBitAdder.js` — hook attivato (`active=true`) dal Footer dopo lo sblocco. Fetch iniziale `/me`, tick locale 1s (`bits += bots`), batch POST `/click` ogni 5s con delta accumulato, riallineamento al valore server. Refresh leaderboard 15s ma solo se `visible=true` (no spam quando hidden). `buyBot()` flusha il delta pendente prima del POST per evitare TOCTOU.
+- `src/components/BitAdder.jsx` — UI presentazionale: tre pannelli (Clicker / Shop / Leaderboard), border `#21262d`, palette coerente col tema dark. Hide button in alto a destra. `Intl.NumberFormat('it-IT')` per i grandi numeri.
+- `src/components/Footer.jsx` — riscritto: tap counter su versione, `unlocked` stato che persiste solo in memoria (refresh pagina = ricomincia), `visible` toggle. ScrollIntoView smooth al primo unlock per portare il drawer in vista.
+
+**Doc**
+- CLAUDE.md: aggiunti Footer.jsx + BitAdder.jsx + useBitAdder.js alla project structure, 4 righe per `/api/bitadder/*` nell'API table, descrizione `bit_adder` table nello schema, nuova sezione "Hidden feature — Bit Adder" tra Conventions e Upgrade TODO con economia/anti-cheat/file map, aggiornato item Reset come done-strikethrough nella feature UX, aggiunto item Footer + easter egg.
+- HANDOFF.md: questa sezione.
+- README.md: **deliberatamente NON aggiornato** — l'easter egg deve restare nascosto a chi clona il repo casualmente. CLAUDE.md (dev-facing) lo documenta, README (utente-facing) no.
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
@@ -77,6 +108,39 @@ Stato al 2026-05-18.
 | Non-Mauden | Bloccato da Entra (single-tenant) | — |
 
 5 admin attualmente in DB: Roberto, Amilcare, Alessio, Marco, Andrea.
+
+## Strategia evoluzione (2026-05-19) — fork per MSP expansion
+
+Il manager dell'utente ha prospettato un'estensione di KanbanOps a tutta l'area "servizi gestiti" Mauden se il rollout interno va bene. Sceneggiatura plausibile: 5+ team interni, eventualmente uso fuori Mauden. Se si concretizza, verranno assegnati dev dedicati al progetto.
+
+**Decisione: fork-driven, non multi-tenant in single repo.**
+
+Razionale:
+- È ancora una fase esplorativa: il successo non è scontato, non vale la pena di pagare 1-2 settimane di refactor multi-tenant ora.
+- Se davvero si diffonde, arrivano dev veri che possono decidere la giusta architettura (probabilmente proprio multi-tenant). A loro lasciamo una base pulita, non un fork ammuffito.
+- Nel frattempo l'utente lavora sul fork senza paura di rompere la prod Mauden.
+
+**Tagging strategy** (per la sicurezza della prod Mauden):
+
+- `mauden-prod-YYYY-MM-DD` è la convention. Ogni snapshot stabile di produzione riceve un tag. La VM Mauden può sempre tornare a un tag noto se qualcosa va storto.
+- Tag in essere: `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Dopo il deploy dell'easter egg stasera, aggiungere un secondo tag (`mauden-prod-2026-05-19b` o ridenominabile) al commit finale.
+- **Pinning attivo del deploy script NON ancora applicato**. La VM continua a fare `git pull` su `main`. Il pinning (sostituire `git pull` con `git fetch && git checkout <tag>` nello script di deploy a `/opt/moby-dick-b4/`) verrà applicato quando l'utente inizierà davvero il fork generico, non prima.
+
+**Plan d'azione quando si parte col fork** (futuro, non oggi):
+
+1. Creare repo `kanbanops-msp` (o nome a piacere) da `mauden-prod-<ultimo-tag>`.
+2. Sulla VM Mauden: modificare lo script di deploy per fare `git fetch origin && git checkout <ultimo-tag-mauden>` invece di `git pull`. Da quel momento, `main` può divergere senza toccare prod.
+3. Nel fork, **disegnare i nuovi meccanismi multi-gruppo come data-driven fin da subito** anche se è un fork:
+   - Tabella `pillars` (id, name, position, active) invece di array hardcoded in `src/data.js` + `auth.js`. Migration idempotente che seeda i pillar correnti per Mauden. CHECK constraint `tasks.group_name` → FK su `pillars.name`.
+   - `BOOTSTRAP_ADMIN_EMAILS` da `.env` invece di migration 004 con email Mauden hardcoded.
+   - `APP_NAME`, `BRAND_LOGO_URL` da `.env` invece di "KanbanOps" + logo Mauden nel codice.
+4. Costo: poco più del fork copia-rinomina, beneficio doppio (ogni nuovo "cliente"/team = variabile d'ambiente, e il futuro dev team eredita una base pulita).
+
+**File toccati per la strategia** (oggi):
+
+- Tag `mauden-prod-2026-05-19` creato e pushato.
+- `HANDOFF.md`: questa sezione.
+- `CLAUDE.md`: nota tag convention nella sezione operations.
 
 ## Step pending (in ordine di priorità)
 
@@ -137,6 +201,10 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 - **Waiting status ≠ waiting boolean**: lo stato `Waiting` (uno dei 5 STATUSES) rimane. Il booleano parallelo `waiting` è stato rimosso (era ridondante).
 - **HTTPS lato RP Mauden**: VM HTTP puro internamente, TLS termination esterna.
 - **Logo Mauden in card bianca**: il file ufficiale è nero su sfondo. La card chiara dentro UI scura è coerente col pattern già usato dai status badge.
+- **Bit Adder server-authoritative**: il client tiene un contatore display ottimistico e batcha i delta ogni 5s. Il server clampa silenziosamente (mai 4xx) per non rompere il gioco con tab in background o throttling browser. Dopo ogni `/click` il client si riallinea al valore server tornato — quindi un client che bara vede comunque un numero "vero" che eventualmente lo smentisce.
+- **Bit Adder prezzo base 1024**: nasce dalla richiesta "almeno 1kb" — 1 Kibit (1024 bit) è la base più tematica. La curva `1.15^k` è il classico Cookie Clicker: il primo bot richiede ~3 min di click manuale spammando, dopodiché lo snowball prende il sopravvento.
+- **Bit Adder bot in background quando hidden**: scelta esplicita per non punire chi nasconde per panic (collega in ufficio). Lo hook `useBitAdder` resta attivo finché la pagina è aperta. Refresh = stop totale + risync allo stato server.
+- **Bit Adder NON documentato in README**: README è user-facing, l'easter egg deve restare scopribile solo dal trigger. CLAUDE.md (dev/AI-facing) documenta tutto perché chi tocca il codice deve sapere cosa non rompere.
 
 ## Workflow concordato con l'utente
 

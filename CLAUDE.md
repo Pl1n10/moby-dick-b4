@@ -51,6 +51,8 @@ docker compose down         # Stop all services
 │   ├── index.css                 # Minimal global reset
 │   ├── components/
 │   │   ├── Header.jsx
+│   │   ├── Footer.jsx            # Version + easter egg trigger (7-tap on v1.0)
+│   │   ├── BitAdder.jsx          # Hidden clicker drawer (Bit Adder game)
 │   │   ├── TabNav.jsx
 │   │   ├── Toolbar.jsx
 │   │   ├── TaskTable.jsx
@@ -65,7 +67,8 @@ docker compose down         # Stop all services
 │   │       └── EditableDate.jsx
 │   └── hooks/
 │       ├── useTasks.js           # Task CRUD + optimistic updates + polling
-│       └── useRecurring.js       # Recurring templates CRUD (processing is server-side)
+│       ├── useRecurring.js       # Recurring templates CRUD (processing is server-side)
+│       └── useBitAdder.js        # Bit Adder game state + batched server sync
 │
 ├── backend/                      # ── Backend ───────────────────────
 │   ├── package.json
@@ -79,7 +82,8 @@ docker compose down         # Stop all services
 │       ├── recurring-processor.js # Server-side recurring task creation
 │       └── routes/
 │           ├── tasks.js          # CRUD + reset + waiting↔status sync
-│           └── recurring.js      # Templates CRUD
+│           ├── recurring.js      # Templates CRUD
+│           └── bitadder.js       # Easter egg game endpoints (state/click/buy/leaderboard)
 │
 └── nginx/                        # ── Reverse Proxy ─────────────────
     ├── Dockerfile                # Multi-stage: builds frontend, serves via nginx
@@ -117,6 +121,10 @@ Startup chain: **db healthy** → **api healthy** → **nginx starts**
 | GET | `/api/recurring` | List recurring templates |
 | PUT | `/api/recurring` | Replace all templates |
 | DELETE | `/api/recurring` | Clear all templates |
+| GET | `/api/bitadder/me` | Easter egg: current player state (auto-INSERT alla prima chiamata) |
+| POST | `/api/bitadder/click` | Easter egg: batch delta sync, server clampa rate |
+| POST | `/api/bitadder/buy-bot` | Easter egg: spende bit per +1 bot al prezzo corrente |
+| GET | `/api/bitadder/leaderboard` | Easter egg: top 10 + propria riga se fuori top |
 
 ### Database Schema (001_init.sql)
 
@@ -126,6 +134,10 @@ Startup chain: **db healthy** → **api healthy** → **nginx starts**
 
 **recurring_templates** table:
 - `id` UUID PK, `group_name`, `reference`, `description`, `owner`, `frequency` (CHECK: daily/weekly/monthly), `scheduled_time`, `last_created_date`, `active`, `created_at`
+
+**bit_adder** table (easter egg):
+- `email` TEXT PK FK → `users(email)` ON DELETE CASCADE, `bits` BIGINT CHECK ≥ 0, `bots` INT CHECK ≥ 0, `updated_at`
+- Una riga per giocatore. Cancellazione di un user via admin panel ⇒ wipe automatico dello score.
 
 ### Key Business Logic: Waiting ↔ Status Sync
 
@@ -174,11 +186,45 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - No TypeScript, no tests, no linting configured (debito tecnico noto)
 - All styling is inline (CSS-in-JS objects) — no external CSS files besides index.css reset
 - UUIDs via `crypto.randomUUID()` (frontend) or `gen_random_uuid()` (PostgreSQL)
-- `window.confirm()` per delete, `window.prompt('RESET')` per reset — system dialog, da sostituire
+- `window.confirm()` per delete — system dialog, da sostituire (il prompt di reset è stato rimosso dall'UI nel commit `ade7da1`; endpoint `POST /api/tasks/reset` resta vivo per emergenze via curl con JWT admin)
 - Sorting sempre per `updatedAt` desc
 - Commit messages: `feat:`, `fix:`, `refactor:`, `chore:` prefissi
 - **Owners list dinamica**: `display_owner` valorizzati nella tabella `users`. Popolazione self-service via `/api/me` (auto-INSERT al primo login). Frontend via `OwnersProvider` context, no più `OWNERS` hardcoded.
 - **Migrations idempotenti**: `runMigrations()` (`backend/src/db.js`) riapplica TUTTI i file `.sql` ad ogni boot. Ogni migration usa `IF NOT EXISTS`, `ON CONFLICT`, guard `DO $$ BEGIN ... EXCEPTION`, ecc.
+
+## Hidden feature — Bit Adder (easter egg)
+
+> Promemoria per chi tocca il codice in futuro: c'è un piccolo gioco nascosto. Non rompetelo per sbaglio.
+
+**Trigger**: 7 tap rapidi (entro 3 secondi) sulla stringa "KanbanOps v1.0" nel `Footer`. Sblocca per la sessione corrente un drawer espanso sotto il footer normale con tre pannelli: clicker, shop bot, leaderboard.
+
+**Stato**: tabella `bit_adder` (FK su `users(email)`, ON DELETE CASCADE). Persistenza cross-device legata alla mail Entra. Top 10 globale + propria riga se fuori dai top 10. Reset dello score di un utente: cancellare la riga in `bit_adder` (la riga `users` non viene toccata).
+
+**Economia**: prezzo del k-esimo bot = `floor(1024 * 1.15^k)` — il primo bot costa 1 Kibit. Ogni bot genera 1 bit/sec. Curva e base centralizzate in `backend/src/routes/bitadder.js` (`nextBotPrice`).
+
+**Anti-cheat**: client batcha i delta ogni 5s; server clampa a `(50 * elapsedSec) + (bots * elapsedSec * 1.5) + 5`. Non rifiuta mai per evitare di rompere il gioco con tab in background — cappa silenziosamente. La sanity è grossolana per design (è un easter egg, non un competitive ranking).
+
+**Hide button**: collassa al footer normale; lo hook `useBitAdder` resta attivo finché la pagina non si refresha, quindi i bot continuano a ticchettare in background. Per nascondersi davvero (es. collega in ufficio) basta cliccare Hide.
+
+**File coinvolti**:
+- `backend/migrations/009_bitadder.sql`
+- `backend/src/routes/bitadder.js` (mount in `index.js`)
+- `src/hooks/useBitAdder.js`
+- `src/components/BitAdder.jsx`
+- `src/components/Footer.jsx` (trigger + drawer host)
+
+## Operations & deploy strategy
+
+- **Deploy in produzione**: VM `mauden-ubuntu` con `docker-compose` v1.29.2 (con trattino, NON `docker compose`). Procedura standard per applicare modifiche di codice o `.env`:
+  ```bash
+  cd /opt/moby-dick-b4 && git pull && docker-compose build
+  docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
+  docker-compose up -d
+  ```
+  Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con BuildKit). `moby-db` non viene toccato dal recreate.
+- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-05-19` → `ade7da1`.
+- **Pinning del deploy a un tag**: **non ancora attivo**. La VM continua a fare `git pull` su `main`. Diventerà necessario quando si inizierà il fork generico per "servizi gestiti", per evitare che cambiamenti generici raggiungano la prod Mauden via pull. Lo snippet di deploy da applicare alla VM in quel momento è descritto in `HANDOFF.md`.
+- **Fork strategy**: il software è oggi mono-tenant Mauden con pillar/admin/brand hardcoded. Se si concretizza l'espansione interna al settore "servizi gestiti", si forka invece di rifattorizzare a multi-tenant — decisione e razionale in `HANDOFF.md`. Quando arriva il momento, anche nel fork si parte data-driven (tabella `pillars`, env per admin bootstrap e brand) per non ripetere l'errore degli hardcode.
 
 ## Upgrade TODO
 
@@ -193,11 +239,12 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - [x] Rinominato pillar "Data Domain" → "Data Domain - ZFS" (migration 008, riflette la natura ZFS-based dello storage in produzione)
 - [x] Link cliccabili nelle description di task e subtask (auto-detect URL `https?://`, target `_blank`, `rel="noopener noreferrer"`) — utile per puntare a documenti SharePoint. Componente `src/components/Linkify.jsx`, integrato in `TaskRow`, `EditableText` (prop `linkify`) e `SubtaskList` (read-only). In edit mode i subtask restano `<input>`: il link è cliccabile solo a editing chiuso.
 - [x] Export CSV del gruppo attivo (separator `;` + BOM UTF-8 per Excel italiano)
-- [x] Reset con conferma testuale "RESET" (`window.prompt`)
+- [x] ~~Reset con conferma testuale "RESET" (`window.prompt`)~~ — bottone rimosso dall'UI (`ade7da1`). Endpoint `POST /api/tasks/reset` rimane vivo per emergenze via curl admin.
+- [x] **Footer professionale** con versione (`KanbanOps v1.0 · © 2026 Mauden`). Include easter egg "Bit Adder" — vedi sezione dedicata sopra.
 - [x] **Subtasks checklist** — tendina espandibile sotto la row, badge "N/M", vincolo "padre non chiudibile con subtask aperti" enforced backend
 - [x] **Paginetta admin users** — `UsersModal` raggiungibile dal `UserMenu` (admin-only). CRUD su tabella users: inline edit display_owner, role select, hide (set NULL), remove, manual add. Guardrail anti-lockout (admin non può demotare/cancellare se stesso). Colonna **Scope** con 4 checkbox (Cmv/Coh/DD/NBU) per assegnare `operator_groups` ai viewer (capability additiva, ignorata per gli admin).
 - [x] **Ruoli operator per-pillar** — colonna `users.operator_groups TEXT[]`. Viewer con scope `['Commvault']` diventa RW sul pillar Commvault (RO altrove). Enforcement granulare su tasks + subtasks lato backend (`canWrite` helper + `loadUserContext` middleware). UI Toolbar/TaskTable disabilitano azioni fuori scope, badge UserMenu mostra gli scope. **Recurring resta admin-only — iterazione 2 nello HANDOFF.**
-- [ ] Sostituire `window.confirm()` / `window.prompt()` con modal custom dark theme (P2)
+- [ ] Sostituire `window.confirm()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
 - [ ] Drag & drop riordinamento task (P4)
 
