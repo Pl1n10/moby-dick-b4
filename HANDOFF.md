@@ -1,15 +1,15 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-05-19.
+Stato al 2026-05-20.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
-- Branch: `main` (locale **avanti di 2 commit** su `origin/main` — push previsto a fine giornata 2026-05-19 dopo lo smoke deploy)
+- Branch: `main` (locale **avanti di 3 commit** su `origin/main` — push non ancora effettuato)
 - Ultimo commit pushato: `ade7da1` — refactor(ui): remove Reset button from header
-- Ultimo commit locale: `0d8aa42` — feat(ui): add app footer with version and copyright
-- Working tree: dirty con il feature uncommitted dell'easter egg Bit Adder (backend + frontend + migration 009 + doc, vedi sezione sotto)
+- Ultimi commit locali: `0d8aa42` footer · `9ae47b2` easter egg Bit Adder · notifiche di assegnazione (commit successivo)
+- Working tree: clean
 - Tag annotato `mauden-prod-2026-05-19` → `ade7da1` (stato attualmente in produzione su `mauden-ubuntu`, pre-easter-egg). Spinto su origin. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
@@ -66,7 +66,7 @@ Stato al 2026-05-19.
 ### Footer professionale (2026-05-19)
 - `0d8aa42` — Nuovo `src/components/Footer.jsx`: layout `KanbanOps v1.0 · © 2026 Mauden`, statico a fine pagina (non fixed), border-top `#21262d` come l'header, font version in mono, copyright in sans. Montato in `App.jsx` dopo `</main>`. Posa le fondamenta per l'easter egg Bit Adder (sessione successiva).
 
-### Easter egg "Bit Adder" (2026-05-19) — UNCOMMITTED
+### Easter egg "Bit Adder" (2026-05-19) — `9ae47b2`
 
 Clicker game nascosto. Trigger: 7 tap rapidi (entro 3s) su `KanbanOps v1.0`. Drawer espanso sotto il footer normale con clicker / shop / leaderboard. Tasto Hide collassa al footer normale (i bot continuano a ticchettare in background fino al refresh pagina). Tema: "aggiungo un bit", riferimento a un collega.
 
@@ -88,6 +88,25 @@ Clicker game nascosto. Trigger: 7 tap rapidi (entro 3s) su `KanbanOps v1.0`. Dra
 - CLAUDE.md: aggiunti Footer.jsx + BitAdder.jsx + useBitAdder.js alla project structure, 4 righe per `/api/bitadder/*` nell'API table, descrizione `bit_adder` table nello schema, nuova sezione "Hidden feature — Bit Adder" tra Conventions e Upgrade TODO con economia/anti-cheat/file map, aggiornato item Reset come done-strikethrough nella feature UX, aggiunto item Footer + easter egg.
 - HANDOFF.md: questa sezione.
 - README.md: **deliberatamente NON aggiornato** — l'easter egg deve restare nascosto a chi clona il repo casualmente. CLAUDE.md (dev-facing) lo documenta, README (utente-facing) no.
+
+### Notifiche di assegnazione (2026-05-20)
+
+Notifica all'owner quando gli viene assegnato un task. Architettura: il backend rileva l'assegnazione → POST webhook → Flow Power Automate → email/Teams. La scelta del canale vive nel Flow, il backend è agnostico.
+
+**Backend**
+- `backend/src/notify.js` — nuovo. `notifyAssignment({task, event, assigner})`: risolve owner→email via tabella `users`, salta l'auto-assegnazione, POST fire-and-forget al webhook (timeout 10s), no-op se `NOTIFY_WEBHOOK_URL` non è settata. Non lancia mai, non blocca mai la response.
+- `backend/src/routes/tasks.js` — hook su POST (`task.assigned`) e PATCH con `field=owner` cambiato (`task.reassigned`, o `task.assigned` se prima senza owner).
+- `docker-compose.yml` — env `NOTIFY_WEBHOOK_URL` + `APP_PUBLIC_URL` sul service `api`.
+- `backend/.env.example` — documentate le due env.
+- `recurring-processor.js` NON toccato: i task ricorrenti non notificano (scelta esplicita).
+
+**Doc**
+- CLAUDE.md: sezione "Notifiche di assegnazione" + `notify.js` nella project structure + item done in Upgrade TODO.
+
+**Lato Power Automate (TODO utente — la feature è spenta finché non è fatto)**
+- Creare un Flow "When a HTTP request is received", generare lo schema dal payload di esempio (vedi CLAUDE.md), aggiungere azione "Send an email (V2)" e/o "Post message" Teams.
+- Copiare l'URL del trigger in `NOTIFY_WEBHOOK_URL` nel `.env` della VM, poi recreate del solo `moby-api` (vedi procedura deploy).
+- Finché `NOTIFY_WEBHOOK_URL` è vuota la feature resta spenta, senza errori.
 
 ## Deploy in produzione
 
@@ -143,6 +162,8 @@ Razionale:
 - `CLAUDE.md`: nota tag convention nella sezione operations.
 
 ## Step pending (in ordine di priorità)
+
+> ⚙️ **Azione operativa aperta**: creare il Flow Power Automate e mettere `NOTIFY_WEBHOOK_URL` nel `.env` della VM per accendere le notifiche di assegnazione (vedi sezione "Notifiche di assegnazione" sopra). Il codice è già in prod-ready: finché l'env var è vuota la feature è spenta senza effetti collaterali.
 
 ### 0. Recurring operator-aware (iterazione 2) [P2]
 
@@ -205,6 +226,7 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 - **Bit Adder prezzo base 1024**: nasce dalla richiesta "almeno 1kb" — 1 Kibit (1024 bit) è la base più tematica. La curva `1.15^k` è il classico Cookie Clicker: il primo bot richiede ~3 min di click manuale spammando, dopodiché lo snowball prende il sopravvento.
 - **Bit Adder bot in background quando hidden**: scelta esplicita per non punire chi nasconde per panic (collega in ufficio). Lo hook `useBitAdder` resta attivo finché la pagina è aperta. Refresh = stop totale + risync allo stato server.
 - **Bit Adder NON documentato in README**: README è user-facing, l'easter egg deve restare scopribile solo dal trigger. CLAUDE.md (dev/AI-facing) documenta tutto perché chi tocca il codice deve sapere cosa non rompere.
+- **Notifiche via Power Automate, non SMTP/Graph**: il backend rileva l'assegnazione (logica che deve esistere comunque) e delega la consegna a un Flow Power Automate via webhook HTTP. Niente relay SMTP da scovare, niente permission `Mail.Send` da far consentire a IT, niente client secret nel backend: l'unico segreto è l'URL del webhook. Il Flow (no-code) decide email vs Teams ed è modificabile senza rideploy del backend.
 
 ## Workflow concordato con l'utente
 

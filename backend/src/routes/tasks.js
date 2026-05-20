@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { requireAdmin, requireWriteAccess, canWrite } from '../auth.js'
+import { notifyAssignment } from '../notify.js'
 import subtasksRouter from './subtasks.js'
 
 const router = Router()
@@ -103,6 +104,9 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
       ]
     )
     res.status(201).json(mapTaskToClient(rows[0]))
+
+    // Fire-and-forget: notify the owner when a task is created already assigned.
+    notifyAssignment({ task: rows[0], event: 'task.assigned', assigner: req.user })
   } catch (err) {
     console.error('POST /api/tasks error:', err.message)
     res.status(500).json({ error: 'Failed to create task' })
@@ -155,6 +159,16 @@ router.patch('/:id', async (req, res) => {
       [id, dbValue, now]
     )
     res.json(mapTaskToClient(rows[0]))
+
+    // Fire-and-forget: notify on (re)assignment when the owner field changed to
+    // a new, non-empty value. 'task.assigned' if the task had no owner before.
+    if (field === 'owner' && value && value !== existing.owner) {
+      notifyAssignment({
+        task: rows[0],
+        event: existing.owner ? 'task.reassigned' : 'task.assigned',
+        assigner: req.user,
+      })
+    }
   } catch (err) {
     console.error('PATCH /api/tasks error:', err.message)
     res.status(500).json({ error: 'Failed to update task' })

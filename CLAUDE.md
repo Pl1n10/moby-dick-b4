@@ -80,6 +80,7 @@ docker compose down         # Stop all services
 │       ├── index.js              # Express app, startup, recurring scheduler
 │       ├── db.js                 # pg Pool, waitForDb(), runMigrations()
 │       ├── recurring-processor.js # Server-side recurring task creation
+│       ├── notify.js              # Fire-and-forget assignment notifications (webhook)
 │       └── routes/
 │           ├── tasks.js          # CRUD + reset + waiting↔status sync
 │           ├── recurring.js      # Templates CRUD
@@ -213,6 +214,35 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - `src/components/BitAdder.jsx`
 - `src/components/Footer.jsx` (trigger + drawer host)
 
+## Notifiche di assegnazione
+
+Quando un task viene assegnato a un owner — alla creazione o al cambio del campo `owner` — il backend notifica l'owner tramite un **webhook Power Automate** (il Flow consegna poi via email e/o Teams).
+
+**Flusso**: `routes/tasks.js` (POST, e PATCH con `field=owner`) → `notify.js` `notifyAssignment()` → POST JSON al webhook → Flow Power Automate → email / Teams.
+
+- **Trigger**: `POST /api/tasks` con owner valorizzato (`event: "task.assigned"`); `PATCH /api/tasks/:id` con `owner` cambiato verso un valore nuovo e non vuoto (`"task.reassigned"`, oppure `"task.assigned"` se il task era senza owner).
+- **owner → email**: risolto via tabella `users` (`display_owner` → `email`). `display_owner` non è unique: in caso di omonimi si prende il primo con un warning. Nessuna corrispondenza → log + skip silenzioso.
+- **Skip auto-assegnazione**: assegnare un task a se stessi non genera notifica.
+- **Recurring esclusi**: i task creati da `recurring-processor.js` NON notificano (scelta esplicita, evita ping ciclici quotidiani).
+- **Fire-and-forget**: `notifyAssignment()` non viene mai `await`-ato dai route handler, cattura ogni errore e non trasforma mai un fallimento di notifica in un 500. Timeout 10s sul `fetch`.
+- **On/off**: feature spenta se `NOTIFY_WEBHOOK_URL` è vuota (dev/demo silenzioso; in prod si accende solo settando l'env var, nessun deploy di logica). `APP_PUBLIC_URL` è il link alla board incluso nel payload.
+- **Sicurezza**: l'URL del webhook È la credenziale — vive solo nel `.env` della VM, mai committato.
+
+Payload inviato al webhook:
+
+```json
+{
+  "event": "task.assigned | task.reassigned",
+  "task": { "id", "group", "reference", "description", "status", "deadline" },
+  "owner": { "name", "email" },
+  "assignedBy": { "name", "email" },
+  "appUrl": "https://kanbanops.mauden.com",
+  "timestamp": "ISO-8601"
+}
+```
+
+`assignedBy` è `null` in demo mode (nessun JWT). **File**: `backend/src/notify.js`, hook in `backend/src/routes/tasks.js`. Env: `NOTIFY_WEBHOOK_URL`, `APP_PUBLIC_URL` — vedi `backend/.env.example`.
+
 ## Operations & deploy strategy
 
 - **Deploy in produzione**: VM `mauden-ubuntu` con `docker-compose` v1.29.2 (con trattino, NON `docker compose`). Procedura standard per applicare modifiche di codice o `.env`:
@@ -244,6 +274,7 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - [x] **Subtasks checklist** — tendina espandibile sotto la row, badge "N/M", vincolo "padre non chiudibile con subtask aperti" enforced backend
 - [x] **Paginetta admin users** — `UsersModal` raggiungibile dal `UserMenu` (admin-only). CRUD su tabella users: inline edit display_owner, role select, hide (set NULL), remove, manual add. Guardrail anti-lockout (admin non può demotare/cancellare se stesso). Colonna **Scope** con 4 checkbox (Cmv/Coh/DD/NBU) per assegnare `operator_groups` ai viewer (capability additiva, ignorata per gli admin).
 - [x] **Ruoli operator per-pillar** — colonna `users.operator_groups TEXT[]`. Viewer con scope `['Commvault']` diventa RW sul pillar Commvault (RO altrove). Enforcement granulare su tasks + subtasks lato backend (`canWrite` helper + `loadUserContext` middleware). UI Toolbar/TaskTable disabilitano azioni fuori scope, badge UserMenu mostra gli scope. **Recurring resta admin-only — iterazione 2 nello HANDOFF.**
+- [x] **Notifiche di assegnazione** — webhook Power Automate quando un task viene assegnato/riassegnato a un owner. Backend `notify.js` (fire-and-forget), consegna email/Teams gestita dal Flow. Vedi sezione "Notifiche di assegnazione".
 - [ ] Sostituire `window.confirm()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
 - [ ] Drag & drop riordinamento task (P4)
