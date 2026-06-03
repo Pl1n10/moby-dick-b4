@@ -1,16 +1,15 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-05-20.
+Stato al 2026-06-03.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
-- Branch: `main` (locale **avanti di 4 commit** su `origin/main` — push non ancora effettuato)
-- Ultimo commit pushato: `ade7da1` — refactor(ui): remove Reset button from header
-- Ultimi commit locali: `0d8aa42` footer · `9ae47b2` Bit Adder · `f5806ab` notifiche di assegnazione · (questo: aggiornamento HANDOFF)
+- Branch: `main` — allineato a `origin/main`
+- Ultimo commit pushato: `e9c80d9` — docs: update HANDOFF (footer · Bit Adder · notifiche di assegnazione pushati il 2026-06-03)
 - Working tree: clean
-- Tag annotato `mauden-prod-2026-05-19` → `ade7da1` (stato attualmente in produzione su `mauden-ubuntu`, pre-easter-egg). Spinto su origin. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
+- Tag annotato `mauden-prod-2026-06-03` → `e9c80d9` (stato attualmente in produzione su `mauden-ubuntu`: footer + Bit Adder + notifiche con webhook OFF). Spinto su origin. Tag precedente `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) resta come ancora di rollback. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
 
@@ -142,7 +141,7 @@ Razionale:
 **Tagging strategy** (per la sicurezza della prod Mauden):
 
 - `mauden-prod-YYYY-MM-DD` è la convention. Ogni snapshot stabile di produzione riceve un tag. La VM Mauden può sempre tornare a un tag noto se qualcosa va storto.
-- Tag in essere: `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Dopo il deploy dell'easter egg stasera, aggiungere un secondo tag (`mauden-prod-2026-05-19b` o ridenominabile) al commit finale.
+- Tag in essere: `mauden-prod-2026-06-03` → `e9c80d9` (footer + Bit Adder + notifiche, webhook OFF) — attualmente in prod. `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) conservato come ancora di rollback.
 - **Pinning attivo del deploy script NON ancora applicato**. La VM continua a fare `git pull` su `main`. Il pinning (sostituire `git pull` con `git fetch && git checkout <tag>` nello script di deploy a `/opt/moby-dick-b4/`) verrà applicato quando l'utente inizierà davvero il fork generico, non prima.
 
 **Plan d'azione quando si parte col fork** (futuro, non oggi):
@@ -157,7 +156,7 @@ Razionale:
 
 **File toccati per la strategia** (oggi):
 
-- Tag `mauden-prod-2026-05-19` creato e pushato.
+- Tag `mauden-prod-2026-05-19` e `mauden-prod-2026-06-03` creati e pushati.
 - `HANDOFF.md`: questa sezione.
 - `CLAUDE.md`: nota tag convention nella sezione operations.
 

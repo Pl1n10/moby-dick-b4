@@ -252,7 +252,7 @@ Payload inviato al webhook:
   docker-compose up -d
   ```
   Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con BuildKit). `moby-db` non viene toccato dal recreate.
-- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-05-19` → `ade7da1`.
+- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-06-03` → `e9c80d9`.
 - **Pinning del deploy a un tag**: **non ancora attivo**. La VM continua a fare `git pull` su `main`. Diventerà necessario quando si inizierà il fork generico per "servizi gestiti", per evitare che cambiamenti generici raggiungano la prod Mauden via pull. Lo snippet di deploy da applicare alla VM in quel momento è descritto in `HANDOFF.md`.
 - **Fork strategy**: il software è oggi mono-tenant Mauden con pillar/admin/brand hardcoded. Se si concretizza l'espansione interna al settore "servizi gestiti", si forka invece di rifattorizzare a multi-tenant — decisione e razionale in `HANDOFF.md`. Quando arriva il momento, anche nel fork si parte data-driven (tabella `pillars`, env per admin bootstrap e brand) per non ripetere l'errore degli hardcode.
 
