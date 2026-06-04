@@ -204,6 +204,12 @@ Per dare write granulare ai pillar:
 2. Frontend: refactor `RecurringModal` da "save all on submit" a "save per riga" o "save delta". `useRecurring` hook adeguato. `Toolbar` espone il bottone Recurring anche agli operator, ma il modal mostra come read-only le righe di pillar fuori scope.
 3. Decisione UX: nel modal mostrare anche i template degli altri pillar (greyed) o solo i propri? Confermare con utente.
 
+### 0b. Notifiche — anti task-vuoto [P3]
+
+La mail di assegnazione parte nell'istante in cui si imposta `owner`, col contenuto del task *in quel momento* → assegnare prima di compilare reference/description manda una mail "guscio vuoto". Per ora è solo raccomandazione di workflow ("owner per ultimo"). Se serve una rete di sicurezza in codice, due opzioni (vedi anche CLAUDE.md Feature UX):
+1. Guardrail in `notify.js`: skip se `reference` e `description` entrambi vuoti.
+2. Hint UI vicino al campo owner (non bloccante, educativo).
+
 ### 1. Backup off-host [P1, già pending dal 2026-05-12]
 
 Backup locale attuale (`/var/backups/moby/` cron daily) protegge solo da errori applicativi. Decisione utente: chiedere al team backup Mauden se la VM è coperta dal job NBU/Cohesity.
