@@ -159,6 +159,7 @@ Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `rout
   description: string, // Multiline problem description
   status: string,      // "New" | "In Progress" | "Waiting" | "Resolved" | "Closed"
   owner: string,       // "Bob" | "Erica" | "Walker"
+  priority: number,    // 0–5 integer. 0 = most urgent (P0), 5 = lowest. Default 3
   waiting: boolean,    // Synced with status (see logic above)
   deadline: string,    // "YYYY-MM-DD" or null
   updatedAt: string,   // ISO 8601 (auto-updated on edit, except waiting)
@@ -169,6 +170,7 @@ Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `rout
 - `GROUPS`: ['Commvault', 'Cohesity', 'Data Domain - ZFS', 'NBU - Banche Estere']
 - `STATUSES`: ['New', 'In Progress', 'Waiting', 'Resolved', 'Closed']
 - `OWNERS`: ['Bob', 'Erica', 'Walker']
+- `PRIORITIES`: [0, 1, 2, 3, 4, 5] — P0 (most urgent) → P5 (lowest); `DEFAULT_PRIORITY` = 3
 - `FREQUENCIES`: ['daily', 'weekly', 'monthly']
 
 ## Design System
@@ -287,7 +289,7 @@ Payload inviato al webhook:
 
 ### Futuro
 - [ ] Task comments / history / audit trail (P4)
-- [ ] Priority field sui task (P4)
+- [x] Priority field sui task — colonna `priority` INT 0–5 (P0=urgentissimo … P5=minima), default P3. Badge `P0..P5`, P0 evidenziato con bordo rosso sul perimetro riga. Migration 010. Sorting invariato (`updatedAt desc`)
 - [x] Backend API per sync multi-dispositivo (Express + Postgres)
 - [x] Docker Compose deployment (3 servizi: db + api + nginx)
 - [x] Auth Entra ID (vedi sotto)

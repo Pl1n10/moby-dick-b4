@@ -1,13 +1,17 @@
 import S from '../styles.js'
-import { STATUSES } from '../data.js'
+import { STATUSES, PRIORITIES } from '../data.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDate, formatDeadline, isOverdue } from '../utils.js'
 import Highlight from './Highlight.jsx'
 import Linkify from './Linkify.jsx'
 import StatusBadge from './StatusBadge.jsx'
+import PriorityBadge from './PriorityBadge.jsx'
 import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
+
+// Priority options for the inline select: numeric value, "Px" label.
+const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
 
 export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, expanded = false, onToggleExpand }) {
   const owners = useOwners()
@@ -15,6 +19,21 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   const open = task.subtasksOpen ?? 0
   const hasChecklist = total > 0
   const allDone = hasChecklist && open === 0
+
+  // P0 = drop-everything. Outline the whole row by drawing red borders on the
+  // cell edges (top/bottom on every cell, left on the first, right on the
+  // last). Cell borders win over the row's grey border in border-collapse, and
+  // this keeps the row text on the normal background — no readability hit.
+  const isP0 = task.priority === 0
+  const edge = `1px solid ${S.p0Red}`
+  const tb = isP0 ? { borderTop: edge, borderBottom: edge } : null
+  const leftEdge = isP0 ? { borderLeft: edge } : null
+  const rightEdge = isP0 ? { borderRight: edge } : null
+  // First/last rendered cell depend on the layout (Gruppo only in Storico,
+  // actions column only outside Storico).
+  const firstCellEdge = showGroup ? null : leftEdge      // applied to Reference when no Gruppo col
+  const lastCellEdge = showDelete ? null : rightEdge     // applied to Scadenza when no actions col
+
   return (
     <tr style={{
       borderBottom: '1px solid #21262d', transition: 'background 0.1s',
@@ -23,11 +42,11 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {showGroup && (
-        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', ...tb, ...leftEdge }}>
           {task.group}
         </td>
       )}
-      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb, ...firstCellEdge }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={onToggleExpand}
@@ -66,7 +85,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           )}
         </div>
       </td>
-      <td style={{ padding: '8px 14px', maxWidth: '400px' }}>
+      <td style={{ padding: '8px 14px', maxWidth: '400px', ...tb }}>
         {readOnly ? (
           <span style={{ color: '#c9d1d9', padding: '2px 4px', display: 'block' }}>
             {task.description ? <Linkify text={task.description} query={search} /> : '—'}
@@ -82,7 +101,19 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      <td style={{ padding: '8px 14px' }}>
+      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb }}>
+        {readOnly ? (
+          <PriorityBadge priority={task.priority} />
+        ) : (
+          <EditableSelect
+            value={task.priority ?? 3}
+            options={PRIORITY_OPTIONS}
+            onChange={v => onUpdate('priority', Number(v))}
+            renderValue={v => <PriorityBadge priority={v} />}
+          />
+        )}
+      </td>
+      <td style={{ padding: '8px 14px', ...tb }}>
         {readOnly ? (
           <StatusBadge status={task.status} />
         ) : (
@@ -94,7 +125,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      <td style={{ padding: '8px 14px' }}>
+      <td style={{ padding: '8px 14px', ...tb }}>
         {readOnly ? (
           <span style={{ padding: '2px 4px' }}>{task.owner}</span>
         ) : (
@@ -107,7 +138,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       </td>
       <td style={{
         padding: '8px 14px', fontFamily: S.mono, fontSize: '11px',
-        color: '#8b949e', whiteSpace: 'nowrap',
+        color: '#8b949e', whiteSpace: 'nowrap', ...tb,
       }}>
         {formatDate(task.updatedAt)}
       </td>
@@ -115,6 +146,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         padding: '8px 14px', whiteSpace: 'nowrap',
         ...(isOverdue(task.deadline) && task.status !== 'Closed' && task.status !== 'Resolved'
           ? { background: '#f8514915' } : {}),
+        ...tb, ...lastCellEdge,
       }}>
         {readOnly ? (
           <span style={{
@@ -132,7 +164,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         )}
       </td>
       {showDelete && (
-        <td style={{ padding: '8px 8px', textAlign: 'center' }}>
+        <td style={{ padding: '8px 8px', textAlign: 'center', ...tb, ...rightEdge }}>
           {!readOnly && (
             <button onClick={onDelete} title="Delete task" style={{
               background: 'none', border: 'none', color: '#484f58',

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import apiFetch from '../auth/apiFetch.js'
+import { DEFAULT_PRIORITY } from '../data.js'
 
 const API = '/api'
 
@@ -64,6 +65,7 @@ export default function useTasks() {
       description: '',
       status: 'New',
       owner: defaultOwner || '',
+      priority: DEFAULT_PRIORITY,
       deadline: null,
       updatedAt: new Date().toISOString(),
     }

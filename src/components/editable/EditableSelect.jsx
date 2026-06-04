@@ -21,7 +21,11 @@ export default function EditableSelect({ value, options, onChange, renderValue }
           minWidth: '100px',
         }}
       >
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        {options.map(o => {
+          const val = (o && typeof o === 'object') ? o.value : o
+          const label = (o && typeof o === 'object') ? o.label : o
+          return <option key={val} value={val}>{label}</option>
+        })}
       </select>
     )
   }

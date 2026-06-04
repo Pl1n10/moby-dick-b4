@@ -1,6 +1,6 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-06-03.
+Stato al 2026-06-04.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
@@ -107,6 +107,28 @@ Notifica all'owner quando gli viene assegnato un task. Architettura: il backend 
 - Copiare l'URL del trigger in `NOTIFY_WEBHOOK_URL` nel `.env` della VM, poi recreate del solo `moby-api` (vedi procedura deploy).
 - Finché `NOTIFY_WEBHOOK_URL` è vuota la feature resta spenta, senza errori.
 
+### Priorità task P0–P5 (2026-06-04) — `__HASH__`
+
+Nuova colonna **Priorità** sui task, a sinistra di Status. Scala P0..P5, dove **P0 = urgentissimo** (convention drop-everything) e P5 = minima. Default P3 sui nuovi task e sulle righe esistenti.
+
+**Backend**
+- `backend/migrations/010_priority.sql` — `ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 3 CHECK (0..5)`. Idempotente; le righe esistenti in prod ereditano P3 dal default.
+- `backend/src/routes/tasks.js` — `priority` nel `mapTaskToClient`, nella whitelist `FIELD_TO_COLUMN`, nell'INSERT (default 3). Helper `isValidPriority` → PATCH/POST con valore fuori range tornano **400** invece di far scattare il CHECK come 500.
+
+**Frontend**
+- `src/data.js` — `PRIORITIES = [0..5]`, `DEFAULT_PRIORITY = 3`.
+- `src/styles.js` — `priorityColors` (P0 rosso → P5 grigio) + `p0Red` (`#f85149`).
+- `src/components/PriorityBadge.jsx` — pill `P0..P5` in stile `StatusBadge`.
+- `src/components/editable/EditableSelect.jsx` — ora accetta opzioni `{value,label}` (retrocompatibile con le opzioni primitive di status/owner): il dropdown mostra `P0..P5`, il valore salvato resta numerico.
+- `src/components/TaskRow.jsx` — cella Priority tra Description e Status. **Evidenza P0 = bordo rosso sul perimetro della riga, disegnato sui lati delle CELLE** (top/bottom su tutte, left sulla prima, right sull'ultima), niente background-fill.
+- `src/components/TaskTable.jsx` — header "Priorità" in entrambe le viste (board + Storico).
+- `src/hooks/useTasks.js` — nuovo task nasce P3 (`DEFAULT_PRIORITY`).
+- `src/utils.js` — colonna "Priorità" (`P0..P5`) nell'export CSV.
+
+**Decisioni confermate con l'utente**: P0 = solo bordo rosso (no sfondo, per leggibilità) · default P3 · **ordinamento invariato** (`updatedAt desc`, nessun sort per priorità). Filtro priorità in Toolbar NON aggiunto (non richiesto).
+
+**Doc**: CLAUDE.md item "Priority field" spostato da TODO a done; aggiornati Task Data Model shape (`priority`) e Constants (`PRIORITIES` / `DEFAULT_PRIORITY`).
+
 ## Deploy in produzione
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
@@ -201,7 +223,6 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 ### 5. Feature UX residue [P4]
 
 - Drag & drop riordinamento task (non solo subtasks)
-- Campo priority
 - Comments / history / audit trail
 - CSS `:hover` invece di JS `onMouseEnter`/`onMouseLeave`
 - ESLint + Prettier
@@ -225,6 +246,8 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 - **Bit Adder prezzo base 1024**: nasce dalla richiesta "almeno 1kb" — 1 Kibit (1024 bit) è la base più tematica. La curva `1.15^k` è il classico Cookie Clicker: il primo bot richiede ~3 min di click manuale spammando, dopodiché lo snowball prende il sopravvento.
 - **Bit Adder bot in background quando hidden**: scelta esplicita per non punire chi nasconde per panic (collega in ufficio). Lo hook `useBitAdder` resta attivo finché la pagina è aperta. Refresh = stop totale + risync allo stato server.
 - **Bit Adder NON documentato in README**: README è user-facing, l'easter egg deve restare scopribile solo dal trigger. CLAUDE.md (dev/AI-facing) documenta tutto perché chi tocca il codice deve sapere cosa non rompere.
+- **P0 evidenziato con bordo sulle celle, non sul `<tr>`**: la tabella usa `border-collapse: collapse`, dove `box-shadow`/`outline` sul `<tr>` non si renderizzano in modo affidabile. Disegnando il bordo rosso sui lati delle celle (top/bottom ovunque, left sulla prima cella, right sull'ultima) si ottiene un rettangolo netto: nelle regole di collapse il bordo della cella vince per colore su quello grigio della riga. Scelta voluta del bordo invece del fill di sfondo per non compromettere la leggibilità del testo. Prima/ultima cella dipendono dal layout (Gruppo solo in Storico, colonna azioni solo fuori Storico) — i due flag sono mutuamente esclusivi, quindi left/right cadono sempre su una cella sola.
+- **Priorità numerica in DB, label `Px` in UI**: la colonna è `INT 0..5` (ordinabile/filtrabile in SQL se servirà), ma badge e dropdown mostrano `P0..P5`. `EditableSelect` esteso a opzioni `{value,label}` per non duplicare il componente.
 - **Notifiche via Power Automate, non SMTP/Graph**: il backend rileva l'assegnazione (logica che deve esistere comunque) e delega la consegna a un Flow Power Automate via webhook HTTP. Niente relay SMTP da scovare, niente permission `Mail.Send` da far consentire a IT, niente client secret nel backend: l'unico segreto è l'URL del webhook. Il Flow (no-code) decide email vs Teams ed è modificabile senza rideploy del backend.
 
 ## Workflow concordato con l'utente

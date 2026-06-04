@@ -25,6 +25,7 @@ function mapTaskToClient(row) {
     description: row.description,
     status: row.status,
     owner: row.owner,
+    priority: row.priority != null ? Number(row.priority) : 3,
     deadline: formatDate(row.deadline),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
     recurringTemplateId: row.recurring_template_id || undefined,
@@ -40,8 +41,15 @@ const FIELD_TO_COLUMN = {
   description: 'description',
   status: 'status',
   owner: 'owner',
+  priority: 'priority',
   deadline: 'deadline',
   group: 'group_name',
+}
+
+// Priority is the only numeric, range-constrained field. Validate here so a
+// bad client value returns 400 instead of tripping the DB CHECK as a 500.
+function isValidPriority(v) {
+  return Number.isInteger(v) && v >= 0 && v <= 5
 }
 
 // ── Routes ──────────────────────────────────────────────
@@ -88,10 +96,11 @@ router.post('/reset', requireAdmin, async (req, res) => {
 // the target pillar (admin everywhere, operator on listed groups).
 router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, deadline } = req.body
+    const { id, group, reference, description, status, owner, priority, deadline } = req.body
+    const prio = isValidPriority(priority) ? priority : 3   // default medium
     const { rows } = await pool.query(
-      `INSERT INTO tasks (id, group_name, reference, description, status, owner, deadline, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, deadline, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
        RETURNING *`,
       [
         id || undefined,          // let DB generate if null
@@ -100,6 +109,7 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
         description || '',
         status || 'New',
         owner,
+        prio,
         deadline || null,
       ]
     )
@@ -136,6 +146,10 @@ router.patch('/:id', async (req, res) => {
     }
     if (field === 'group' && !canWrite(req.userCtx, value)) {
       return res.status(403).json({ error: `Write access denied for target group: ${value}` })
+    }
+
+    if (field === 'priority' && !isValidPriority(value)) {
+      return res.status(400).json({ error: 'Priority must be an integer between 0 and 5' })
     }
 
     if (field === 'status' && value === 'Closed') {

@@ -20,8 +20,8 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
   //    decides whether to render the ✕ button based on per-task write scope,
   //    so the column may be visually empty for users out-of-scope on a pillar.
   const headers = isStorico
-    ? ['Gruppo', 'Reference', 'Description', 'Status', 'Owner', 'Updated', 'Scadenza']
-    : ['Reference', 'Description', 'Status', 'Owner', 'Updated', 'Scadenza', '']
+    ? ['Gruppo', 'Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza']
+    : ['Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza', '']
 
   return (
     <div style={{ border: '1px solid #21262d', borderRadius: '8px', overflow: 'hidden' }}>
