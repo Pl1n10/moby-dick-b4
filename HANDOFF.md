@@ -7,7 +7,7 @@ Stato al 2026-06-04.
 ## Stato git
 
 - Branch: `main` — allineato a `origin/main`
-- Ultimo commit pushato: `e9c80d9` — docs: update HANDOFF (footer · Bit Adder · notifiche di assegnazione pushati il 2026-06-03)
+- Ultimo commit feature: `061c605` — feat: task priority P0–P5 column with P0 row outline (2026-06-04)
 - Working tree: clean
 - Tag annotato `mauden-prod-2026-06-03` → `e9c80d9` (stato attualmente in produzione su `mauden-ubuntu`: footer + Bit Adder + notifiche con webhook OFF). Spinto su origin. Tag precedente `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) resta come ancora di rollback. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
@@ -107,7 +107,7 @@ Notifica all'owner quando gli viene assegnato un task. Architettura: il backend 
 - Copiare l'URL del trigger in `NOTIFY_WEBHOOK_URL` nel `.env` della VM, poi recreate del solo `moby-api` (vedi procedura deploy).
 - Finché `NOTIFY_WEBHOOK_URL` è vuota la feature resta spenta, senza errori.
 
-### Priorità task P0–P5 (2026-06-04) — `__HASH__`
+### Priorità task P0–P5 (2026-06-04) — `061c605`
 
 Nuova colonna **Priorità** sui task, a sinistra di Status. Scala P0..P5, dove **P0 = urgentissimo** (convention drop-everything) e P5 = minima. Default P3 sui nuovi task e sulle righe esistenti.
 
