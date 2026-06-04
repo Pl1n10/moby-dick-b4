@@ -7,9 +7,9 @@ Stato al 2026-06-04.
 ## Stato git
 
 - Branch: `main` — allineato a `origin/main`
-- Ultimo commit feature: `061c605` — feat: task priority P0–P5 column with P0 row outline (2026-06-04)
+- Ultimo commit feature: `81c68c3` — fix: P0 row top border eaten by table header (2026-06-04). Feature priorità: `061c605`.
 - Working tree: clean
-- Tag annotato `mauden-prod-2026-06-03` → `e9c80d9` (stato attualmente in produzione su `mauden-ubuntu`: footer + Bit Adder + notifiche con webhook OFF). Spinto su origin. Tag precedente `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) resta come ancora di rollback. Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
+- Tag annotato `mauden-prod-2026-06-04` → `81c68c3` (stato attualmente in produzione su `mauden-ubuntu`: priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
 
@@ -102,10 +102,16 @@ Notifica all'owner quando gli viene assegnato un task. Architettura: il backend 
 **Doc**
 - CLAUDE.md: sezione "Notifiche di assegnazione" + `notify.js` nella project structure + item done in Upgrade TODO.
 
-**Lato Power Automate (TODO utente — la feature è spenta finché non è fatto)**
-- Creare un Flow "When a HTTP request is received", generare lo schema dal payload di esempio (vedi CLAUDE.md), aggiungere azione "Send an email (V2)" e/o "Post message" Teams.
-- Copiare l'URL del trigger in `NOTIFY_WEBHOOK_URL` nel `.env` della VM, poi recreate del solo `moby-api` (vedi procedura deploy).
-- Finché `NOTIFY_WEBHOOK_URL` è vuota la feature resta spenta, senza errori.
+**Lato Power Automate — FATTO il 2026-06-04, feature ATTIVA in prod.**
+
+Flow creato e acceso, `NOTIFY_WEBHOOK_URL` settata in `/opt/moby-dick-b4/.env`, `moby-api` ricreato. Test del webhook OK (`202`), mail formattata consegnata. Workflow id Flow: `0ec499be-…` (northeurope). Gotcha incontrati durante il setup, da sapere se si rimette mano al Flow o se ne crea uno nuovo (es. per il fork):
+
+1. **Il Flow va acceso**: un Flow salvato ma in stato Off torna `400 WorkflowTriggerIsNotEnabled`. Power Automate → My flows → Turn on.
+2. **Schema del trigger tollerante ai null**: "Generate from sample" marca ogni campo come stringa *required*. Ma `notify.js` manda `task.deadline: null` (task senza scadenza) e potenzialmente `assignedBy: null` → `400 TriggerInputSchemaMismatch`. Fix: editare il Request Body JSON Schema rendendo `deadline` e `assignedBy` nullable (`"type":["string","null"]`) e **togliendo l'array `required`**. Schema buono salvato in CLAUDE.md/HANDOFF cronologia chat.
+3. **Body HTML che arriva letterale**: l'editor rich-text di "Send an email (V2)" *escapa* l'HTML incollato a mano. Soluzione adottata: azione **`Compose`** (Data Operation) con l'HTML grezzo negli Inputs, e nel Body del Send email solo il token `outputs('Compose')`. Bypassa l'editor WYSIWYG → renderizza correttamente. (Connettore giusto: `shared_office365` / `SendEmailV2`. NON il "Send an email notification V3" del connettore Mail, che è plain-text only.)
+4. **Mittente**: le mail partono dalla casella Outlook che ha autorizzato la connessione del Flow (oggi quella dell'utente). Per usare una mailbox di servizio va cambiata la connection dell'azione.
+
+Test residuo consigliato (non bloccante): un end-to-end vero dall'app (assegnare un task a un collega ≠ self) per validare anche la risoluzione owner→email del backend e il popolamento `assignedBy` da JWT — il curl ha testato solo il lato Flow.
 
 ### Priorità task P0–P5 (2026-06-04) — `061c605`
 
@@ -163,7 +169,7 @@ Razionale:
 **Tagging strategy** (per la sicurezza della prod Mauden):
 
 - `mauden-prod-YYYY-MM-DD` è la convention. Ogni snapshot stabile di produzione riceve un tag. La VM Mauden può sempre tornare a un tag noto se qualcosa va storto.
-- Tag in essere: `mauden-prod-2026-06-03` → `e9c80d9` (footer + Bit Adder + notifiche, webhook OFF) — attualmente in prod. `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) conservato come ancora di rollback.
+- Tag in essere: `mauden-prod-2026-06-04` → `81c68c3` (priorità P0–P5 + notifiche ATTIVE) — attualmente in prod. `mauden-prod-2026-06-03` → `e9c80d9` (webhook OFF) e `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) conservati come ancore di rollback.
 - **Pinning attivo del deploy script NON ancora applicato**. La VM continua a fare `git pull` su `main`. Il pinning (sostituire `git pull` con `git fetch && git checkout <tag>` nello script di deploy a `/opt/moby-dick-b4/`) verrà applicato quando l'utente inizierà davvero il fork generico, non prima.
 
 **Plan d'azione quando si parte col fork** (futuro, non oggi):
@@ -184,7 +190,7 @@ Razionale:
 
 ## Step pending (in ordine di priorità)
 
-> ⚙️ **Azione operativa aperta**: creare il Flow Power Automate e mettere `NOTIFY_WEBHOOK_URL` nel `.env` della VM per accendere le notifiche di assegnazione (vedi sezione "Notifiche di assegnazione" sopra). Il codice è già in prod-ready: finché l'env var è vuota la feature è spenta senza effetti collaterali.
+> ✅ **Notifiche di assegnazione ATTIVE** (2026-06-04): Flow Power Automate creato + acceso, `NOTIFY_WEBHOOK_URL` settata sulla VM. Resta solo il test end-to-end dall'app (non bloccante) — dettagli nella sezione "Notifiche di assegnazione" sopra.
 
 ### 0. Recurring operator-aware (iterazione 2) [P2]
 

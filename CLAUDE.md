@@ -227,7 +227,7 @@ Quando un task viene assegnato a un owner — alla creazione o al cambio del cam
 - **Skip auto-assegnazione**: assegnare un task a se stessi non genera notifica.
 - **Recurring esclusi**: i task creati da `recurring-processor.js` NON notificano (scelta esplicita, evita ping ciclici quotidiani).
 - **Fire-and-forget**: `notifyAssignment()` non viene mai `await`-ato dai route handler, cattura ogni errore e non trasforma mai un fallimento di notifica in un 500. Timeout 10s sul `fetch`.
-- **On/off**: feature spenta se `NOTIFY_WEBHOOK_URL` è vuota (dev/demo silenzioso; in prod si accende solo settando l'env var, nessun deploy di logica). `APP_PUBLIC_URL` è il link alla board incluso nel payload.
+- **On/off**: feature spenta se `NOTIFY_WEBHOOK_URL` è vuota (dev/demo silenzioso; in prod si accende solo settando l'env var, nessun deploy di logica). `APP_PUBLIC_URL` è il link alla board incluso nel payload. **Stato attuale: ATTIVA in prod** dal 2026-06-04 (`NOTIFY_WEBHOOK_URL` settata sulla VM, Flow Power Automate live).
 - **Sicurezza**: l'URL del webhook È la credenziale — vive solo nel `.env` della VM, mai committato.
 
 Payload inviato al webhook:
@@ -254,7 +254,7 @@ Payload inviato al webhook:
   docker-compose up -d
   ```
   Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con BuildKit). `moby-db` non viene toccato dal recreate.
-- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-06-03` → `e9c80d9`.
+- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-06-04` → `81c68c3` (priorità task P0–P5 + notifiche di assegnazione ATTIVE).
 - **Pinning del deploy a un tag**: **non ancora attivo**. La VM continua a fare `git pull` su `main`. Diventerà necessario quando si inizierà il fork generico per "servizi gestiti", per evitare che cambiamenti generici raggiungano la prod Mauden via pull. Lo snippet di deploy da applicare alla VM in quel momento è descritto in `HANDOFF.md`.
 - **Fork strategy**: il software è oggi mono-tenant Mauden con pillar/admin/brand hardcoded. Se si concretizza l'espansione interna al settore "servizi gestiti", si forka invece di rifattorizzare a multi-tenant — decisione e razionale in `HANDOFF.md`. Quando arriva il momento, anche nel fork si parte data-driven (tabella `pillars`, env per admin bootstrap e brand) per non ripetere l'errore degli hardcode.
 
