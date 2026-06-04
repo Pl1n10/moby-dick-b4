@@ -25,7 +25,10 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   // last). Cell borders win over the row's grey border in border-collapse, and
   // this keeps the row text on the normal background — no readability hit.
   const isP0 = task.priority === 0
-  const edge = `1px solid ${S.p0Red}`
+  // 2px so the top edge wins the border-collapse conflict against the header's
+  // 1px grey bottom border (wider border wins, before the position tie-break);
+  // otherwise the top outline of the first row gets eaten by the <th> border.
+  const edge = `2px solid ${S.p0Red}`
   const tb = isP0 ? { borderTop: edge, borderBottom: edge } : null
   const leftEdge = isP0 ? { borderLeft: edge } : null
   const rightEdge = isP0 ? { borderRight: edge } : null
