@@ -3,7 +3,7 @@ import S from '../styles.js'
 import useSubtasks from '../hooks/useSubtasks.js'
 import Linkify from './Linkify.jsx'
 
-export default function SubtaskList({ taskId, readOnly, onCountChange }) {
+export default function SubtaskList({ taskId, readOnly, search, onCountChange }) {
   const { items, loading, add, update, remove } = useSubtasks(taskId, onCountChange)
   const [draft, setDraft] = useState('')
 
@@ -43,7 +43,7 @@ export default function SubtaskList({ taskId, readOnly, onCountChange }) {
                   flex: 1, color: item.done ? '#484f58' : '#c9d1d9',
                   textDecoration: item.done ? 'line-through' : 'none',
                 }}>
-                  <Linkify text={item.description} />
+                  <Linkify text={item.description} query={search} />
                 </span>
               ) : (
                 <input

@@ -30,7 +30,7 @@ export default function Toolbar({
           type="text"
           value={search}
           onChange={e => onSearchChange(e.target.value)}
-          placeholder="Search reference or description…"
+          placeholder="Search reference, description or checklist…"
           style={{
             width: '100%', padding: '7px 12px 7px 32px',
             background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px',

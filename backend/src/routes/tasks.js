@@ -32,6 +32,10 @@ function mapTaskToClient(row) {
     // Aggregated subtask counters when present (set by GET list query).
     subtasksTotal: row.subtasks_total != null ? Number(row.subtasks_total) : 0,
     subtasksOpen:  row.subtasks_open  != null ? Number(row.subtasks_open)  : 0,
+    // Concatenated subtask descriptions, only present on the GET list query,
+    // so the client search can match text inside the checklist. Omitted on
+    // single-row POST/PATCH responses (which the client doesn't merge back).
+    subtasksText: row.subtasks_text != null ? String(row.subtasks_text) : '',
   }
 }
 
@@ -62,12 +66,14 @@ router.get('/', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT t.*,
              COALESCE(s.total, 0) AS subtasks_total,
-             COALESCE(s.open,  0) AS subtasks_open
+             COALESCE(s.open,  0) AS subtasks_open,
+             COALESCE(s.text, '') AS subtasks_text
       FROM tasks t
       LEFT JOIN (
         SELECT task_id,
                COUNT(*)                       AS total,
-               COUNT(*) FILTER (WHERE NOT done) AS open
+               COUNT(*) FILTER (WHERE NOT done) AS open,
+               STRING_AGG(description, ' ')     AS text
         FROM subtasks
         GROUP BY task_id
       ) s ON s.task_id = t.id

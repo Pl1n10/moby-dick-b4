@@ -14,6 +14,12 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
     })
   }
 
+  // A row auto-expands while a search matches text inside its checklist, so the
+  // user can see WHY the task surfaced. Collapses again when the search clears.
+  const q = search ? search.toLowerCase() : ''
+  const matchesInSubtasks = (task) =>
+    !!q && (task.subtasksText || '').toLowerCase().includes(q)
+
   // Header layout:
   //  - Storico: 7 cols, leading "Gruppo" column, no delete.
   //  - Non-storico: 7 cols including a trailing actions column. Each row
@@ -51,6 +57,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
           ) : (
             filteredTasks.map(task => {
               const rowReadOnly = isStorico || !canWrite(task.group)
+              const isExpanded = expandedIds.has(task.id) || matchesInSubtasks(task)
               return (
                 <Fragment key={task.id}>
                   <TaskRow
@@ -61,15 +68,16 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
                     readOnly={rowReadOnly}
                     showDelete={!isStorico}
                     showGroup={isStorico}
-                    expanded={expandedIds.has(task.id)}
+                    expanded={isExpanded}
                     onToggleExpand={() => toggleExpand(task.id)}
                   />
-                  {expandedIds.has(task.id) && (
+                  {isExpanded && (
                     <tr>
                       <td colSpan={headers.length} style={{ padding: 0 }}>
                         <SubtaskList
                           taskId={task.id}
                           readOnly={rowReadOnly}
+                          search={search}
                           onCountChange={(delta) => onSubtaskCountChange?.(task.id, delta)}
                         />
                       </td>

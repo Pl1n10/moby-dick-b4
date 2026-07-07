@@ -55,7 +55,9 @@ export default function App() {
     .filter(t => {
       if (search) {
         const q = search.toLowerCase()
-        if (!t.reference.toLowerCase().includes(q) && !t.description.toLowerCase().includes(q)) return false
+        if (!t.reference.toLowerCase().includes(q)
+          && !t.description.toLowerCase().includes(q)
+          && !(t.subtasksText || '').toLowerCase().includes(q)) return false
       }
       if (!isStorico && filterStatus && t.status !== filterStatus) return false
       if (filterOwner && t.owner !== filterOwner) return false
