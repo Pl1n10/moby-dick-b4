@@ -95,12 +95,13 @@ export default function useTasks() {
 
   // Bumps the parent task's subtask counters after a checklist mutation.
   // Avoids a full /api/tasks refetch on every add/toggle/delete.
-  const updateSubtaskCounters = (taskId, { totalDelta = 0, openDelta = 0 }) => {
+  const updateSubtaskCounters = (taskId, { totalDelta = 0, openDelta = 0, subtasksText } = {}) => {
     setTasks(prev => prev.map(t => t.id === taskId
       ? {
           ...t,
           subtasksTotal: Math.max(0, (t.subtasksTotal ?? 0) + totalDelta),
           subtasksOpen:  Math.max(0, (t.subtasksOpen  ?? 0) + openDelta),
+          ...(subtasksText != null ? { subtasksText } : {}),
         }
       : t
     ))

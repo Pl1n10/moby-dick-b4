@@ -1,7 +1,50 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import S from '../styles.js'
 import useSubtasks from '../hooks/useSubtasks.js'
 import Linkify from './Linkify.jsx'
+
+function EditableSubtaskDescription({ item, update }) {
+  const [draft, setDraft] = useState(item.description)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    setDraft(item.description)
+  }, [item.description])
+
+  const reset = () => setDraft(item.description)
+  const commit = () => {
+    if (draft === item.description || saving) return
+    setSaving(true)
+    update(item.id, 'description', draft)
+      .catch(reset)
+      .finally(() => setSaving(false))
+  }
+
+  return (
+    <input
+      type="text"
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          reset()
+          e.currentTarget.blur()
+        }
+      }}
+      placeholder="(testo vuoto)"
+      disabled={saving}
+      style={{
+        flex: 1, background: 'transparent', border: 'none', outline: 'none',
+        color: item.done ? '#484f58' : '#e6edf3', fontSize: '13px',
+        fontFamily: S.sans, padding: '2px 4px',
+        textDecoration: item.done ? 'line-through' : 'none',
+        opacity: saving ? 0.7 : 1,
+      }}
+    />
+  )
+}
 
 export default function SubtaskList({ taskId, readOnly, search, onCountChange }) {
   const { items, loading, add, update, remove } = useSubtasks(taskId, onCountChange)
@@ -35,7 +78,7 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                 type="checkbox"
                 checked={item.done}
                 disabled={readOnly}
-                onChange={e => update(item.id, 'done', e.target.checked)}
+                onChange={e => update(item.id, 'done', e.target.checked).catch(() => {})}
                 style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#58a6ff' }}
               />
               {readOnly ? (
@@ -46,18 +89,7 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                   <Linkify text={item.description} query={search} />
                 </span>
               ) : (
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={e => update(item.id, 'description', e.target.value)}
-                  placeholder="(testo vuoto)"
-                  style={{
-                    flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                    color: item.done ? '#484f58' : '#e6edf3', fontSize: '13px',
-                    fontFamily: S.sans, padding: '2px 4px',
-                    textDecoration: item.done ? 'line-through' : 'none',
-                  }}
-                />
+                <EditableSubtaskDescription item={item} update={update} />
               )}
               {!readOnly && (
                 <button

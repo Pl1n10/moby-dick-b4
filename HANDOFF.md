@@ -34,6 +34,17 @@ Stato al 2026-06-04.
 - `dbbb221` — Migration 006: tabella `subtasks` con FK CASCADE. Router REST `/api/tasks/:taskId/subtasks`. `GET /api/tasks` con LEFT JOIN aggregato per contatori. Vincolo: PATCH `status='Closed'` su parent con subtask aperti → 400.
 - `40c8cae` — UI: chevron expand/collapse, badge "N/M" verde quando tutti done, `SubtaskList` con add/toggle/edit/delete inline, `useSubtasks` con optimistic updates.
 
+### Fix editing subtask description (2026-07-07) — by GPT-5/Codex
+
+Problema riscontrato: l'input descrizione subtask chiamava `update(item.id, 'description', e.target.value)` a ogni tasto. Questo generava PATCH concorrenti non ordinate verso `/api/tasks/:taskId/subtasks/:id`; una richiesta vecchia poteva arrivare al DB dopo una nuova e salvare testo troncato/precedente. Inoltre `fetch` non trattava i 4xx/5xx come errori, quindi la UI poteva sembrare salvata anche quando il backend rifiutava la richiesta.
+
+Fix implementato:
+- `src/components/SubtaskList.jsx`: introdotto `EditableSubtaskDescription` con draft locale. Il testo viene salvato solo su blur o Enter; Escape annulla e ripristina il valore salvato. Il checkbox gestisce la Promise di update per evitare errori non catturati nel browser.
+- `src/hooks/useSubtasks.js`: aggiunto `readJsonOrThrow()` per convertire risposte HTTP non-ok in errori reali. `update()` ora ritorna una Promise, fa rollback locale se PATCH fallisce e ripristina anche il counter open quando fallisce un toggle `done`. `remove()` fa rollback se DELETE fallisce. Dopo fetch/add/edit/delete sincronizza anche `subtasksText` aggregato verso il parent, così la ricerca nei subtask resta coerente senza attendere poll/refocus.
+- `src/hooks/useTasks.js`: `updateSubtaskCounters()` accetta anche `subtasksText` oltre a `totalDelta/openDelta`.
+
+Verifica: `npm run build` OK (Vite, 207 moduli trasformati).
+
 ### Self-service owners
 - `48c975f` — `/api/me` auto-INSERT al primo login (display_owner=name JWT, role=viewer). Nuovo router `/api/users` con `GET /owners`. `OwnersProvider` context FE con refresh on focus. `OWNERS` hardcoded rimosso da `src/data.js`.
 
