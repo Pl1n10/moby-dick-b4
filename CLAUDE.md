@@ -65,10 +65,13 @@ docker compose down         # Stop all services
 │   │       ├── EditableSelect.jsx
 │   │       ├── EditableCheckbox.jsx
 │   │       └── EditableDate.jsx
-│   └── hooks/
-│       ├── useTasks.js           # Task CRUD + optimistic updates + polling
-│       ├── useRecurring.js       # Recurring templates CRUD (processing is server-side)
-│       └── useBitAdder.js        # Bit Adder game state + batched server sync
+│   ├── hooks/
+│   │   ├── useTasks.js           # Task CRUD + optimistic updates + polling + undo recording
+│   │   ├── useSubtasks.js        # Checklist CRUD per task + undo recording
+│   │   ├── useRecurring.js       # Recurring templates CRUD (processing is server-side)
+│   │   └── useBitAdder.js        # Bit Adder game state + batched server sync
+│   └── undo/
+│       └── undoStore.js          # Stack undo per-utente (vedi sezione "Undo per-utente")
 │
 ├── backend/                      # ── Backend ───────────────────────
 │   ├── package.json
@@ -216,6 +219,19 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - `src/components/BitAdder.jsx`
 - `src/components/Footer.jsx` (trigger + drawer host)
 
+## Undo per-utente
+
+Annulla **l'ultima azione fatta dall'utente in questa tab**, non un rollback globale della board. Trigger: bottone "↶ Annulla" in Toolbar (tooltip = descrizione dell'azione, nascosto ai viewer puri) oppure Ctrl+Z / Cmd+Z (ignorato mentre si scrive in un campo di testo — lì resta l'undo nativo; checkbox/radio/button NON contano come campi di testo, così la spunta sbagliata si annulla anche col focus ancora sulla checkbox).
+
+**Design** (`src/undo/undoStore.js`):
+- Stack in memoria di modulo, max 30 entry, per-tab: refresh pagina = cronologia persa (scelta deliberata — è una rete di sicurezza, non un audit trail).
+- Ogni mutazione (edit campo task, create/delete task, add/toggle/edit/delete subtask) pusha **sincronicamente** un'entry `{label, run}`; `run()` esegue l'inversa via API. Push sincrono ⇒ un Ctrl+Z rapidissimo colpisce l'azione appena fatta, non la precedente; `run()` attende la richiesta originale prima di invertire, quindi l'inversa non può superarla sul filo.
+- **Guardrail anti-conflitto**: prima di invertire, `run()` verifica che il valore corrente sia ancora quello prodotto dall'azione (task: stato client via `registerTasksAccessor`; subtask: GET fresco). Se un collega ha modificato nel frattempo → skip con toast "Undo saltato", mai sovrascrittura cieca.
+- Entry consumata anche su skip (un conflitto non si risolve ritentando); se la richiesta *originale* fallisce, il sito chiamante chiama la `discard()` ritornata da `pushUndo` e l'entry muore con il rollback ottimistico.
+- **Restore di un task cancellato**: la checklist viene snapshottata SEMPRE prima del DELETE (GET in background, la riga sparisce subito); il restore ri-POSTa il task con lo stesso UUID + `recurringTemplateId` (retry senza se il template è sparito — FK) e ricrea gli item in ordine, ripristinando i flag done.
+- Dopo ogni undo riuscito: `refetchTasks(true)` + `emitSubtasksRefresh(taskId)` per riallineare board e checklist montate.
+- `skipNotify: true` nel body di POST (restore) e PATCH owner (undo di riassegnazione) evita di rimandare la mail di assegnazione. È un flag client-side su endpoint condivisi: tradeoff accettato per tool interno con utenti fidati — l'alternativa (endpoint di restore server-side) è over-engineering allo stato attuale.
+
 ## Notifiche di assegnazione
 
 Quando un task viene assegnato a un owner — alla creazione o al cambio del campo `owner` — il backend notifica l'owner tramite un **webhook Power Automate** (il Flow consegna poi via email e/o Teams).
@@ -227,6 +243,7 @@ Quando un task viene assegnato a un owner — alla creazione o al cambio del cam
 - **Skip auto-assegnazione**: assegnare un task a se stessi non genera notifica.
 - **Recurring esclusi**: i task creati da `recurring-processor.js` NON notificano (scelta esplicita, evita ping ciclici quotidiani).
 - **Fire-and-forget**: `notifyAssignment()` non viene mai `await`-ato dai route handler, cattura ogni errore e non trasforma mai un fallimento di notifica in un 500. Timeout 10s sul `fetch`.
+- **`skipNotify`**: POST e PATCH-owner accettano `skipNotify: true` nel body per sopprimere la notifica. Usato SOLO dall'undo client-side (restore di task cancellato, annullamento di un cambio owner) — l'owner era già stato notificato. Flag fidato lato server (tool interno).
 - **On/off**: feature spenta se `NOTIFY_WEBHOOK_URL` è vuota (dev/demo silenzioso; in prod si accende solo settando l'env var, nessun deploy di logica). `APP_PUBLIC_URL` è il link alla board incluso nel payload. **Stato attuale: ATTIVA in prod** dal 2026-06-04 (`NOTIFY_WEBHOOK_URL` settata sulla VM, Flow Power Automate live).
 - **Sicurezza**: l'URL del webhook È la credenziale — vive solo nel `.env` della VM, mai committato.
 
@@ -271,7 +288,9 @@ Payload inviato al webhook:
 ### Feature UX
 - [x] Split tab "NetBackup + Data Domain" → "Data Domain" + "NBU - Banche Estere"
 - [x] Rinominato pillar "Data Domain" → "Data Domain - ZFS" (migration 008, riflette la natura ZFS-based dello storage in produzione)
-- [x] Link cliccabili nelle description di task e subtask (auto-detect URL `https?://`, target `_blank`, `rel="noopener noreferrer"`) — utile per puntare a documenti SharePoint. Componente `src/components/Linkify.jsx`, integrato in `TaskRow`, `EditableText` (prop `linkify`) e `SubtaskList` (read-only). In edit mode i subtask restano `<input>`: il link è cliccabile solo a editing chiuso.
+- [x] Link cliccabili nelle description di task e subtask (auto-detect URL `https?://`, target `_blank`, `rel="noopener noreferrer"`) — utile per puntare a documenti SharePoint. Componente `src/components/Linkify.jsx`, integrato in `TaskRow`, `EditableText` (prop `linkify`) e `SubtaskList` (sia read-only che scrivibile: dal 2026-07-16 i subtask scrivibili sono click-to-edit, quindi link e highlight funzionano anche lì).
+- [x] **Evidenziazione match di ricerca nei subtask** (2026-07-16) — la ricerca già matchava il testo delle checklist (riga auto-espansa); ora il match è anche evidenziato con `<mark>` per tutti gli utenti. I subtask scrivibili sono passati da `<input>` sempre montato a click-to-edit (`EditableSubtaskDescription`: span con `Linkify`+`Highlight`, input on click, commit su blur/Enter, Escape annulla — variante deliberata del pattern `EditableText`, non consolidata per via di saving-state async e stili done/strikethrough propri).
+- [x] **Undo per-utente** (2026-07-16) — bottone "↶ Annulla" in Toolbar + Ctrl+Z. Vedi sezione "Undo per-utente".
 - [x] Export CSV del gruppo attivo (separator `;` + BOM UTF-8 per Excel italiano)
 - [x] ~~Reset con conferma testuale "RESET" (`window.prompt`)~~ — bottone rimosso dall'UI (`ade7da1`). Endpoint `POST /api/tasks/reset` rimane vivo per emergenze via curl admin.
 - [x] **Footer professionale** con versione (`KanbanOps v1.0 · © 2026 Mauden`). Include easter egg "Bit Adder" — vedi sezione dedicata sopra.

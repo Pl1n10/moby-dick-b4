@@ -19,6 +19,21 @@ export function isOverdue(deadlineStr) {
   return new Date(deadlineStr + 'T00:00:00') < today
 }
 
+// Extracts a human-readable error from a failed API response ("Cannot close
+// task: …" or "HTTP 500"). Never throws.
+export async function apiErrorReason(response) {
+  const data = await response.json().catch(() => null)
+  return data?.error || `HTTP ${response.status}`
+}
+
+// Quoted, ellipsis-truncated snippet for undo labels/toasts. Null when empty
+// so callers can supply their own fallback wording.
+export function shortQuote(text, max = 30) {
+  const t = (text || '').trim()
+  if (!t) return null
+  return `"${t.length > max ? t.slice(0, max) + '…' : t}"`
+}
+
 // CSV cell escaping: wrap in quotes only if needed (;, ", \n, \r), double inner quotes.
 function csvCell(value) {
   if (value === null || value === undefined) return ''

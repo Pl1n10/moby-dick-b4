@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { GROUPS } from './data.js'
 import { exportTasksToCsv } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
+import { useUndoState, undoLast } from './undo/undoStore.js'
 import { useUserInfo, useCanWrite } from './auth/UserInfoProvider.jsx'
 import { useOwners } from './auth/OwnersProvider.jsx'
 import Header from './components/Header.jsx'
@@ -33,13 +34,56 @@ export default function App() {
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
-  const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters } = useTasks()
+  const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
   const userInfo = useUserInfo()
   const owners = useOwners()
   const canWrite = useCanWrite()
   const defaultOwner = userInfo.owner || owners[0] || ''
   const canAdd = !isStorico && canWrite(activeGroup)
+
+  // ── Per-user undo ───────────────────────────────────────
+  // Pure read-only users never accumulate undoable actions: hide the button.
+  const canWriteAnything = userInfo.role === 'admin'
+    || (Array.isArray(userInfo.operatorGroups) && userInfo.operatorGroups.length > 0)
+  const undoState = useUndoState()
+  const [undoToast, setUndoToast] = useState(null)
+  const toastTimer = useRef(null)
+
+  const handleUndo = useCallback(async () => {
+    const result = await undoLast()
+    if (!result) return
+    if (result.ok) {
+      // Undo mutates server state at API level: resync the board.
+      refetchTasks(true)
+      setUndoToast({ kind: 'ok', msg: `Annullato: ${result.label}` })
+    } else {
+      setUndoToast({ kind: 'warn', msg: `Undo saltato (${result.label}): ${result.reason}` })
+    }
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setUndoToast(null), 4000)
+  }, [refetchTasks])
+
+  // Ctrl+Z / Cmd+Z, only when not typing: inside text fields the browser's
+  // native text undo must keep working. Checkbox/radio/button inputs have no
+  // native undo and keep focus after a click — those must NOT swallow Ctrl+Z
+  // (unchecking a ticket by mistake is exactly the main undo use case).
+  useEffect(() => {
+    const NON_TEXT_INPUT_TYPES = ['checkbox', 'radio', 'button', 'submit', 'range']
+    const onKeyDown = (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return
+      if (e.key.toLowerCase() !== 'z') return
+      const t = e.target
+      if (t && (t.tagName === 'TEXTAREA' || t.isContentEditable
+        || (t.tagName === 'INPUT' && !NON_TEXT_INPUT_TYPES.includes(t.type)))) return
+      e.preventDefault()
+      handleUndo()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleUndo])
+
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
 
   const filteredTasks = tasks
     .filter(t => {
@@ -89,6 +133,10 @@ export default function App() {
           onAdd={() => handleAdd(activeGroup, clearFilters, defaultOwner)}
           onExport={() => exportTasksToCsv(filteredTasks, isStorico ? 'storico' : activeGroup)}
           canAdd={canAdd}
+          showUndo={canWriteAnything}
+          canUndo={undoState.canUndo}
+          undoLabel={undoState.nextLabel}
+          onUndo={handleUndo}
         />
 
         <TaskTable
@@ -104,6 +152,19 @@ export default function App() {
       </main>
 
       <Footer />
+
+      {undoToast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
+          maxWidth: '380px', padding: '10px 14px',
+          background: '#161b22', borderRadius: '8px',
+          border: `1px solid ${undoToast.kind === 'warn' ? '#d29922' : '#2ea043'}`,
+          color: '#e6edf3', fontSize: '13px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        }}>
+          {undoToast.kind === 'warn' ? '⚠ ' : '↶ '}{undoToast.msg}
+        </div>
+      )}
 
       {showRecurringModal && (
         <RecurringModal

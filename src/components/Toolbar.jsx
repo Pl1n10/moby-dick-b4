@@ -13,6 +13,7 @@ export default function Toolbar({
   recurring, onOpenRecurring,
   onAdd, onExport,
   canAdd = false,
+  showUndo = false, canUndo = false, undoLabel = null, onUndo,
 }) {
   const isAdmin = useIsAdmin()
   const owners = useOwners()
@@ -127,8 +128,34 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* Spacer + Export + Add */}
+      {/* Spacer + Undo + Export + Add */}
       <div style={{ flex: '1' }} />
+      {/* Undo — hidden for pure read-only users (they never accumulate actions) */}
+      {showUndo && (
+        <button
+          onClick={onUndo}
+          disabled={!canUndo}
+          title={canUndo ? `Annulla: ${undoLabel} (Ctrl+Z)` : 'Niente da annullare'}
+          style={{
+            padding: '7px 12px', background: 'none', border: '1px solid #30363d',
+            borderRadius: '6px',
+            color: canUndo ? '#8b949e' : '#484f58',
+            fontSize: '13px', fontFamily: S.sans,
+            cursor: canUndo ? 'pointer' : 'not-allowed',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => {
+            if (!canUndo) return
+            e.currentTarget.style.borderColor = '#58a6ff'
+            e.currentTarget.style.color = '#58a6ff'
+          }}
+          onMouseLeave={e => {
+            if (!canUndo) return
+            e.currentTarget.style.borderColor = '#30363d'
+            e.currentTarget.style.color = '#8b949e'
+          }}
+        >↶ Annulla</button>
+      )}
       <button
         onClick={onExport}
         disabled={filteredCount === 0}

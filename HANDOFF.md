@@ -1,13 +1,13 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-06-04.
+Stato al 2026-07-16.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
-- Branch: `main` — allineato a `origin/main`
-- Ultimo commit feature: `81c68c3` — fix: P0 row top border eaten by table header (2026-06-04). Feature priorità: `061c605`.
+- Branch: `main`
+- Ultimo commit feature: vedi `git log --oneline -n 5` (2026-07-16: highlight subtask nella ricerca + undo per-utente)
 - Working tree: clean
 - Tag annotato `mauden-prod-2026-06-04` → `81c68c3` (stato attualmente in produzione su `mauden-ubuntu`: priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
@@ -145,6 +145,22 @@ Nuova colonna **Priorità** sui task, a sinistra di Status. Scala P0..P5, dove *
 **Decisioni confermate con l'utente**: P0 = solo bordo rosso (no sfondo, per leggibilità) · default P3 · **ordinamento invariato** (`updatedAt desc`, nessun sort per priorità). Filtro priorità in Toolbar NON aggiunto (non richiesto).
 
 **Doc**: CLAUDE.md item "Priority field" spostato da TODO a done; aggiornati Task Data Model shape (`priority`) e Constants (`PRIORITIES` / `DEFAULT_PRIORITY`).
+
+### QoL: highlight subtask nella ricerca + undo per-utente (2026-07-16)
+
+Contesto: il team usa i subtask come registri di item omogenei ("Ticket girati" con la lista dei ticket da spuntare), non come scomposizione di lavori. Due richieste QoL:
+
+**1. Evidenziazione match ricerca nei subtask.** La ricerca matchava già `subtasksText` (riga auto-espansa), ma per gli utenti con scrittura il match non era evidenziato: i subtask scrivibili erano `<input>` sempre montati. Fix: `EditableSubtaskDescription` è ora click-to-edit come `EditableText` — span con `Linkify`+`Highlight` in visualizzazione, `<input>` on click. La logica draft/blur/Enter/Escape del fix 2026-07-07 è invariata. Bonus: link cliccabili nei subtask anche per chi ha scrittura.
+
+**2. Undo per-utente** (requisito esplicito: individuale, NON una freccetta indietro globale che impatta tutti). Architettura completa nella sezione "Undo per-utente" di CLAUDE.md. In sintesi: stack client-side per-tab (max 30 entry) in `src/undo/undoStore.js`; ogni mutazione pusha l'inversa; bottone "↶ Annulla" in Toolbar + Ctrl+Z; conflict-check prima di invertire (mai sovrascrivere il lavoro di un collega, skip con toast); restore del delete con snapshot checklist pre-DELETE e stesso UUID; `skipNotify` su POST/PATCH-owner per non rimandare mail di assegnazione sugli undo.
+
+File: `src/undo/undoStore.js` (nuovo), `src/hooks/useTasks.js`, `src/hooks/useSubtasks.js`, `src/App.jsx` (Ctrl+Z guard + toast), `src/components/Toolbar.jsx`, `src/components/SubtaskList.jsx`, `src/utils.js` (helper `apiErrorReason`/`shortQuote`), `backend/src/routes/tasks.js` (flag `skipNotify` + `recurringTemplateId` nell'INSERT del POST).
+
+Review (8 finder + verifica) — fix applicati prima del commit: push sincrono delle entry per evitare che un Ctrl+Z rapido colpisca l'azione precedente (race trovata dall'E2E); `discard()` dell'entry se la richiesta originale fallisce; rimozione ottimistica immediata della riga sul delete (snapshot in background); snapshot checklist incondizionato (il counter client può driftare); gate `skipNotify` anche sul PATCH owner (l'undo di una riassegnazione ri-notificava il vecchio owner); `recurringTemplateId` preservato nel restore con retry senza in caso di FK rotta. Accettati come tradeoff documentati: `skipNotify` client-controlled, fork di `EditableText`, LWW sul draft in editing concorrente.
+
+Verifica: `npm run build` OK + suite E2E Playwright (backend demo locale + Postgres locale `moby`, script in scratchpad di sessione): creazione/edit/undo campo, highlight `<mark>` in subtask per utente RW, spunta+Ctrl+Z (anche con focus sulla checkbox), edit subtask+undo, delete task con checklist e restore completo via bottone (badge 0/2). Tutti i check passati.
+
+Nota gotcha Ctrl+Z: il guard tastiera esclude solo i campi di testo (INPUT text-like, TEXTAREA, contentEditable) — checkbox/radio/button lasciano passare l'undo, altrimenti il caso d'uso principale (spunta sbagliata, focus ancora sulla checkbox) non funzionerebbe.
 
 ## Deploy in produzione
 

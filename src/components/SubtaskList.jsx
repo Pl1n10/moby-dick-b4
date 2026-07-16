@@ -1,27 +1,61 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import S from '../styles.js'
 import useSubtasks from '../hooks/useSubtasks.js'
 import Linkify from './Linkify.jsx'
 
-function EditableSubtaskDescription({ item, update }) {
+// Click-to-edit, same pattern as EditableText: a display span (so search
+// highlighting and clickable links work for writable rows too) that swaps to
+// an <input> on click. Draft committed on blur/Enter, Escape cancels — the
+// per-keystroke concurrent PATCH problem stays fixed.
+function EditableSubtaskDescription({ item, update, search }) {
+  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(item.description)
   const [saving, setSaving] = useState(false)
+  const inputRef = useRef(null)
 
   useEffect(() => {
-    setDraft(item.description)
-  }, [item.description])
+    if (editing && inputRef.current) inputRef.current.focus()
+  }, [editing])
 
-  const reset = () => setDraft(item.description)
   const commit = () => {
+    setEditing(false)
     if (draft === item.description || saving) return
     setSaving(true)
     update(item.id, 'description', draft)
-      .catch(reset)
+      .catch(() => {})
       .finally(() => setSaving(false))
+  }
+
+  if (!editing) {
+    return (
+      <span
+        onClick={() => {
+          if (saving) return
+          setDraft(item.description)
+          setEditing(true)
+        }}
+        title="Click to edit"
+        style={{
+          flex: 1, cursor: 'pointer', padding: '2px 4px', borderRadius: '4px',
+          minHeight: '18px', fontSize: '13px', fontFamily: S.sans,
+          color: item.done ? '#484f58' : '#e6edf3',
+          textDecoration: item.done ? 'line-through' : 'none',
+          opacity: saving ? 0.7 : 1,
+          transition: 'background 0.1s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      >
+        {item.description
+          ? <Linkify text={item.description} query={search} />
+          : <span style={{ color: '#484f58', fontStyle: 'italic' }}>(testo vuoto)</span>}
+      </span>
+    )
   }
 
   return (
     <input
+      ref={inputRef}
       type="text"
       value={draft}
       onChange={e => setDraft(e.target.value)}
@@ -29,18 +63,16 @@ function EditableSubtaskDescription({ item, update }) {
       onKeyDown={e => {
         if (e.key === 'Enter') e.currentTarget.blur()
         if (e.key === 'Escape') {
-          reset()
-          e.currentTarget.blur()
+          setDraft(item.description)
+          setEditing(false)
         }
       }}
       placeholder="(testo vuoto)"
-      disabled={saving}
       style={{
         flex: 1, background: 'transparent', border: 'none', outline: 'none',
         color: item.done ? '#484f58' : '#e6edf3', fontSize: '13px',
         fontFamily: S.sans, padding: '2px 4px',
         textDecoration: item.done ? 'line-through' : 'none',
-        opacity: saving ? 0.7 : 1,
       }}
     />
   )
@@ -89,7 +121,7 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                   <Linkify text={item.description} query={search} />
                 </span>
               ) : (
-                <EditableSubtaskDescription item={item} update={update} />
+                <EditableSubtaskDescription item={item} update={update} search={search} />
               )}
               {!readOnly && (
                 <button

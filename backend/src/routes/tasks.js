@@ -102,11 +102,11 @@ router.post('/reset', requireAdmin, async (req, res) => {
 // the target pillar (admin everywhere, operator on listed groups).
 router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, priority, deadline } = req.body
+    const { id, group, reference, description, status, owner, priority, deadline, recurringTemplateId } = req.body
     const prio = isValidPriority(priority) ? priority : 3   // default medium
     const { rows } = await pool.query(
-      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, deadline, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, deadline, recurring_template_id, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
        RETURNING *`,
       [
         id || undefined,          // let DB generate if null
@@ -117,12 +117,17 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
         owner,
         prio,
         deadline || null,
+        recurringTemplateId || null,   // set by undo-restore to keep the 🔄 badge
       ]
     )
     res.status(201).json(mapTaskToClient(rows[0]))
 
     // Fire-and-forget: notify the owner when a task is created already assigned.
-    notifyAssignment({ task: rows[0], event: 'task.assigned', assigner: req.user })
+    // skipNotify: set by the client-side undo when restoring a deleted task —
+    // the owner was already notified at the original assignment.
+    if (!req.body.skipNotify) {
+      notifyAssignment({ task: rows[0], event: 'task.assigned', assigner: req.user })
+    }
   } catch (err) {
     console.error('POST /api/tasks error:', err.message)
     res.status(500).json({ error: 'Failed to create task' })
@@ -182,7 +187,9 @@ router.patch('/:id', async (req, res) => {
 
     // Fire-and-forget: notify on (re)assignment when the owner field changed to
     // a new, non-empty value. 'task.assigned' if the task had no owner before.
-    if (field === 'owner' && value && value !== existing.owner) {
+    // skipNotify: set by the client-side undo of an owner change — the previous
+    // owner is being restored, not newly assigned, so no email.
+    if (field === 'owner' && value && value !== existing.owner && !req.body.skipNotify) {
       notifyAssignment({
         task: rows[0],
         event: existing.owner ? 'task.reassigned' : 'task.assigned',
