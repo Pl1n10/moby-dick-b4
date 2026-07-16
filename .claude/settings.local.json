@@ -32,7 +32,28 @@
       "Bash(node --check src/index.js)",
       "Bash(node --check src/routes/tasks.js)",
       "Bash(node --check src/routes/subtasks.js)",
-      "Bash(node --check src/routes/me.js)"
+      "Bash(node --check src/routes/me.js)",
+      "Bash(node --check /home/hypn0/projects/moby-dick-b4/backend/src/routes/bitadder.js)",
+      "Bash(node --check /home/hypn0/projects/moby-dick-b4/backend/src/index.js)",
+      "Bash(grep -i -E '\\\\.md$')",
+      "Bash(git tag -a mauden-prod-2026-05-19 ade7da1 -m 'Mauden production baseline \\(KanbanOps v1.0\\) *)",
+      "Bash(git tag *)",
+      "Bash(rm /home/hypn0/projects/moby-dick-b4/.claude/memory/kanbanops_evolution_strategy.md)",
+      "Bash(rmdir /home/hypn0/projects/moby-dick-b4/.claude/memory/)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(node --check backend/src/routes/tasks.js)",
+      "Bash(psql -lqt)",
+      "Bash(psql -U moby -h localhost -d moby -c 'SELECT 1')",
+      "Bash(sudo -n -u postgres psql -lqt)",
+      "Bash(sudo -n -u postgres psql -c \"CREATE ROLE moby LOGIN PASSWORD 'moby'\" -c \"CREATE DATABASE moby OWNER moby\")",
+      "Bash(npm root *)",
+      "Bash(NODE_PATH=$\\(npm root -g\\) node e2e-undo.mjs)",
+      "Bash(node e2e-undo.mjs)",
+      "Bash(curl -s localhost:5173/src/App.jsx)",
+      "Bash(curl -s localhost:3000/api/tasks)",
+      "Bash(python3 -m json.tool)",
+      "Bash(node debug-restore.mjs)",
+      "Skill(code-review)"
     ]
   }
 }

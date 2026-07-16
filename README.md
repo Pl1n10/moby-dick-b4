@@ -47,13 +47,14 @@ nginx:80  →  /api/*  →  api:3000 (Express)  →  db:5432 (PostgreSQL 16)
 Apply changes on the VM (`/opt/moby-dick-b4/`):
 
 ```bash
-git pull
+cd /opt/moby-dick-b4
+git pull origin main
 docker-compose build
 docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
 docker-compose up -d
 ```
 
-⚠️ Do **not** use `docker-compose up -d --build` on the VM. The pinned `docker-compose v1.29.2` crashes with `KeyError: 'ContainerConfig'` on any recreate after rebuild. The `build → rm → up` sequence above is the documented workaround. Details in `HANDOFF.md`.
+⚠️ The production VM has legacy `docker-compose v1.29.2` only. Do **not** use `docker compose ...` (no hyphen), and do **not** use `docker-compose up -d --build`; v1 can crash with `KeyError: 'ContainerConfig'` on recreate after rebuild. The `build → rm → up` sequence above is the documented workaround. If the crash has already happened while recreating nginx, recover with `docker-compose rm -f nginx && docker-compose up -d nginx`. Details in `HANDOFF.md`.
 
 DB migrations are idempotent and re-applied at every boot of `moby-api`. Adding a migration = drop a new `.sql` in `backend/migrations/`.
 

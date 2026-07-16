@@ -150,10 +150,11 @@ Nuova colonna **Priorità** sui task, a sinistra di Status. Scala P0..P5, dove *
 
 - Host: `mauden-ubuntu` (VM Mauden, IP LAN `10.1.1.92`)
 - Hostname pubblico: **`https://kanbanops.mauden.com`** (TLS terminato da RP Mauden) — *cutover dal precedente `mobydick.mauden.com` effettuato 2026-05-18*
-- Stack: 3 container Docker Compose, tutti `Up (healthy)`
-  - `moby-db` (postgres:16-alpine, volume `pgdata`)
-  - `moby-api` (Express, `AUTH_ENABLED=true`)
-  - `moby-nginx` (Vite build dietro RP)
+- Stack: 3 container Docker Compose, verificato post-deploy 2026-07-07:
+  - `moby-db` (postgres:16-alpine, volume `pgdata`) → `Up (healthy)`
+  - `moby-api` (Express, `AUTH_ENABLED=true`) → `Up (healthy)`
+  - `moby-nginx` (Vite build dietro RP) → `Up`, porta `0.0.0.0:80->80/tcp`
+- Tooling Docker sulla VM: disponibile `docker-compose` v1.29.2; NON disponibile Compose v2 (`docker compose ...` senza trattino fallisce).
 
 ## Modello permessi attuale (riferimento rapido)
 
@@ -282,13 +283,23 @@ Sostituire `window.confirm()` di delete + `window.prompt()` di reset + `window.c
 - Mai assumere credenziali/secrets, mai committarli
 - `.env` vive solo sulla VM (`/opt/moby-dick-b4/.env`), `chmod 600`
 - **Gotcha Dockerfile nginx**: `COPY public ./public` nel build stage obbligatorio
-- **Gotcha docker-compose v1.29.2**: bug `KeyError: 'ContainerConfig'` su QUALUNQUE recreate dopo rebuild image (non solo `--force-recreate`). NON usare `docker-compose up -d --build`. **Procedura standard** per applicare modifiche che richiedono rebuild (codice FE, `.env` con VITE_*, Dockerfile):
+- **Gotcha docker-compose v1.29.2 / deploy VM**: su `mauden-ubuntu` usare sempre `docker-compose` con trattino. `docker compose up -d --build` fallisce con `unknown shorthand flag: 'd' in -d` perché Compose v2 non è installato. Inoltre docker-compose v1.29.2 ha il bug `KeyError: 'ContainerConfig'` su recreate dopo rebuild image (non solo `--force-recreate`). NON usare `docker-compose up -d --build`. **Procedura standard** per applicare modifiche che richiedono rebuild (codice FE, `.env` con VITE_*, Dockerfile):
   ```bash
+  cd /opt/moby-dick-b4
+  git pull origin main
   docker-compose build                                                               # solo build, no recreate
   docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f   # wipe container che cambiano image (db NO)
   docker-compose up -d                                                               # recreate clean
   ```
-  Lasciare `moby-db` intatto: pgdata sopravvive comunque (volume nominato), ma evita restart inutili.
+  Lasciare `moby-db` intatto: pgdata sopravvive comunque (volume nominato), ma evita restart inutili. Se qualcuno ha già lanciato `docker-compose up -d --build` e il recreate fallisce su `moby-nginx` con `KeyError: 'ContainerConfig'`, recovery confermata il 2026-07-07:
+  ```bash
+  docker-compose rm -f nginx
+  docker-compose up -d nginx
+  docker-compose ps
+  curl -I http://localhost
+  curl -I https://kanbanops.mauden.com
+  ```
+  Esito recovery 2026-07-07: `moby-nginx` ricreato, `moby-api` e `moby-db` rimasti `Up (healthy)`, `http://localhost` → `200 OK`, `https://kanbanops.mauden.com` → `HTTP/2 200` con header `x-served-by: kanbanops.mauden.com`.
 - **Gotcha sudo nei file di repo**: file creati con `sudo` (es. `sudo cp .env .env.bak-...`) finiscono owned by root, illeggibili dal docker daemon che gira come utente non-root → il legacy builder fallisce con "no permission to read from ...". Mitigato dal pattern `.env.*` in `.dockerignore`, ma vale come regola: backup/temp file di root → fuori dalla repo dir (`/opt/.env.bak-*` o `/root/`).
 - **Gotcha terminal paste**: terminale dell'utente prepende 2 spazi alle righe pastate. Heredoc `<<'EOF'` fallisce. Usare `nano` per file multi-line, `psql -c` per SQL una riga.
 
@@ -300,7 +311,7 @@ npm run dev   # localhost:5173, proxy /api → :3000
 cd backend && npm run dev
 
 # Smoke produzione (sulla VM)
-docker compose ps                          # 3 container Up healthy
+docker-compose ps                          # 3 container Up/healthy; sulla VM NON usare `docker compose`
 curl -s http://localhost/api/health        # {"status":"ok",...}
 curl -I http://localhost/api/tasks         # 401 (auth attiva)
 docker exec moby-db psql -U moby moby -c "SELECT email, display_owner, role FROM users ORDER BY display_owner;"

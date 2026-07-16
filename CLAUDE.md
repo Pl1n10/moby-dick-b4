@@ -247,13 +247,15 @@ Payload inviato al webhook:
 
 ## Operations & deploy strategy
 
-- **Deploy in produzione**: VM `mauden-ubuntu` con `docker-compose` v1.29.2 (con trattino, NON `docker compose`). Procedura standard per applicare modifiche di codice o `.env`:
+- **Deploy in produzione**: VM `mauden-ubuntu` con `docker-compose` v1.29.2 (con trattino, NON `docker compose`). `docker compose up -d --build` sulla VM fallisce con `unknown shorthand flag: 'd' in -d` perché il plugin Compose v2 non è installato. Procedura standard per applicare modifiche di codice o `.env`:
   ```bash
-  cd /opt/moby-dick-b4 && git pull && docker-compose build
+  cd /opt/moby-dick-b4
+  git pull origin main
+  docker-compose build
   docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
   docker-compose up -d
   ```
-  Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con BuildKit). `moby-db` non viene toccato dal recreate.
+  Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con docker-compose v1.29.2 su recreate dopo rebuild). Se il bug è già scattato su nginx: `docker-compose rm -f nginx && docker-compose up -d nginx`. `moby-db` non viene toccato dal recreate.
 - **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-06-04` → `81c68c3` (priorità task P0–P5 + notifiche di assegnazione ATTIVE).
 - **Pinning del deploy a un tag**: **non ancora attivo**. La VM continua a fare `git pull` su `main`. Diventerà necessario quando si inizierà il fork generico per "servizi gestiti", per evitare che cambiamenti generici raggiungano la prod Mauden via pull. Lo snippet di deploy da applicare alla VM in quel momento è descritto in `HANDOFF.md`.
 - **Fork strategy**: il software è oggi mono-tenant Mauden con pillar/admin/brand hardcoded. Se si concretizza l'espansione interna al settore "servizi gestiti", si forka invece di rifattorizzare a multi-tenant — decisione e razionale in `HANDOFF.md`. Quando arriva il momento, anche nel fork si parte data-driven (tabella `pillars`, env per admin bootstrap e brand) per non ripetere l'errore degli hardcode.
