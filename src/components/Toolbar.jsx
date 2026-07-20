@@ -5,6 +5,9 @@ import { useOwners } from '../auth/OwnersProvider.jsx'
 
 export default function Toolbar({
   isStorico, search, onSearchChange,
+  // Decoupled from isStorico: the Info Reperibile tab is cross-pillar too
+  // (needs the group filter) but keeps the status filter and stays writable.
+  showGroupFilter = isStorico, showRecurring = !isStorico,
   filterGroup, onFilterGroupChange,
   filterStatus, onFilterStatusChange,
   filterOwner, onFilterOwnerChange,
@@ -43,8 +46,8 @@ export default function Toolbar({
         />
       </div>
 
-      {/* Group filter (Storico only) */}
-      {isStorico && (
+      {/* Group filter (cross-pillar views) */}
+      {showGroupFilter && (
         <select
           value={filterGroup}
           onChange={e => onFilterGroupChange(e.target.value)}
@@ -109,7 +112,7 @@ export default function Toolbar({
       )}
 
       {/* Recurring button — admin-only (modal can edit/delete templates) */}
-      {!isStorico && isAdmin && (
+      {showRecurring && isAdmin && (
         <button onClick={onOpenRecurring} title="Manage recurring tasks" style={{
           padding: '7px 12px', background: 'none', border: '1px solid #30363d',
           borderRadius: '6px', color: '#8b949e', fontSize: '13px', fontFamily: S.sans,

@@ -26,6 +26,7 @@ function mapTaskToClient(row) {
     status: row.status,
     owner: row.owner,
     priority: row.priority != null ? Number(row.priority) : 3,
+    reperibile: row.reperibile === true,
     deadline: formatDate(row.deadline),
     updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
     recurringTemplateId: row.recurring_template_id || undefined,
@@ -46,9 +47,15 @@ const FIELD_TO_COLUMN = {
   status: 'status',
   owner: 'owner',
   priority: 'priority',
+  reperibile: 'reperibile',
   deadline: 'deadline',
   group: 'group_name',
 }
+
+// Flag-only fields: toggling them must NOT bump updated_at. Sorting is by
+// updated_at desc everywhere, so ticking a checkbox would otherwise teleport
+// the row to the top of the board — same rationale the old `waiting` flag had.
+const NO_TOUCH_FIELDS = new Set(['reperibile'])
 
 // Priority is the only numeric, range-constrained field. Validate here so a
 // bad client value returns 400 instead of tripping the DB CHECK as a 500.
@@ -102,11 +109,11 @@ router.post('/reset', requireAdmin, async (req, res) => {
 // the target pillar (admin everywhere, operator on listed groups).
 router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, priority, deadline, recurringTemplateId } = req.body
+    const { id, group, reference, description, status, owner, priority, reperibile, deadline, recurringTemplateId } = req.body
     const prio = isValidPriority(priority) ? priority : 3   // default medium
     const { rows } = await pool.query(
-      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, deadline, recurring_template_id, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
        RETURNING *`,
       [
         id || undefined,          // let DB generate if null
@@ -116,6 +123,7 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
         status || 'New',
         owner,
         prio,
+        reperibile === true,      // preserved by undo-restore of a deleted task
         deadline || null,
         recurringTemplateId || null,   // set by undo-restore to keep the 🔄 badge
       ]
@@ -175,14 +183,22 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
+    if (field === 'reperibile' && typeof value !== 'boolean') {
+      return res.status(400).json({ error: 'reperibile must be a boolean' })
+    }
+
     const column = FIELD_TO_COLUMN[field]
     const dbValue = field === 'deadline' && value === '' ? null : value
-    const now = new Date().toISOString()
 
-    const { rows } = await pool.query(
-      `UPDATE tasks SET ${column} = $2, updated_at = $3 WHERE id = $1 RETURNING *`,
-      [id, dbValue, now]
-    )
+    const { rows } = NO_TOUCH_FIELDS.has(field)
+      ? await pool.query(
+          `UPDATE tasks SET ${column} = $2 WHERE id = $1 RETURNING *`,
+          [id, dbValue],
+        )
+      : await pool.query(
+          `UPDATE tasks SET ${column} = $2, updated_at = $3 WHERE id = $1 RETURNING *`,
+          [id, dbValue, new Date().toISOString()],
+        )
     res.json(mapTaskToClient(rows[0]))
 
     // Fire-and-forget: notify on (re)assignment when the owner field changed to

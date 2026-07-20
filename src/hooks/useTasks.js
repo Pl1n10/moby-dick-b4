@@ -14,10 +14,17 @@ const FIELD_LABELS = {
   owner: 'cambio owner',
   priority: 'cambio priorità',
   deadline: 'modifica scadenza',
+  reperibile: 'flag info reperibile',
   group: 'cambio gruppo',
 }
 
 const taskLabel = (t) => shortQuote(t?.reference) ?? 'task senza reference'
+
+// Fields whose change must NOT bump updatedAt — mirrors NO_TOUCH_FIELDS in
+// backend/src/routes/tasks.js. Sorting is by updatedAt desc, so bumping it
+// here would make the row jump to the top and then snap back on the next
+// refetch (the server didn't bump it). Keep the two lists in sync.
+const NO_TOUCH_FIELDS = new Set(['reperibile'])
 
 // Loose equality for conflict checks: the server normalizes deadline '' → null,
 // so null and '' must count as the same value.
@@ -74,9 +81,14 @@ export default function useTasks() {
     const before = tasksRef.current.find(t => t.id === taskId)
 
     lastUpdateRef.current = Date.now()
+    const touchesUpdatedAt = !NO_TOUCH_FIELDS.has(field)
     setTasks(prev => prev.map(t => (
       t.id === taskId
-        ? { ...t, [field]: value, updatedAt: new Date().toISOString() }
+        ? {
+            ...t,
+            [field]: value,
+            ...(touchesUpdatedAt ? { updatedAt: new Date().toISOString() } : {}),
+          }
         : t
     )))
 
@@ -132,6 +144,7 @@ export default function useTasks() {
       status: 'New',
       owner: defaultOwner || '',
       priority: DEFAULT_PRIORITY,
+      reperibile: false,
       deadline: null,
       updatedAt: new Date().toISOString(),
     }
@@ -212,6 +225,7 @@ export default function useTasks() {
         status: task.status,
         owner: task.owner,
         priority: task.priority,
+        reperibile: task.reperibile,
         deadline: task.deadline,
         recurringTemplateId: task.recurringTemplateId || null,
         skipNotify: true,

@@ -3,7 +3,9 @@ import S from '../styles.js'
 import TaskRow from './TaskRow.jsx'
 import SubtaskList from './SubtaskList.jsx'
 
-export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiveFilters, search, onUpdate, onDelete, onSubtaskCountChange }) {
+// `showGroup` is decoupled from `isStorico` because the Info Reperibile tab is
+// also cross-pillar (needs the Gruppo column) but stays fully writable.
+export default function TaskTable({ filteredTasks, canWrite, isStorico, showGroup = isStorico, highlightReperibile = true, emptyMessage, hasActiveFilters, search, onUpdate, onDelete, onSubtaskCountChange }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set())
 
   const toggleExpand = (id) => {
@@ -20,14 +22,17 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
   const matchesInSubtasks = (task) =>
     !!q && (task.subtasksText || '').toLowerCase().includes(q)
 
-  // Header layout:
-  //  - Storico: 7 cols, leading "Gruppo" column, no delete.
-  //  - Non-storico: 7 cols including a trailing actions column. Each row
-  //    decides whether to render the ✕ button based on per-task write scope,
-  //    so the column may be visually empty for users out-of-scope on a pillar.
-  const headers = isStorico
-    ? ['Gruppo', 'Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza']
-    : ['Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza', '']
+  // Header layout. Always leads with the "Rep." checkbox column, then an
+  // optional "Gruppo" column on the cross-pillar views (Storico, Info
+  // Reperibile), and closes with a trailing actions column outside Storico.
+  // Each row decides whether to render the ✕ button based on per-task write
+  // scope, so that column may be visually empty for out-of-scope users.
+  const headers = [
+    'Rep.',
+    ...(showGroup ? ['Gruppo'] : []),
+    'Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza',
+    ...(isStorico ? [] : ['']),
+  ]
 
   return (
     <div style={{ border: '1px solid #21262d', borderRadius: '8px', overflow: 'hidden' }}>
@@ -49,9 +54,9 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
               <td colSpan={headers.length} style={{ padding: '40px', textAlign: 'center', color: '#484f58' }}>
                 {hasActiveFilters
                   ? 'No tasks match your filters.'
-                  : isStorico
+                  : emptyMessage || (isStorico
                     ? 'No closed tasks yet.'
-                    : 'No tasks in this group yet. Click "+ New Task" to add one.'}
+                    : 'No tasks in this group yet. Click "+ New Task" to add one.')}
               </td>
             </tr>
           ) : (
@@ -67,7 +72,8 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, hasActiv
                     onDelete={() => onDelete(task.id)}
                     readOnly={rowReadOnly}
                     showDelete={!isStorico}
-                    showGroup={isStorico}
+                    showGroup={showGroup}
+                    highlightReperibile={highlightReperibile}
                     expanded={isExpanded}
                     onToggleExpand={() => toggleExpand(task.id)}
                   />

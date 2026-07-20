@@ -60,6 +60,7 @@ docker compose down         # Stop all services
 │   │   ├── StatusBadge.jsx
 │   │   ├── Highlight.jsx
 │   │   ├── RecurringModal.jsx
+│   │   ├── OnCallBar.jsx         # Info Reperibile: chi è di turno (admin edita)
 │   │   └── editable/
 │   │       ├── EditableText.jsx
 │   │       ├── EditableSelect.jsx
@@ -69,6 +70,7 @@ docker compose down         # Stop all services
 │   │   ├── useTasks.js           # Task CRUD + optimistic updates + polling + undo recording
 │   │   ├── useSubtasks.js        # Checklist CRUD per task + undo recording
 │   │   ├── useRecurring.js       # Recurring templates CRUD (processing is server-side)
+│   │   ├── useOnCall.js          # Setting app_settings.on_call (read all, write admin)
 │   │   └── useBitAdder.js        # Bit Adder game state + batched server sync
 │   └── undo/
 │       └── undoStore.js          # Stack undo per-utente (vedi sezione "Undo per-utente")
@@ -133,11 +135,14 @@ Startup chain: **db healthy** → **api healthy** → **nginx starts**
 ### Database Schema (001_init.sql)
 
 **tasks** table:
-- `id` UUID PK, `group_name`, `reference`, `description`, `status` (CHECK), `owner`, `waiting`, `deadline` DATE, `recurring_template_id` UUID FK, `updated_at`, `created_at`
+- `id` UUID PK, `group_name`, `reference`, `description`, `status` (CHECK), `owner`, `priority`, `reperibile`, `waiting`, `deadline` DATE, `recurring_template_id` UUID FK, `updated_at`, `created_at`
 - FK: `recurring_template_id → recurring_templates(id) ON DELETE SET NULL`
 
 **recurring_templates** table:
 - `id` UUID PK, `group_name`, `reference`, `description`, `owner`, `frequency` (CHECK: daily/weekly/monthly), `scheduled_time`, `last_created_date`, `active`, `created_at`
+
+**app_settings** table:
+- `key` TEXT PK, `value` TEXT, `updated_at`, `updated_by`. Setting singleton app-wide. Chiave attiva: `on_call`.
 
 **bit_adder** table (easter egg):
 - `email` TEXT PK FK → `users(email)` ON DELETE CASCADE, `bits` BIGINT CHECK ≥ 0, `bots` INT CHECK ≥ 0, `updated_at`
@@ -163,6 +168,7 @@ Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `rout
   status: string,      // "New" | "In Progress" | "Waiting" | "Resolved" | "Closed"
   owner: string,       // "Bob" | "Erica" | "Walker"
   priority: number,    // 0–5 integer. 0 = most urgent (P0), 5 = lowest. Default 3
+  reperibile: boolean, // Mostra il task nella tab "Info Reperibile" (flag, non copia)
   waiting: boolean,    // Synced with status (see logic above)
   deadline: string,    // "YYYY-MM-DD" or null
   updatedAt: string,   // ISO 8601 (auto-updated on edit, except waiting)
@@ -232,6 +238,28 @@ Annulla **l'ultima azione fatta dall'utente in questa tab**, non un rollback glo
 - Dopo ogni undo riuscito: `refetchTasks(true)` + `emitSubtasksRefresh(taskId)` per riallineare board e checklist montate.
 - `skipNotify: true` nel body di POST (restore) e PATCH owner (undo di riassegnazione) evita di rimandare la mail di assegnazione. È un flag client-side su endpoint condivisi: tradeoff accettato per tool interno con utenti fidati — l'alternativa (endpoint di restore server-side) è over-engineering allo stato attuale.
 
+## Info Reperibile
+
+Tab cross-pillar con i task rilevanti per chi è di turno, più l'indicazione di **chi è il reperibile corrente**.
+
+**Il flag NON è una copia.** `tasks.reperibile BOOLEAN` — la tab è una vista filtrata (`WHERE reperibile AND status <> 'Closed'`) sugli stessi task. Modificarli o chiuderli dalla tab modifica/chiude il task originale del pillar: una sola verità, nessun drift, nessuna domanda su "cosa succede se l'originale viene cancellato". Scelta deliberata su alternativa "clone indipendente" (2026-07-20).
+
+- **Checkbox "Rep."**: prima colonna di ogni riga, in tutte le tab (Storico inclusa, lì in sola lettura). Abilitata per chi ha write sul pillar del task — stesso `canWrite` di ogni altra mutazione, nessun permesso nuovo.
+- **`updated_at` NON viene bumpato** quando si spunta il flag. Il sorting è per `updatedAt desc` ovunque: bumparlo farebbe saltare la riga in cima ad ogni spunta. Stessa ratio del vecchio flag `waiting`. Enforced in due punti da tenere in sync: `NO_TOUCH_FIELDS` in `backend/src/routes/tasks.js` e in `src/hooks/useTasks.js` (se solo il client bumpa, la riga salta e poi torna giù al refetch).
+- **Evidenza visiva**: un task flaggato mostra una **fascia ambra** sul bordo sinistro della riga + un badge **📟** accanto al reference. La fascia è un `box-shadow: inset`, NON un border: così occupa un canale visivo diverso dal contorno rosso P0 e su una riga che è P0 *e* reperibile l'ambra sta appena dentro il rosso invece di litigare per lo stesso bordo. Ambra e non rosso perché segnala rilevanza di turno, non urgenza.
+- **Marker soppressi dentro la tab Info Reperibile** (`highlightReperibile={!isReperibile}`): lì ogni riga è flaggata, evidenziarle tutte non evidenzia niente. Il contorno P0 invece resta anche lì — l'urgenza continua a contare.
+- **Task chiusi**: escono dalla tab e finiscono in Storico come qualsiasi altro task. Il flag resta sul record.
+- **Undo**: coperto dal meccanismo generico di `updateTask` (Ctrl+Z su una spunta sbagliata funziona anche col focus ancora sulla checkbox — vedi "Undo per-utente").
+- **Reperibile corrente**: valore singolo in `app_settings` (key `on_call`), non una turnazione con date. Modificabile **solo dagli admin** dal select in cima alla tab; tutti gli altri lo leggono. Il valore deve essere un `display_owner` esistente — il backend rifiuta con 400 il testo libero, altrimenti un typo romperebbe silenziosamente l'abitudine "assegna al reperibile".
+- **`app_settings`** è volutamente generico (key/value): il prossimo setting singleton non ha bisogno di una tabella nuova. `ALLOWED_KEYS` in `backend/src/routes/settings.js` è la whitelist — senza, l'endpoint diventerebbe un key/value store arbitrario per il client.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/settings/:key` | Legge un setting (auth qualsiasi). Solo chiavi in `ALLOWED_KEYS` |
+| PUT | `/api/settings/:key` | Scrive un setting — **admin-only**. Valida `on_call` contro `users.display_owner` |
+
+**File**: `backend/migrations/011_reperibile.sql`, `backend/src/routes/settings.js`, `src/hooks/useOnCall.js`, `src/components/OnCallBar.jsx`, più il flag in `TaskRow`/`TaskTable`/`TabNav`/`App.jsx`.
+
 ## Notifiche di assegnazione
 
 Quando un task viene assegnato a un owner — alla creazione o al cambio del campo `owner` — il backend notifica l'owner tramite un **webhook Power Automate** (il Flow consegna poi via email e/o Teams).
@@ -299,6 +327,7 @@ Payload inviato al webhook:
 - [x] **Ruoli operator per-pillar** — colonna `users.operator_groups TEXT[]`. Viewer con scope `['Commvault']` diventa RW sul pillar Commvault (RO altrove). Enforcement granulare su tasks + subtasks lato backend (`canWrite` helper + `loadUserContext` middleware). UI Toolbar/TaskTable disabilitano azioni fuori scope, badge UserMenu mostra gli scope. **Recurring resta admin-only — iterazione 2 nello HANDOFF.**
 - [x] **Notifiche di assegnazione** — webhook Power Automate quando un task viene assegnato/riassegnato a un owner. Backend `notify.js` (fire-and-forget), consegna email/Teams gestita dal Flow. Vedi sezione "Notifiche di assegnazione".
 - [ ] **Notifiche — anti task-vuoto** (P3): la mail parte all'impostazione del campo `owner` col contenuto del task *in quel momento*, quindi assegnare prima di compilare manda una mail con reference/description vuoti. Da valutare: (a) guardrail in `notify.js` che salta la notifica se `reference` e `description` sono entrambi vuoti; (b) hint UI vicino al campo owner ("compila reference e descrizione prima di assegnare"). Per ora gestito come raccomandazione di workflow ("owner per ultimo"), nessun codice.
+- [x] **Info Reperibile** (2026-07-20) — tab cross-pillar + flag `reperibile` sui task + reperibile corrente impostabile dagli admin. Vedi sezione "Info Reperibile".
 - [ ] Sostituire `window.confirm()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
 - [ ] Drag & drop riordinamento task (P4)

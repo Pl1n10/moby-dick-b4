@@ -3,6 +3,7 @@ import { GROUPS } from './data.js'
 import { exportTasksToCsv } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
+import useOnCall from './hooks/useOnCall.js'
 import { useUndoState, undoLast } from './undo/undoStore.js'
 import { useUserInfo, useCanWrite } from './auth/UserInfoProvider.jsx'
 import { useOwners } from './auth/OwnersProvider.jsx'
@@ -12,9 +13,10 @@ import TabNav from './components/TabNav.jsx'
 import Toolbar from './components/Toolbar.jsx'
 import TaskTable from './components/TaskTable.jsx'
 import RecurringModal from './components/RecurringModal.jsx'
+import OnCallBar from './components/OnCallBar.jsx'
 
 const ACTIVE_GROUP_KEY = 'kanbanops:activeGroup'
-const isValidGroup = (v) => v === '__storico__' || GROUPS.includes(v)
+const isValidGroup = (v) => v === '__storico__' || v === '__reperibile__' || GROUPS.includes(v)
 
 export default function App() {
   const [activeGroup, setActiveGroup] = useState(() => {
@@ -31,16 +33,21 @@ export default function App() {
   const [filterGroup, setFilterGroup] = useState('')
 
   const isStorico = activeGroup === '__storico__'
+  // Cross-pillar view of the tasks flagged "info reperibile". Not a copy of
+  // them: same task rows, filtered — see CLAUDE.md "Info Reperibile".
+  const isReperibile = activeGroup === '__reperibile__'
+  const isCrossPillar = isStorico || isReperibile
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
   const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
+  const { onCall, loading: onCallLoading, setOnCallPerson } = useOnCall()
   const userInfo = useUserInfo()
   const owners = useOwners()
   const canWrite = useCanWrite()
   const defaultOwner = userInfo.owner || owners[0] || ''
-  const canAdd = !isStorico && canWrite(activeGroup)
+  const canAdd = !isCrossPillar && canWrite(activeGroup)
 
   // ── Per-user undo ───────────────────────────────────────
   // Pure read-only users never accumulate undoable actions: hide the button.
@@ -90,6 +97,10 @@ export default function App() {
       if (isStorico) {
         if (t.status !== 'Closed') return false
         if (filterGroup && t.group !== filterGroup) return false
+      } else if (isReperibile) {
+        if (!t.reperibile) return false
+        if (t.status === 'Closed') return false      // closed ones live in Storico
+        if (filterGroup && t.group !== filterGroup) return false
       } else {
         if (t.group !== activeGroup) return false
         if (t.status === 'Closed') return false
@@ -111,8 +122,10 @@ export default function App() {
 
   const totalGroupTasks = isStorico
     ? tasks.filter(t => t.status === 'Closed').length
-    : tasks.filter(t => t.group === activeGroup && t.status !== 'Closed').length
-  const hasActiveFilters = search || filterStatus || filterOwner || (isStorico && filterGroup)
+    : isReperibile
+      ? tasks.filter(t => t.reperibile && t.status !== 'Closed').length
+      : tasks.filter(t => t.group === activeGroup && t.status !== 'Closed').length
+  const hasActiveFilters = search || filterStatus || filterOwner || (isCrossPillar && filterGroup)
 
   return (
     <div style={{ minHeight: '100vh', background: '#0d1117', color: '#e6edf3' }}>
@@ -121,8 +134,14 @@ export default function App() {
       <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} />
 
       <main style={{ padding: '24px 32px' }}>
+        {isReperibile && (
+          <OnCallBar onCall={onCall} loading={onCallLoading} onChange={setOnCallPerson} />
+        )}
+
         <Toolbar
           isStorico={isStorico}
+          showGroupFilter={isCrossPillar}
+          showRecurring={!isCrossPillar}
           search={search} onSearchChange={setSearch}
           filterGroup={filterGroup} onFilterGroupChange={setFilterGroup}
           filterStatus={filterStatus} onFilterStatusChange={setFilterStatus}
@@ -131,7 +150,10 @@ export default function App() {
           filteredCount={filteredTasks.length} totalCount={totalGroupTasks}
           recurring={recurring} onOpenRecurring={() => setShowRecurringModal(true)}
           onAdd={() => handleAdd(activeGroup, clearFilters, defaultOwner)}
-          onExport={() => exportTasksToCsv(filteredTasks, isStorico ? 'storico' : activeGroup)}
+          onExport={() => exportTasksToCsv(
+            filteredTasks,
+            isStorico ? 'storico' : isReperibile ? 'reperibile' : activeGroup,
+          )}
           canAdd={canAdd}
           showUndo={canWriteAnything}
           canUndo={undoState.canUndo}
@@ -143,6 +165,13 @@ export default function App() {
           filteredTasks={filteredTasks}
           canWrite={canWrite}
           isStorico={isStorico}
+          showGroup={isCrossPillar}
+          // Inside the Info Reperibile tab every row is flagged: the amber bar
+          // and 📟 badge would mark everything, i.e. nothing.
+          highlightReperibile={!isReperibile}
+          emptyMessage={isReperibile
+            ? 'Nessun task marcato "info reperibile". Spunta la casella Rep. su un task per farlo comparire qui.'
+            : undefined}
           hasActiveFilters={hasActiveFilters}
           search={search}
           onUpdate={updateTask}

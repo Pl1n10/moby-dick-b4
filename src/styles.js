@@ -20,6 +20,10 @@ const S = {
   // P0 row outline (drop-everything signal). Drawn on cell edges, not as a
   // background fill, to keep row text fully legible.
   p0Red: '#f85149',
+  // "Info reperibile": amber, deliberately not red — it marks duty relevance,
+  // not urgency, and must stay distinguishable from the P0 outline on a row
+  // that is both.
+  reperibileAmber: '#d29922',
   inputBase: {
     background: '#0d1117',
     border: '1px solid #58a6ff',

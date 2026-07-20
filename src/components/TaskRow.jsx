@@ -13,7 +13,7 @@ import EditableDate from './editable/EditableDate.jsx'
 // Priority options for the inline select: numeric value, "Px" label.
 const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
 
-export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, expanded = false, onToggleExpand }) {
+export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, highlightReperibile = true, expanded = false, onToggleExpand }) {
   const owners = useOwners()
   const total = task.subtasksTotal ?? 0
   const open = task.subtasksOpen ?? 0
@@ -32,10 +32,21 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   const tb = isP0 ? { borderTop: edge, borderBottom: edge } : null
   const leftEdge = isP0 ? { borderLeft: edge } : null
   const rightEdge = isP0 ? { borderRight: edge } : null
-  // First/last rendered cell depend on the layout (Gruppo only in Storico,
-  // actions column only outside Storico).
-  const firstCellEdge = showGroup ? null : leftEdge      // applied to Reference when no Gruppo col
+  // The "Rep." checkbox is always the first cell, so it always carries the
+  // left edge. Only the last cell varies (actions column only outside Storico).
   const lastCellEdge = showDelete ? null : rightEdge     // applied to Scadenza when no actions col
+
+  // "Info reperibile" marker: an amber bar down the left of the row. Drawn as
+  // an INSET box-shadow rather than a border so it occupies a different visual
+  // channel than the P0 outline — on a row that is both, the amber sits just
+  // inside the red instead of fighting it for the same edge.
+  // Suppressed inside the Info Reperibile tab itself, where every row is
+  // flagged and the marker would be pure noise (highlightReperibile=false).
+  const isReperibile = task.reperibile === true
+  const showReperibileMark = isReperibile && highlightReperibile
+  const repBar = showReperibileMark
+    ? { boxShadow: `inset 3px 0 0 ${S.reperibileAmber}` }
+    : null
 
   return (
     <tr style={{
@@ -44,12 +55,31 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       onMouseEnter={e => e.currentTarget.style.background = '#161b22'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
+      {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
+          makes the task appear in the Info Reperibile tab, where it stays the
+          same task — edits and closes there apply here too. */}
+      <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...leftEdge, ...repBar }}>
+        <input
+          type="checkbox"
+          checked={task.reperibile === true}
+          disabled={readOnly}
+          onChange={e => onUpdate('reperibile', e.target.checked)}
+          title={readOnly
+            ? 'Info reperibile (sola lettura)'
+            : 'Mostra questo task nella tab Info Reperibile'}
+          style={{
+            accentColor: '#d29922', width: '14px', height: '14px',
+            cursor: readOnly ? 'default' : 'pointer',
+            opacity: readOnly && !task.reperibile ? 0.4 : 1,
+          }}
+        />
+      </td>
       {showGroup && (
-        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', ...tb, ...leftEdge }}>
+        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', ...tb }}>
           {task.group}
         </td>
       )}
-      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb, ...firstCellEdge }}>
+      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={onToggleExpand}
@@ -72,6 +102,11 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             <span title="Created from recurring template" style={{
               fontSize: '12px', color: '#8b949e', flexShrink: 0,
             }}>&#x1f504;</span>
+          )}
+          {showReperibileMark && (
+            <span title="Info reperibile" style={{
+              fontSize: '12px', flexShrink: 0, lineHeight: 1,
+            }}>&#x1f4df;</span>
           )}
           {readOnly ? (
             <span style={{ fontFamily: S.mono, fontSize: '12px', color: '#58a6ff', padding: '2px 4px' }}>
