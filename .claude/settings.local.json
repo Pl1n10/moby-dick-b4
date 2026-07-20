@@ -53,7 +53,30 @@
       "Bash(curl -s localhost:3000/api/tasks)",
       "Bash(python3 -m json.tool)",
       "Bash(node debug-restore.mjs)",
-      "Skill(code-review)"
+      "Skill(code-review)",
+      "Bash(grep *)",
+      "Bash(pkill -f \"node src/index.js\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(kill 495814 495815)",
+      "Bash(python3 -)",
+      "Bash(docker compose *)",
+      "Bash(docker run *)",
+      "Bash(docker exec *)",
+      "Bash(break)",
+      "Bash(DATABASE_URL=postgresql://moby:moby@localhost:55432/moby AUTH_ENABLED=false PORT=3999 node src/index.js)",
+      "Bash(curl -s -X POST http://localhost:3999/api/tasks -H 'Content-Type: application/json' -d '{\"group\":\"Commvault\",\"reference\":\"INC-REP-1\",\"owner\":\"Marco Fauci\"}')",
+      "Bash(git stash *)",
+      "Bash(curl -s http://localhost:3999/api/health)",
+      "Bash(DATABASE_URL=postgresql://moby:moby@localhost:55432/moby AUTH_ENABLED=false PORT=3000 node src/index.js)",
+      "Bash(npm run *)",
+      "Bash(NODE_PATH=$\\(npm root -g\\) node shot.mjs)",
+      "Bash(sed -i \"s|from 'playwright'|from '$\\(npm root -g\\)/playwright/index.js'|\" shot.mjs)",
+      "Bash(node shot.mjs)",
+      "Bash(node shot2.mjs)",
+      "Bash(docker rm *)",
+      "Bash(node shot3.mjs)",
+      "Bash(git config *)",
+      "Bash(git reset *)"
     ]
   }
 }
