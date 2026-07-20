@@ -112,11 +112,15 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
     const { id, group, reference, description, status, owner, priority, reperibile, deadline, recurringTemplateId } = req.body
     const prio = isValidPriority(priority) ? priority : 3   // default medium
     const { rows } = await pool.query(
+      // COALESCE, not a bare $1: node-postgres sends `undefined` as an
+      // explicit NULL, which OVERRIDES the column DEFAULT instead of falling
+      // back to it — an id-less POST used to fail the NOT NULL constraint.
+      // The client normally sends its own UUID, so this only bites API callers.
       `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
        RETURNING *`,
       [
-        id || undefined,          // let DB generate if null
+        id || null,               // absent → DB generates via gen_random_uuid()
         group,
         reference || '',
         description || '',
