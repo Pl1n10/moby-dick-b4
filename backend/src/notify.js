@@ -1,9 +1,9 @@
 // Fire-and-forget assignment notifications.
 //
 // When a task gets an owner — on create, or when the owner field changes — this
-// POSTs a JSON payload to a Power Automate "When a HTTP request is received"
-// webhook. The Flow handles the last mile (email / Teams). See CLAUDE.md,
-// section "Notifiche di assegnazione".
+// POSTs a JSON payload to a Power Automate "When a Teams webhook request is
+// received" trigger (not the Premium HTTP one). The Flow handles the last mile
+// (email / Teams). See CLAUDE.md, section "Notifiche di assegnazione".
 //
 // Design rules:
 //  - Never block the request: callers invoke without `await`.

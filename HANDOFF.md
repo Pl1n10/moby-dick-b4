@@ -113,7 +113,11 @@ Notifica all'owner quando gli viene assegnato un task. Architettura: il backend 
 **Doc**
 - CLAUDE.md: sezione "Notifiche di assegnazione" + `notify.js` nella project structure + item done in Upgrade TODO.
 
-**Lato Power Automate — FATTO il 2026-06-04, feature ATTIVA in prod.**
+> ⚠️ **2026-09-28: notifiche morte e ripristinate.** Il Flow del 2026-06-04 girava su licenza *trial* Power Automate Premium (il trigger "When a HTTP request is received" è **Premium**): scaduta la trial, notifiche ferme per settimane senza che il backend se ne accorgesse (fire-and-forget, solo warning nei log di `moby-api`). Rifatto il Flow col trigger **"When a Teams webhook request is received"** (non-Premium) + Condition `@mauden.com`: **nessuna licenza da comprare**. Testato con curl dalla VM (202 + mail ricevuta, filtro verificato), poi `NOTIFY_WEBHOOK_URL` aggiornata nel `.env`. Dettagli e procedura di rotazione URL in CLAUDE.md, sezione "Notifiche di assegnazione". Scartate: Premium sul service account (~$15/mese, zona grigia multiplexing), Process sul Flow (~$150/mese).
+>
+> ⚠️ Lezione: una notifica fire-and-forget muore in silenzio. Da valutare un check periodico (es. ultimo 2xx del webhook esposto in `/api/health` o un warning visibile agli admin).
+
+**Lato Power Automate — FATTO il 2026-06-04** (Flow originale, ora sostituito: vedi nota sopra). I gotcha sotto valgono anche per il Flow nuovo.
 
 Flow creato e acceso, `NOTIFY_WEBHOOK_URL` settata in `/opt/moby-dick-b4/.env`, `moby-api` ricreato. Test del webhook OK (`202`), mail formattata consegnata. Workflow id Flow: `0ec499be-…` (northeurope). Gotcha incontrati durante il setup, da sapere se si rimette mano al Flow o se ne crea uno nuovo (es. per il fork):
 
