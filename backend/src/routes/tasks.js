@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import pool from '../db.js'
-import { requireAdmin, requireWriteAccess, canWrite } from '../auth.js'
+import { requireBoardAdmin, canWrite, isPillar, boardFeature } from '../auth.js'
 import { notifyAssignment } from '../notify.js'
 import subtasksRouter from './subtasks.js'
 
@@ -64,9 +64,22 @@ function isValidPriority(v) {
   return Number.isInteger(v) && v >= 0 && v <= 5
 }
 
+// Mounted at /api/t/:slug/tasks, after loadBoard: req.tenant is the board,
+// req.boardCtx the caller's role on it. EVERY query below filters on
+// tenant_id — a task id from another board must behave as "not found".
+
+// Loads a task of the current board, or null.
+async function loadTask(tenantId, id) {
+  const { rows: [task] } = await pool.query(
+    'SELECT * FROM tasks WHERE id = $1 AND tenant_id = $2',
+    [id, tenantId],
+  )
+  return task || null
+}
+
 // ── Routes ──────────────────────────────────────────────
 
-// GET /api/tasks — all tasks, sorted by updated_at desc.
+// GET /api/t/:slug/tasks — the board's tasks, sorted by updated_at desc.
 // Joins aggregated subtask counts so the client can render the "3/5" badge
 // without N extra fetches.
 router.get('/', async (req, res) => {
@@ -85,8 +98,9 @@ router.get('/', async (req, res) => {
         FROM subtasks
         GROUP BY task_id
       ) s ON s.task_id = t.id
+      WHERE t.tenant_id = $1
       ORDER BY t.updated_at DESC
-    `)
+    `, [req.tenant.id])
     res.json(rows.map(mapTaskToClient))
   } catch (err) {
     console.error('GET /api/tasks error:', err.message)
@@ -94,24 +108,50 @@ router.get('/', async (req, res) => {
   }
 })
 
-// POST /api/tasks/reset — wipe all tasks and recurring templates.
-// Admin-only: nuclear button, never delegated to per-pillar operators.
-router.post('/reset', requireAdmin, async (req, res) => {
+// POST /api/t/:slug/tasks/reset — wipe this board's tasks and recurring
+// templates (subtasks follow by cascade). Board-admin only: nuclear button,
+// never delegated to per-section operators. Other boards are untouched — this
+// used to be a TRUNCATE.
+router.post('/reset', requireBoardAdmin, async (req, res) => {
+  const client = await pool.connect()
   try {
-    await pool.query('TRUNCATE tasks, recurring_templates CASCADE')
+    await client.query('BEGIN')
+    await client.query('DELETE FROM tasks WHERE tenant_id = $1', [req.tenant.id])
+    await client.query('DELETE FROM recurring_templates WHERE tenant_id = $1', [req.tenant.id])
+    await client.query('COMMIT')
     res.json([])
   } catch (err) {
+    await client.query('ROLLBACK')
     console.error('POST /api/tasks/reset error:', err.message)
     res.status(500).json({ error: 'Failed to reset' })
+  } finally {
+    client.release()
   }
 })
 
-// POST /api/tasks — create a task. Authorized if the caller can write in
-// the target pillar (admin everywhere, operator on listed groups).
-router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
+// POST /api/t/:slug/tasks — create a task. Authorized if the caller can
+// write in the target section (board admin everywhere, operator on listed
+// sections). The section must exist on this board.
+router.post('/', async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, priority, reperibile, deadline, recurringTemplateId, number } = req.body
+    const { id, group, reference, description, status, owner, priority, reperibile, deadline, number } = req.body
+    if (!canWrite(req.boardCtx, group)) {
+      return res.status(403).json({ error: `Write access denied for group: ${group}` })
+    }
+    if (!(await isPillar(req.tenant.id, group))) {
+      return res.status(400).json({ error: `Unknown section: ${group}` })
+    }
     const prio = isValidPriority(priority) ? priority : 3   // default medium
+    // Undo-restore sends the template link back; accept it only if the
+    // template belongs to this board, never link across boards.
+    let recurringTemplateId = null
+    if (req.body.recurringTemplateId) {
+      const { rows } = await pool.query(
+        'SELECT 1 FROM recurring_templates WHERE id = $1 AND tenant_id = $2',
+        [req.body.recurringTemplateId, req.tenant.id],
+      )
+      if (rows.length > 0) recurringTemplateId = req.body.recurringTemplateId
+    }
     // `number` is sent only by the undo-restore of a deleted task, so the task
     // comes back as the same MDxxx. Accepted only up to the sequence's last
     // value: a number the sequence has not reached yet would collide with a
@@ -122,12 +162,12 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
       // explicit NULL, which OVERRIDES the column DEFAULT instead of falling
       // back to it — an id-less POST used to fail the NOT NULL constraint.
       // The client normally sends its own UUID, so this only bites API callers.
-      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number)
-       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(),
+      `INSERT INTO tasks (id, tenant_id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number)
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $11, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(),
                -- next value the sequence will hand out (is_called=false right
                -- after the migration's setval: last_value not issued yet)
-               CASE WHEN $11::int < (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END
-                                     FROM task_number_seq) THEN $11::int
+               CASE WHEN $12::int < (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END
+                                     FROM task_number_seq) THEN $12::int
                     ELSE nextval('task_number_seq') END)
        RETURNING *`,
       [
@@ -138,9 +178,11 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
         status || 'New',
         owner,
         prio,
-        reperibile === true,      // preserved by undo-restore of a deleted task
+        // preserved by undo-restore; always false on boards without the feature
+        reperibile === true && boardFeature(req.tenant, 'reperibile'),
         deadline || null,
-        recurringTemplateId || null,   // set by undo-restore to keep the 🔄 badge
+        recurringTemplateId,      // set by undo-restore to keep the 🔄 badge
+        req.tenant.id,
         restoredNumber,
       ]
     )
@@ -150,7 +192,7 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
     // skipNotify: set by the client-side undo when restoring a deleted task —
     // the owner was already notified at the original assignment.
     if (!req.body.skipNotify) {
-      notifyAssignment({ task: rows[0], event: 'task.assigned', assigner: req.user })
+      notifyAssignment({ task: rows[0], tenant: req.tenant, event: 'task.assigned', assigner: req.user })
     }
   } catch (err) {
     // The restored number was taken again in the meantime (two undos racing).
@@ -162,7 +204,7 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
   }
 })
 
-// PATCH /api/tasks/:id — update single field.
+// PATCH /api/t/:slug/tasks/:id — update single field.
 // Authorization: caller must be able to write the task's CURRENT group; if
 // the field being changed is 'group', they must also be able to write the
 // TARGET group (prevents an operator from yanking a task into a pillar they
@@ -177,14 +219,17 @@ router.patch('/:id', async (req, res) => {
       return res.status(400).json({ error: `Invalid field: ${field}` })
     }
 
-    const { rows: [existing] } = await pool.query('SELECT * FROM tasks WHERE id = $1', [id])
+    const existing = await loadTask(req.tenant.id, id)
     if (!existing) return res.status(404).json({ error: 'Task not found' })
 
-    if (!canWrite(req.userCtx, existing.group_name)) {
+    if (!canWrite(req.boardCtx, existing.group_name)) {
       return res.status(403).json({ error: `Write access denied for group: ${existing.group_name}` })
     }
-    if (field === 'group' && !canWrite(req.userCtx, value)) {
+    if (field === 'group' && !canWrite(req.boardCtx, value)) {
       return res.status(403).json({ error: `Write access denied for target group: ${value}` })
+    }
+    if (field === 'group' && !(await isPillar(req.tenant.id, value))) {
+      return res.status(400).json({ error: `Unknown section: ${value}` })
     }
 
     if (field === 'priority' && !isValidPriority(value)) {
@@ -203,6 +248,9 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
+    if (field === 'reperibile' && !boardFeature(req.tenant, 'reperibile')) {
+      return res.status(400).json({ error: 'This board has no on-call (reperibile) feature' })
+    }
     if (field === 'reperibile' && typeof value !== 'boolean') {
       return res.status(400).json({ error: 'reperibile must be a boolean' })
     }
@@ -212,12 +260,12 @@ router.patch('/:id', async (req, res) => {
 
     const { rows } = NO_TOUCH_FIELDS.has(field)
       ? await pool.query(
-          `UPDATE tasks SET ${column} = $2 WHERE id = $1 RETURNING *`,
-          [id, dbValue],
+          `UPDATE tasks SET ${column} = $2 WHERE id = $1 AND tenant_id = $3 RETURNING *`,
+          [id, dbValue, req.tenant.id],
         )
       : await pool.query(
-          `UPDATE tasks SET ${column} = $2, updated_at = $3 WHERE id = $1 RETURNING *`,
-          [id, dbValue, new Date().toISOString()],
+          `UPDATE tasks SET ${column} = $2, updated_at = $3 WHERE id = $1 AND tenant_id = $4 RETURNING *`,
+          [id, dbValue, new Date().toISOString(), req.tenant.id],
         )
     res.json(mapTaskToClient(rows[0]))
 
@@ -228,6 +276,7 @@ router.patch('/:id', async (req, res) => {
     if (field === 'owner' && value && value !== existing.owner && !req.body.skipNotify) {
       notifyAssignment({
         task: rows[0],
+        tenant: req.tenant,
         event: existing.owner ? 'task.reassigned' : 'task.assigned',
         assigner: req.user,
       })
@@ -238,16 +287,16 @@ router.patch('/:id', async (req, res) => {
   }
 })
 
-// DELETE /api/tasks/:id — caller must be able to write the task's group.
+// DELETE /api/t/:slug/tasks/:id — caller must be able to write the task's group.
 router.delete('/:id', async (req, res) => {
   try {
-    const { rows: [existing] } = await pool.query('SELECT group_name FROM tasks WHERE id = $1', [req.params.id])
+    const existing = await loadTask(req.tenant.id, req.params.id)
     if (!existing) return res.status(404).json({ error: 'Task not found' })
-    if (!canWrite(req.userCtx, existing.group_name)) {
+    if (!canWrite(req.boardCtx, existing.group_name)) {
       return res.status(403).json({ error: `Write access denied for group: ${existing.group_name}` })
     }
 
-    await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id])
+    await pool.query('DELETE FROM tasks WHERE id = $1 AND tenant_id = $2', [req.params.id, req.tenant.id])
     res.json({ ok: true })
   } catch (err) {
     console.error('DELETE /api/tasks error:', err.message)

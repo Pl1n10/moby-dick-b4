@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import pool from '../db.js'
-import { canWrite, AUTH_ENABLED } from '../auth.js'
+import { canWrite } from '../auth.js'
 
-// Mounted at /api/tasks/:taskId/subtasks (see index.js / tasks router).
+// Mounted at /api/t/:slug/tasks/:taskId/subtasks (see app.js / tasks router).
+// Subtasks have no tenant_id of their own: they belong to the board of their
+// parent task, so EVERY route first checks that the parent is on this board.
 // Reads are open to any authenticated user; mutations require write access
-// on the PARENT task's pillar group (inherited scope).
+// on the PARENT task's section (inherited scope).
 const router = Router({ mergeParams: true })
 
 function mapSubtaskToClient(row) {
@@ -18,28 +20,33 @@ function mapSubtaskToClient(row) {
   }
 }
 
-// Loads the parent task to verify the caller can mutate its subtasks.
-// 404 if the task is gone, 403 if it exists but the caller is out of scope.
-// Demo mode (AUTH_ENABLED=false) → permissive, mirrors requireAdmin/Auth.
-async function requireParentTaskAccess(req, res, next) {
-  if (!AUTH_ENABLED) return next()
+// 404 when the parent task is gone or lives on another board.
+async function requireParentTask(req, res, next) {
   try {
     const { rows: [parent] } = await pool.query(
-      'SELECT group_name FROM tasks WHERE id = $1',
-      [req.params.taskId],
+      'SELECT group_name FROM tasks WHERE id = $1 AND tenant_id = $2',
+      [req.params.taskId, req.tenant.id],
     )
     if (!parent) return res.status(404).json({ error: 'Parent task not found' })
-    if (!canWrite(req.userCtx, parent.group_name)) {
-      return res.status(403).json({ error: `Write access denied for group: ${parent.group_name}` })
-    }
+    req.parentTask = parent
     next()
   } catch (err) {
-    console.error('requireParentTaskAccess error:', err.message)
+    console.error('requireParentTask error:', err.message)
     res.status(500).json({ error: 'Failed to check parent task' })
   }
 }
 
-// GET /api/tasks/:taskId/subtasks — list checklist items in display order
+// 403 when the caller cannot write the parent task's section.
+function requireParentWrite(req, res, next) {
+  if (!canWrite(req.boardCtx, req.parentTask.group_name)) {
+    return res.status(403).json({ error: `Write access denied for group: ${req.parentTask.group_name}` })
+  }
+  next()
+}
+
+router.use(requireParentTask)
+
+// GET /api/t/:slug/tasks/:taskId/subtasks — list checklist items in display order
 router.get('/', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -53,8 +60,8 @@ router.get('/', async (req, res) => {
   }
 })
 
-// POST /api/tasks/:taskId/subtasks — append new item
-router.post('/', requireParentTaskAccess, async (req, res) => {
+// POST /api/t/:slug/tasks/:taskId/subtasks — append new item
+router.post('/', requireParentWrite, async (req, res) => {
   try {
     const { description } = req.body
     const taskId = req.params.taskId
@@ -78,10 +85,10 @@ router.post('/', requireParentTaskAccess, async (req, res) => {
   }
 })
 
-// PATCH /api/tasks/:taskId/subtasks/:id — edit description or toggle done
+// PATCH /api/t/:slug/tasks/:taskId/subtasks/:id — edit description or toggle done
 const ALLOWED_FIELDS = { description: 'description', done: 'done', position: 'position' }
 
-router.patch('/:id', requireParentTaskAccess, async (req, res) => {
+router.patch('/:id', requireParentWrite, async (req, res) => {
   try {
     const { field, value } = req.body
     const column = ALLOWED_FIELDS[field]
@@ -99,8 +106,8 @@ router.patch('/:id', requireParentTaskAccess, async (req, res) => {
   }
 })
 
-// DELETE /api/tasks/:taskId/subtasks/:id
-router.delete('/:id', requireParentTaskAccess, async (req, res) => {
+// DELETE /api/t/:slug/tasks/:taskId/subtasks/:id
+router.delete('/:id', requireParentWrite, async (req, res) => {
   try {
     const { rowCount } = await pool.query(
       'DELETE FROM subtasks WHERE id = $1 AND task_id = $2',

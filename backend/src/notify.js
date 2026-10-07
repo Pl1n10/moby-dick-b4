@@ -20,10 +20,13 @@ const APP_URL = process.env.APP_PUBLIC_URL || 'https://kanbanops.mauden.com'
 // Owner display names are free text; the users table is the bridge to an email.
 // display_owner is not unique-constrained, so two homonyms are possible — log
 // and take the first rather than guessing.
-async function resolveOwnerEmail(ownerName) {
+// Only members of the task's board are candidates: owners are per board.
+async function resolveOwnerEmail(ownerName, tenantId) {
   const { rows } = await pool.query(
-    'SELECT email FROM users WHERE display_owner = $1 ORDER BY created_at LIMIT 2',
-    [ownerName],
+    `SELECT u.email FROM users u JOIN memberships m ON m.email = u.email
+     WHERE u.display_owner = $1 AND m.tenant_id = $2
+     ORDER BY u.created_at LIMIT 2`,
+    [ownerName, tenantId],
   )
   if (rows.length === 0) return null
   if (rows.length > 1) {
@@ -48,15 +51,16 @@ function formatDeadline(d) {
  *
  * @param {object}   args
  * @param {object}   args.task      - task DB row (group_name, reference, …)
+ * @param {object}   args.tenant    - board the task lives on (req.tenant)
  * @param {string}   args.event     - 'task.assigned' | 'task.reassigned'
  * @param {object}  [args.assigner] - { email, name } of the user assigning (req.user)
  */
-export async function notifyAssignment({ task, event, assigner }) {
+export async function notifyAssignment({ task, tenant, event, assigner }) {
   try {
     if (!WEBHOOK_URL) return            // feature off (dev/demo, or prod not yet wired)
     if (!task || !task.owner) return    // nothing to notify — task left unassigned
 
-    const ownerEmail = await resolveOwnerEmail(task.owner)
+    const ownerEmail = await resolveOwnerEmail(task.owner, tenant.id)
     if (!ownerEmail) {
       console.warn(`notify: no email for owner "${task.owner}" — notification skipped`)
       return
@@ -78,7 +82,10 @@ export async function notifyAssignment({ task, event, assigner }) {
       },
       owner: { name: task.owner, email: ownerEmail },
       assignedBy: assigner?.email ? { name: assigner.name || null, email: assigner.email } : null,
-      appUrl: APP_URL,
+      // New fields are additive: the Flow's Parse JSON schema has no
+      // `required` list, so it keeps working before it is updated to use them.
+      board: { slug: tenant.slug, name: tenant.name },
+      appUrl: `${APP_URL}/t/${tenant.slug}`,
       timestamp: new Date().toISOString(),
     }
 

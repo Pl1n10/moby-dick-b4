@@ -10,7 +10,9 @@ import jwt from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
 import pool from './db.js'
 
-export const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true'
+// `let` + setter for the same reason as setTokenVerifier: tests flip it.
+export let AUTH_ENABLED = process.env.AUTH_ENABLED === 'true'
+export function setAuthEnabled(v) { AUTH_ENABLED = v }
 
 const TENANT_ID = process.env.AZURE_TENANT_ID || ''
 const CLIENT_ID = process.env.AZURE_CLIENT_ID || ''
@@ -31,11 +33,6 @@ const client = AUTH_ENABLED && JWKS_URI
   ? jwksClient({ jwksUri: JWKS_URI, cache: true, rateLimit: true })
   : null
 
-// Canonical pillar list. Kept in sync with the CHECK constraint on
-// tasks.group_name and the frontend src/data.js GROUPS array. Used to
-// validate operator_groups values incoming from the admin UI.
-export const VALID_GROUPS = ['Commvault', 'Cohesity', 'Data Domain - ZFS', 'NBU - Banche Estere']
-
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
     if (err) return callback(err)
@@ -43,7 +40,7 @@ function getKey(header, callback) {
   })
 }
 
-function verifyToken(token) {
+function entraVerifyToken(token) {
   return new Promise((resolve, reject) => {
     jwt.verify(
       token,
@@ -53,6 +50,11 @@ function verifyToken(token) {
     )
   })
 }
+
+// Swappable only so the test suite can authenticate fake users without
+// Entra. Production never calls setTokenVerifier.
+let verifyToken = entraVerifyToken
+export function setTokenVerifier(fn) { verifyToken = fn || entraVerifyToken }
 
 /**
  * Express middleware. When auth is enabled, requires a valid Bearer token
@@ -84,42 +86,32 @@ export function requireAuth(req, res, next) {
 }
 
 /**
- * Loads role + operator_groups from the users table and attaches them as
- * req.userCtx. Designed to run once per request right after requireAuth so
- * downstream handlers and middlewares can decide write access without
- * issuing extra DB queries.
+ * Loads the caller's global identity from `users` into req.userCtx:
+ * { email, isSuperadmin, homeTenantId }. Board-level role lives in
+ * `memberships` and is loaded per request by loadBoard.
  *
- * Unknown email (not in users table) → defaults to viewer with empty scope.
- * Demo mode (AUTH_ENABLED=false) → no-op, leaves req.userCtx undefined; the
- * permissive defaults of requireAdmin/requireWriteAccess take over.
+ * Demo mode (AUTH_ENABLED=false) → superadmin with no email: everything is
+ * permitted, as before multi-tenancy.
  */
 export async function loadUserContext(req, res, next) {
   if (!AUTH_ENABLED) {
-    // Demo mode: act as admin so inline canWrite checks stay permissive,
-    // matching requireAuth/requireAdmin/requireWriteAccess which are no-ops.
-    req.userCtx = { role: 'admin', operatorGroups: [] }
+    req.userCtx = { email: null, isSuperadmin: true, homeTenantId: null, demo: true }
     return next()
   }
   if (!req.user) return res.status(401).json({ error: 'Unauthenticated' })
 
   const email = req.user.email
-  if (!email) {
-    req.userCtx = { role: 'viewer', operatorGroups: [] }
-    return next()
-  }
+  req.userCtx = { email, isSuperadmin: false, homeTenantId: null }
+  if (!email) return next()
 
   try {
     const { rows } = await pool.query(
-      'SELECT role, operator_groups FROM users WHERE email = $1',
+      'SELECT is_superadmin, home_tenant_id FROM users WHERE email = $1',
       [email],
     )
-    if (rows.length === 0) {
-      req.userCtx = { role: 'viewer', operatorGroups: [] }
-    } else {
-      req.userCtx = {
-        role: rows[0].role,
-        operatorGroups: Array.isArray(rows[0].operator_groups) ? rows[0].operator_groups : [],
-      }
+    if (rows.length > 0) {
+      req.userCtx.isSuperadmin = rows[0].is_superadmin === true
+      req.userCtx.homeTenantId = rows[0].home_tenant_id
     }
     next()
   } catch (err) {
@@ -128,52 +120,81 @@ export async function loadUserContext(req, res, next) {
   }
 }
 
-/**
- * Express middleware to gate endpoints behind the 'admin' role.
- * Relies on loadUserContext having populated req.userCtx upstream.
- */
-export function requireAdmin(req, res, next) {
-  if (!AUTH_ENABLED) return next()
-  if (!req.user) return res.status(401).json({ error: 'Unauthenticated' })
+/** Gate for global administration: boards, sections, users. */
+export function requireSuperadmin(req, res, next) {
   if (!req.userCtx) return res.status(500).json({ error: 'User context missing (loadUserContext not chained)' })
-  if (req.userCtx.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin role required' })
-  }
+  if (!req.userCtx.isSuperadmin) return res.status(403).json({ error: 'Superadmin role required' })
   next()
 }
 
 /**
- * Pure helper. Returns true when the user can write tasks/subtasks in the
- * given pillar group: admins everywhere, viewers with that group in their
- * operator_groups, nobody else.
+ * Resolves the board from the `:slug` route param and the caller's role on it.
+ * Sets req.tenant = { id, slug, name, settings } and
+ * req.boardCtx = { role: 'admin' | 'viewer' | null, operatorGroups, member }.
+ *
+ * Visibility is permissive for now (decision 2026-10-07): any authenticated
+ * user can READ any board. `member` says whether they belong to it (owner
+ * picker, on-call); `role` decides writes. A superadmin acts as admin
+ * everywhere without being a member.
  */
-export function canWrite(userCtx, group) {
-  if (!userCtx) return false
-  if (userCtx.role === 'admin') return true
-  return Array.isArray(userCtx.operatorGroups) && userCtx.operatorGroups.includes(group)
+export async function loadBoard(req, res, next) {
+  try {
+    const { rows: [tenant] } = await pool.query(
+      'SELECT id, slug, name, settings FROM tenants WHERE slug = $1',
+      [req.params.slug],
+    )
+    if (!tenant) return res.status(404).json({ error: `Unknown board: ${req.params.slug}` })
+    req.tenant = tenant
+
+    let membership = null
+    if (req.userCtx.email) {
+      const { rows } = await pool.query(
+        'SELECT role, operator_groups FROM memberships WHERE tenant_id = $1 AND email = $2',
+        [tenant.id, req.userCtx.email],
+      )
+      membership = rows[0] || null
+    }
+    req.boardCtx = {
+      role: req.userCtx.isSuperadmin ? 'admin' : (membership ? membership.role : null),
+      operatorGroups: membership && Array.isArray(membership.operator_groups) ? membership.operator_groups : [],
+      member: membership !== null,
+    }
+    next()
+  } catch (err) {
+    console.error('loadBoard error:', err.message)
+    res.status(500).json({ error: 'Board context load failed' })
+  }
+}
+
+/** True when the board has the feature switched on in tenants.settings. */
+export function boardFeature(tenant, name) {
+  return tenant?.settings?.features?.[name] === true
+}
+
+/** Gate for board administration (members, recurring, reset, on-call). */
+export function requireBoardAdmin(req, res, next) {
+  if (!req.boardCtx) return res.status(500).json({ error: 'Board context missing (loadBoard not chained)' })
+  if (req.boardCtx.role !== 'admin') return res.status(403).json({ error: 'Board admin role required' })
+  next()
 }
 
 /**
- * Middleware factory. `getGroups` is a function (req) => string | string[]
- * that extracts the pillar group(s) the request is trying to mutate. When
- * multiple groups are returned (e.g. PATCH that moves a task between groups)
- * the user must have write access on ALL of them.
- *
- * Demo mode → no-op (no enforcement off-prod).
+ * Pure helper. True when the caller can write tasks/subtasks in the given
+ * section of the current board: board admins everywhere on it, viewers with
+ * that section in their operator_groups, nobody else.
  */
-export function requireWriteAccess(getGroups) {
-  return (req, res, next) => {
-    if (!AUTH_ENABLED) return next()
-    if (!req.userCtx) return res.status(500).json({ error: 'User context missing' })
+export function canWrite(boardCtx, group) {
+  if (!boardCtx) return false
+  if (boardCtx.role === 'admin') return true
+  return Array.isArray(boardCtx.operatorGroups) && boardCtx.operatorGroups.includes(group)
+}
 
-    const raw = getGroups(req)
-    const groups = Array.isArray(raw) ? raw : [raw]
-    for (const g of groups) {
-      if (!g) return res.status(400).json({ error: 'Group not specified' })
-      if (!canWrite(req.userCtx, g)) {
-        return res.status(403).json({ error: `Write access denied for group: ${g}` })
-      }
-    }
-    next()
-  }
+/** True when `name` is a section of the board. */
+export async function isPillar(tenantId, name) {
+  if (typeof name !== 'string' || !name) return false
+  const { rows } = await pool.query(
+    'SELECT 1 FROM pillars WHERE tenant_id = $1 AND name = $2',
+    [tenantId, name],
+  )
+  return rows.length > 0
 }

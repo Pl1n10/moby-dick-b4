@@ -116,21 +116,32 @@ Startup chain: **db healthy** → **api healthy** → **nginx starts**
 
 ### Backend API
 
+Dal 2026-10-07 l'app è **multi-lavagna** (vedi sezione "Lavagne (multi-tenant)"). Le route di lavagna stanno sotto `/api/t/:slug/…`: il middleware `loadBoard` risolve la lavagna e il ruolo del chiamante, e **ogni query filtra per `req.tenant.id`**. Una route che legge task/template/setting fuori da quel prefisso è un bug di isolamento.
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check (used by Docker healthcheck) |
-| GET | `/api/tasks` | All tasks, sorted by updated_at DESC |
-| POST | `/api/tasks` | Create task |
-| POST | `/api/tasks/reset` | Truncate + re-seed |
-| PATCH | `/api/tasks/:id` | Update single field (with waiting↔status sync) |
-| DELETE | `/api/tasks/:id` | Delete task |
-| GET | `/api/recurring` | List recurring templates |
-| PUT | `/api/recurring` | Replace all templates |
-| DELETE | `/api/recurring` | Clear all templates |
+| GET | `/api/me` | Identità, `isSuperadmin`, `homeBoard` (null = mai scelta → chooser), `memberships` |
+| PUT | `/api/me/home` | `{slug}`: sceglie la propria lavagna e ci entra come viewer (mai downgrade) |
+| GET | `/api/tenants` | Tutte le lavagne con sezioni (visibilità permissiva) |
+| POST/PATCH/DELETE | `/api/tenants[/:slug]` | Super admin: crea/modifica/elimina lavagna (DELETE solo se vuota → 409) |
+| POST/PATCH/DELETE | `/api/tenants/:slug/pillars[/:id]` | Super admin: sezioni. Rename a cascata su task/template/operator_groups; DELETE solo se inutilizzata |
+| GET/POST/PATCH/DELETE | `/api/users[/:id]` | Super admin: account globali (`displayOwner`, `isSuperadmin`) con le loro membership |
+| GET | `/api/t/:slug/tasks` | Task della lavagna, `updated_at DESC` |
+| POST | `/api/t/:slug/tasks` | Crea task (sezione validata contro `pillars`) |
+| POST | `/api/t/:slug/tasks/reset` | Admin di lavagna: svuota task + template **di quella lavagna** |
+| PATCH/DELETE | `/api/t/:slug/tasks/:id` | Modifica campo / elimina (404 se il task è di un'altra lavagna) |
+| * | `/api/t/:slug/tasks/:taskId/subtasks[/:id]` | Checklist; il task padre deve essere della lavagna |
+| GET/PUT/DELETE | `/api/t/:slug/recurring` | Template della lavagna (scrittura: admin di lavagna) |
+| GET/PUT | `/api/t/:slug/settings/on_call` | Reperibile corrente; 404 se la lavagna non ha la feature `reperibile` |
+| GET | `/api/t/:slug/members/owners` | Picker owner: solo i membri della lavagna |
+| GET/PUT/DELETE | `/api/t/:slug/members[/:email]` | Admin di lavagna: membri, ruolo, operator_groups (no self-demote/remove) |
 | GET | `/api/bitadder/me` | Easter egg: current player state (auto-INSERT alla prima chiamata) |
 | POST | `/api/bitadder/click` | Easter egg: batch delta sync, server clampa rate |
 | POST | `/api/bitadder/buy-bot` | Easter egg: spende bit per +1 bot al prezzo corrente |
 | GET | `/api/bitadder/leaderboard` | Easter egg: top 10 + propria riga se fuori top |
+
+Test backend: `cd backend && npm test` (`node:test`, DB PostgreSQL usa e getta creato e droppato a ogni run; serve un ruolo locale con `CREATEDB`, default `moby/moby`; Entra sostituito da un verifier finto via `setTokenVerifier`). Coprono isolamento tra lavagne e permessi.
 
 ### Database Schema (001_init.sql)
 
@@ -196,7 +207,7 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 
 ## Conventions
 
-- No TypeScript, no tests, no linting configured (debito tecnico noto)
+- No TypeScript, no linting configured (debito tecnico noto). Test: solo backend, `cd backend && npm test` (isolamento lavagne + permessi)
 - All styling is inline (CSS-in-JS objects) — no external CSS files besides index.css reset
 - UUIDs via `crypto.randomUUID()` (frontend) or `gen_random_uuid()` (PostgreSQL)
 - `window.confirm()` per delete — system dialog, da sostituire (il prompt di reset è stato rimosso dall'UI nel commit `ade7da1`; endpoint `POST /api/tasks/reset` resta vivo per emergenze via curl con JWT admin)
@@ -260,6 +271,19 @@ Tab cross-pillar con i task rilevanti per chi è di turno, più l'indicazione di
 | PUT | `/api/settings/:key` | Scrive un setting — **admin-only**. Valida `on_call` contro `users.display_owner` |
 
 **File**: `backend/migrations/011_reperibile.sql`, `backend/src/routes/settings.js`, `src/hooks/useOnCall.js`, `src/components/OnCallBar.jsx`, più il flag in `TaskRow`/`TaskTable`/`TabNav`/`App.jsx`.
+
+## Lavagne (multi-tenant)
+
+Dal 2026-10-07 un solo deploy serve più **lavagne** (tenant): `backup` (la lavagna storica) e quelle create dal super admin (prima: Service Manager). Decisione e requisiti in `HANDOFF.md`, "Strategia evoluzione".
+
+- **Schema** (`012_tenants.sql`): `tenants` (slug, nome, `settings` JSONB), `pillars` (sezioni per lavagna), `memberships` (email × lavagna → `role` + `operator_groups`), `users.is_superadmin`, `users.home_tenant_id`. `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK `(tenant_id, key)`). I subtask ereditano la lavagna dal task padre.
+- **Sezioni = FK**: `(tasks.tenant_id, group_name) → pillars(tenant_id, name)` con `ON UPDATE CASCADE`: rinominare una sezione rinomina task e template; `operator_groups` (array) lo riscrive l'API. `GROUPS`/`VALID_GROUPS` hardcoded non sono più la fonte.
+- **`settings`**: `{"labels": {"reference": "Attività"}, "features": {"reperibile": false}}`. Una feature è attiva solo se `true` esplicito. Il backend rifiuta i campi di una feature spenta (PATCH `reperibile` → 400, `settings/on_call` → 404).
+- **Ruoli**: `is_superadmin` globale (admin ovunque, gestisce lavagne/sezioni/utenti); `admin`/`viewer` + `operator_groups` **per lavagna** in `memberships`. `users.role` e `users.operator_groups` non sono più letti dall'API (restano perché 004/007/008 li riscrivono a ogni boot).
+- **Visibilità permissiva** (scelta 2026-10-07): chiunque autenticato legge qualunque lavagna. "Membro" ≠ "può guardare": solo i membri compaiono nel picker owner e possono essere reperibili.
+- **Primo login**: `homeBoard = null` → l'utente sceglie la lavagna (`PUT /api/me/home`) e ci entra come viewer.
+- **Backfill una tantum**: la migration 012 sposta tutto nella lavagna `backup` solo se `tenants` è vuota — guardia sul contenuto, non sullo slug, così rinominare la lavagna non la fa ricreare al boot.
+- **Le lavagne nuove si creano dalla console, non con una migration**: nomi di sezioni/persone non devono finire nel repo (è pubblico).
 
 ## Notifiche di assegnazione
 
