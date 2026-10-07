@@ -15,7 +15,8 @@ import pg from 'pg'
 const ADMIN_URL = process.env.TEST_DATABASE_ADMIN_URL || 'postgresql://moby:moby@localhost:5432/moby'
 const DB_NAME = `kanbanops_test_${process.pid}`
 
-let server, base, pool, auth
+let server, base, pool, auth, db
+let themesAtMigration = []
 
 const NAMES = {
   'super@example.com': 'Super Admin',
@@ -64,7 +65,7 @@ before(async () => {
   process.env.DATABASE_URL = url.toString()
 
   // Imported after DATABASE_URL is set: db.js builds its pool at import time.
-  const db = await import('../src/db.js')
+  db = await import('../src/db.js')
   pool = db.default
   auth = await import('../src/auth.js')
   const { createApp } = await import('../src/app.js')
@@ -72,6 +73,8 @@ before(async () => {
   await db.runMigrations()
   // Second run: every migration must be idempotent (they re-run at each boot).
   await db.runMigrations()
+  // Users seeded by the migrations stand for the people already in prod.
+  themesAtMigration = (await pool.query('SELECT theme FROM users')).rows.map(r => r.theme)
 
   auth.setAuthEnabled(true)
   auth.setTokenVerifier(async (token) => ({ preferred_username: token, name: NAMES[token] || null, oid: token }))
@@ -252,4 +255,39 @@ test('a superadmin cannot lock themselves out', async () => {
   const me = (await su.get('/users')).body.find(u => u.email === 'super@example.com')
   assert.equal((await su.patch(`/users/${me.id}`, { isSuperadmin: false })).status, 400)
   assert.equal((await su.del(`/users/${me.id}`)).status, 400)
+})
+
+test('users already there at the theme migration keep the dark theme', async () => {
+  assert.ok(themesAtMigration.length > 0)
+  assert.ok(themesAtMigration.every(t => t === 'dark'), JSON.stringify(themesAtMigration))
+  // A later "follow the OS" choice survives the next boot.
+  const { rows: [seeded] } = await pool.query(
+    `SELECT email FROM users WHERE email NOT LIKE '%@example.com' LIMIT 1`)
+  await pool.query('UPDATE users SET theme = NULL WHERE email = $1', [seeded.email])
+  await db.runMigrations()
+  const { rows: [after] } = await pool.query('SELECT theme FROM users WHERE email = $1', [seeded.email])
+  assert.equal(after.theme, null)
+})
+
+test('legacy single-board routes keep a pre-deploy tab working on the backup board', async () => {
+  // What the old bundle calls: list, create, edit, checklist, owners, on-call, recurring.
+  const list = await backupAdmin.get('/tasks')
+  assert.equal(list.status, 200)
+  const created = await backupAdmin.post('/tasks', { group: 'Commvault', reference: 'from old tab', owner: '' })
+  assert.equal(created.status, 201, JSON.stringify(created.body))
+  assert.ok((await backupAdmin.get('/t/backup/tasks')).body.some(t => t.id === created.body.id))
+  assert.equal((await backupAdmin.patch(`/tasks/${created.body.id}`, { field: 'reference', value: 'edited' })).status, 200)
+  assert.equal((await backupAdmin.post(`/tasks/${created.body.id}/subtasks`, { description: 'item' })).status, 201)
+  const owners = (await backupAdmin.get('/users/owners')).body
+  assert.ok(owners.includes('Backup Admin') && !owners.includes('Sm Admin'))
+  assert.equal((await backupAdmin.get('/settings/on_call')).status, 200)
+  assert.equal((await backupAdmin.get('/recurring')).status, 200)
+
+  // Never a way into another board, and the same permissions as the new routes.
+  const smTask = await newTask(smAdmin, 'sm', 'Sezione B')
+  assert.ok(!list.body.some(t => t.id === smTask.id))
+  assert.equal((await backupAdmin.patch(`/tasks/${smTask.id}`, { field: 'reference', value: 'x' })).status, 404)
+  assert.equal((await smAdmin.post('/tasks', { group: 'Commvault', owner: '' })).status, 403)
+  // The users router stays superadmin-only.
+  assert.equal((await backupAdmin.get('/users')).status, 403)
 })

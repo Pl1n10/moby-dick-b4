@@ -10,8 +10,13 @@
       (function () {
         var t = null
         try { t = localStorage.getItem('kanbanops:theme') } catch (e) {}
-        if (t !== 'light' && t !== 'dark') {
+        // 'system' = follow the OS. Nothing stored = this browser has not
+        // heard from the server yet: dark, the theme KanbanOps always had,
+        // until /api/me says otherwise (no flash of light for existing users).
+        if (t === 'system') {
           t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        } else if (t !== 'light') {
+          t = 'dark'
         }
         document.documentElement.dataset.theme = t
       })()

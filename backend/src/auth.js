@@ -137,13 +137,25 @@ export function requireSuperadmin(req, res, next) {
  * picker, on-call); `role` decides writes. A superadmin acts as admin
  * everywhere without being a member.
  */
-export async function loadBoard(req, res, next) {
+export function loadBoard(req, res, next) {
+  return resolveBoard(req.params.slug, req, res, next)
+}
+
+/**
+ * Same as loadBoard for a board fixed in advance. Used by the legacy
+ * single-board routes (/api/tasks, …), which all mean the backup board.
+ */
+export function loadFixedBoard(slug) {
+  return (req, res, next) => resolveBoard(slug, req, res, next)
+}
+
+async function resolveBoard(slug, req, res, next) {
   try {
     const { rows: [tenant] } = await pool.query(
       'SELECT id, slug, name, settings FROM tenants WHERE slug = $1',
-      [req.params.slug],
+      [slug],
     )
-    if (!tenant) return res.status(404).json({ error: `Unknown board: ${req.params.slug}` })
+    if (!tenant) return res.status(404).json({ error: `Unknown board: ${slug}` })
     req.tenant = tenant
 
     let membership = null

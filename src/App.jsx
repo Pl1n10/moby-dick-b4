@@ -29,7 +29,12 @@ export default function App() {
   const isValidGroup = (v) => v === '__storico__' || (v === '__reperibile__' && hasReperibile) || pillars.includes(v)
   const [activeGroup, setActiveGroup] = useState(() => {
     let saved = null
-    try { saved = localStorage.getItem(activeGroupKey) } catch { /* storage blocked */ }
+    try {
+      saved = localStorage.getItem(activeGroupKey)
+      // Before multi-board there was one key for the one board: the backup
+      // team keeps its remembered tab across the deploy.
+      if (saved === null && slug === 'backup') saved = localStorage.getItem('kanbanops:activeGroup')
+    } catch { /* storage blocked */ }
     return isValidGroup(saved) ? saved : (pillars[0] ?? '__storico__')
   })
 
