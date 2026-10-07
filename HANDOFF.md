@@ -216,13 +216,14 @@ Requisiti raccolti (2026-10-07):
   - **Niente reperibile**: né tab Info Reperibile, né checkbox Rep., né on-call bar
   - ⇒ servono personalizzazioni per lavagna (label colonne, feature on/off), non solo dati separati
 
-Domande aperte (da chiudere in pianificazione):
+Risposte dell'utente (2026-10-07):
 
-1. "Togliere reperibile" vale solo per la lavagna SM (assunto) o anche per backup?
-2. Lavagna SM: restano scadenza (deadline), checklist subtask, task ricorrenti, export CSV? Non citati nella richiesta.
-3. Scelta al primo login: l'appartenenza a **una** lavagna è concessa subito (come viewer, come oggi l'auto-register) o anche quella va approvata?
-4. Owner: lista per lavagna (chi è membro) o globale?
-5. Chi è super admin all'inizio (Roberto + ?).
+1. Reperibile si toglie **solo** dalla lavagna SM; backup la tiene.
+2. Tutto ciò che non è citato resta com'è (deadline, subtask, ricorrenti, CSV). In più: **light mode** con toggle (default = preferenza di sistema, override dell'utente ricordato) e **emoji → Bootstrap Icons**.
+3. Primo login: l'utente vede l'elenco delle lavagne e sceglie la sua. Per ora **visibilità permissiva**: chiunque può guardare qualunque lavagna in sola lettura e switchare. L'approvazione "vedere tutto" è rimandata a quando la visibilità verrà chiusa.
+4. **Owner per lavagna**: nel picker compare solo chi è *membro* della lavagna (l'ha scelta al primo login o ci è stato aggiunto). "Può guardarla" ≠ "ne fa parte".
+5. L'**admin di lavagna** gestisce i membri della propria lavagna. I permessi restano admin / viewer / operator-per-sezione, riferiti alle sezioni di ogni lavagna; permessi custom per lavagna, se serviranno, si aggiungono dopo.
+6. Super admin iniziale: solo Roberto.
 
 ### Tagging strategy (resta valida)
 
@@ -236,11 +237,20 @@ Domande aperte (da chiudere in pianificazione):
 
 Dettagli in AGENTS.md, "Feature UX". Verificata con E2E Playwright su DB usa e getta con task pre-esistenti (numerati per età), creazione → MD004, delete + undo → torna MD004, ricerca "md001", numero mai emesso rifiutato, doppione → 409. **Deployata il 2026-10-07**, tag `mauden-prod-2026-10-07` → `54ea5cd`, container `Up (healthy)`.
 
-### ★ Multi-tenant + lavagna Service Manager [in pianificazione, 2026-10-07]
+### ★ Multi-tenant + lavagna Service Manager [in corso dal 2026-10-07]
 
-Requisiti e domande aperte nella sezione "Strategia evoluzione" sopra. Piano a step da scrivere qui dopo la pianificazione con l'utente. ⚠️ Review puntigliosa: tocca ogni query (isolamento tra lavagne) e la prod Mauden.
+Requisiti e risposte nella sezione "Strategia evoluzione". ⚠️ Review puntigliosa su step 1–3: tocca ogni query (isolamento tra lavagne) e la prod Mauden.
 
-> ✅ **Notifiche di assegnazione ATTIVE** (2026-06-04): Flow Power Automate creato + acceso, `NOTIFY_WEBHOOK_URL` settata sulla VM. Resta solo il test end-to-end dall'app (non bloccante) — dettagli nella sezione "Notifiche di assegnazione" sopra.
+⚠️ **Da step 1 a step 3 `main` NON è deployabile**: lo schema ha `tenant_id NOT NULL` e il vecchio codice non lo scrive. Non fare `git pull` sulla VM finché lo step 5 non è chiuso.
+
+- **Step 0 — preparazione** [richiede Roberto: la VM non è raggiungibile dalla devbox]. Sulla VM: `git -C /opt/moby-dick-b4 log -1 --oneline` → taggare quel commit `mauden-prod-<data>`; `docker exec moby-db pg_dump -U moby moby | gzip > ~/moby-<data>.sql.gz` e portarlo sulla devbox (fuori dal repo) per provare la migration su dati veri.
+- ✅ **Step 1 — schema** (migration 012, provata su DB nuovo e su DB con dati pre-012, doppio run, rename sezione a cascata): `tenants` (slug, nome, `settings` JSONB: label colonne + feature on/off), `pillars` per tenant, `memberships` (email, tenant, ruolo, operator_groups), `users.is_superadmin`, `users.home_tenant_id`; `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK → `(tenant_id, key)`). Backfill una tantum nel tenant `backup`. 011 reso compatibile (re-run a ogni boot).
+- **Step 2 — backend**: route di lavagna sotto `/api/t/:slug/…` con middleware che risolve tenant + membership; ogni query filtra per tenant; `canWrite` sulla membership; sezioni validate contro `pillars`; owner = membri con display_owner; notify con link alla lavagna; `/api/me` con lavagne + superadmin; scelta lavagna al primo login; endpoint super admin (lavagne, sezioni, utenti) e admin di lavagna (membri). Primi test Supertest sull'isolamento.
+- **Step 3 — frontend**: URL `/t/<slug>`, switcher nell'header, pagina "scegli la tua lavagna" al primo login, sezioni/label/feature dalla config del tenant (al posto di `GROUPS` hardcoded), reperibile nascosto se spento.
+- **Step 4 — console**: super admin (lavagne, sezioni, utenti × lavagne, ruoli) + admin di lavagna (membri della propria). Assorbe `UsersModal`.
+- **Step 5 — collaudo e deploy**: lavagna SM creata **dalla console** (le sezioni sono cognomi: non vanno in una migration, il repo GitHub è pubblico), prova completa sul dump di prod, tag, deploy.
+- **Step 6 — emoji → Bootstrap Icons** (~21 occorrenze in 13 file).
+- **Step 7 — light mode**: ~300 colori inline in 20 file → variabili CSS, tema chiaro, toggle in header; default `prefers-color-scheme`, scelta salvata su `users` (vale su ogni PC) + copia in `localStorage` contro il lampo al caricamento.
 
 ### 0. Recurring operator-aware (iterazione 2) [P2]
 

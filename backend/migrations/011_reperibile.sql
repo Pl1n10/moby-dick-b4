@@ -33,5 +33,14 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 -- Seed the on_call key with a NULL value so GET always finds a row and the
 -- UI can render "nessun reperibile impostato" without a special case.
-INSERT INTO app_settings (key, value) VALUES ('on_call', NULL)
-  ON CONFLICT (key) DO NOTHING;
+-- Only before 012: from there on app_settings is per board (PK tenant_id +
+-- key, tenant_id NOT NULL), so this INSERT would fail at every boot.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'app_settings' AND column_name = 'tenant_id'
+  ) THEN
+    INSERT INTO app_settings (key, value) VALUES ('on_call', NULL)
+      ON CONFLICT (key) DO NOTHING;
+  END IF;
+END $$;
