@@ -276,13 +276,14 @@ Tab cross-pillar con i task rilevanti per chi è di turno, più l'indicazione di
 
 Dal 2026-10-07 un solo deploy serve più **lavagne** (tenant): `backup` (la lavagna storica) e quelle create dal super admin (prima: Service Manager). Decisione e requisiti in `HANDOFF.md`, "Strategia evoluzione".
 
-- **Schema** (`012_tenants.sql`): `tenants` (slug, nome, `settings` JSONB), `pillars` (sezioni per lavagna), `memberships` (email × lavagna → `role` + `operator_groups`), `users.is_superadmin`, `users.home_tenant_id`. `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK `(tenant_id, key)`). I subtask ereditano la lavagna dal task padre.
+- **Schema** (`013_tenants.sql`): `tenants` (slug, nome, `settings` JSONB), `pillars` (sezioni per lavagna), `memberships` (email × lavagna → `role` + `operator_groups`), `users.is_superadmin`, `users.home_tenant_id`. `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK `(tenant_id, key)`). I subtask ereditano la lavagna dal task padre.
 - **Sezioni = FK**: `(tasks.tenant_id, group_name) → pillars(tenant_id, name)` con `ON UPDATE CASCADE`: rinominare una sezione rinomina task e template; `operator_groups` (array) lo riscrive l'API. `GROUPS`/`VALID_GROUPS` hardcoded non sono più la fonte.
-- **`settings`**: `{"labels": {"reference": "Attività"}, "features": {"reperibile": false}}`. Una feature è attiva solo se `true` esplicito. Il backend rifiuta i campi di una feature spenta (PATCH `reperibile` → 400, `settings/on_call` → 404).
+- **`settings`**: `{"idPrefix": "SM", "labels": {"reference": "Attività"}, "features": {"reperibile": false}}`. Una feature è attiva solo se `true` esplicito. Il backend rifiuta i campi di una feature spenta (PATCH `reperibile` → 400, `settings/on_call` → 404).
 - **Ruoli**: `is_superadmin` globale (admin ovunque, gestisce lavagne/sezioni/utenti); `admin`/`viewer` + `operator_groups` **per lavagna** in `memberships`. `users.role` e `users.operator_groups` non sono più letti dall'API (restano perché 004/007/008 li riscrivono a ogni boot).
 - **Visibilità permissiva** (scelta 2026-10-07): chiunque autenticato legge qualunque lavagna. "Membro" ≠ "può guardare": solo i membri compaiono nel picker owner e possono essere reperibili.
 - **Primo login**: `homeBoard = null` → l'utente sceglie la lavagna (`PUT /api/me/home`) e ci entra come viewer.
 - **Backfill una tantum**: la migration 012 sposta tutto nella lavagna `backup` solo se `tenants` è vuota — guardia sul contenuto, non sullo slug, così rinominare la lavagna non la fa ricreare al boot.
+- **Numerazione per lavagna**: ogni lavagna ha il suo contatore (`tenants.last_task_number`, assegnato dal trigger `trg_assign_task_number` a ogni INSERT senza `number`) e il suo prefisso (`settings.idPrefix`, 1–6 maiuscole; `backup` = `MD`, senza prefisso si mostra `#001`). La sequenza globale della 012 viene eliminata dalla 013; il contatore di `backup` riparte da dove era arrivata la sequenza, quindi i numeri dei task cancellati non si riusano.
 - **Le lavagne nuove si creano dalla console, non con una migration**: nomi di sezioni/persone non devono finire nel repo (è pubblico).
 
 ## Notifiche di assegnazione

@@ -14,6 +14,10 @@
 --   users.is_superadmin   global role: creates boards, manages everyone.
 --   users.home_tenant_id  the board a user picked at first login (NULL =
 --                         never picked → the UI shows the board chooser).
+--   tenants.last_task_number  per-board task counter: each board numbers
+--                         its own tasks (MD001… on backup, its own prefix
+--                         elsewhere — settings.idPrefix). Replaces the global
+--                         task_number_seq of 012.
 --
 -- tasks, recurring_templates and app_settings get a tenant_id. Subtasks
 -- inherit it from their parent task. bit_adder stays global (it is per
@@ -36,6 +40,8 @@ CREATE TABLE IF NOT EXISTS tenants (
   position   INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS last_task_number INT NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS pillars (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -76,8 +82,19 @@ BEGIN
   END IF;
 
   INSERT INTO tenants (slug, name, settings, position)
-  VALUES ('backup', 'Backup', '{"features": {"reperibile": true}}'::jsonb, 0)
+  VALUES ('backup', 'Backup', '{"idPrefix": "MD", "features": {"reperibile": true}}'::jsonb, 0)
   RETURNING id INTO backup_id;
+
+  -- Task numbers become per board. The backup board continues from where the
+  -- global sequence stopped (not from MAX(number): numbers of deleted tasks
+  -- are never reused).
+  UPDATE tenants SET last_task_number = GREATEST(
+    COALESCE((SELECT MAX(number) FROM tasks), 0),
+    COALESCE((SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM task_number_seq), 0)
+  ) WHERE id = backup_id;
+  ALTER TABLE tasks ALTER COLUMN number DROP DEFAULT;
+  DROP SEQUENCE IF EXISTS task_number_seq;
+  ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_number_unique;
 
   INSERT INTO pillars (tenant_id, name, position) VALUES
     (backup_id, 'Commvault',           0),
@@ -115,6 +132,29 @@ ALTER TABLE tasks               ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE recurring_templates ALTER COLUMN tenant_id SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_tasks_tenant ON tasks (tenant_id, updated_at DESC);
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tasks_tenant_number_unique') THEN
+    ALTER TABLE tasks ADD CONSTRAINT tasks_tenant_number_unique UNIQUE (tenant_id, number);
+  END IF;
+END $$;
+
+-- Every INSERT without a number (API, recurring processor) takes the next one
+-- of its board. The UPDATE row-locks the board, so concurrent inserts on the
+-- same board are serialized and never get the same number.
+CREATE OR REPLACE FUNCTION assign_task_number() RETURNS trigger AS $$
+BEGIN
+  IF NEW.number IS NULL THEN
+    UPDATE tenants SET last_task_number = last_task_number + 1
+    WHERE id = NEW.tenant_id
+    RETURNING last_task_number INTO NEW.number;
+  END IF;
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_assign_task_number ON tasks;
+CREATE TRIGGER trg_assign_task_number BEFORE INSERT ON tasks
+  FOR EACH ROW EXECUTE FUNCTION assign_task_number();
 
 -- A task's section must exist on its own board. ON UPDATE CASCADE: renaming a
 -- section from the console renames it on every task and template with no

@@ -153,9 +153,9 @@ router.post('/', async (req, res) => {
       if (rows.length > 0) recurringTemplateId = req.body.recurringTemplateId
     }
     // `number` is sent only by the undo-restore of a deleted task, so the task
-    // comes back as the same MDxxx. Accepted only up to the sequence's last
-    // value: a number the sequence has not reached yet would collide with a
-    // future task. Anything else → the column DEFAULT assigns the next one.
+    // comes back as the same MDxxx. Accepted only up to the board's counter: a
+    // number the board has not reached yet would collide with a future task.
+    // Anything else → NULL, and the trigger assigns the board's next number.
     const restoredNumber = Number.isInteger(number) && number > 0 ? number : null
     const { rows } = await pool.query(
       // COALESCE, not a bare $1: node-postgres sends `undefined` as an
@@ -164,11 +164,8 @@ router.post('/', async (req, res) => {
       // The client normally sends its own UUID, so this only bites API callers.
       `INSERT INTO tasks (id, tenant_id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number)
        VALUES (COALESCE($1::uuid, gen_random_uuid()), $11, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(),
-               -- next value the sequence will hand out (is_called=false right
-               -- after the migration's setval: last_value not issued yet)
-               CASE WHEN $12::int < (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END
-                                     FROM task_number_seq) THEN $12::int
-                    ELSE nextval('task_number_seq') END)
+               CASE WHEN $12::int <= (SELECT last_task_number FROM tenants WHERE id = $11)
+                    THEN $12::int END)
        RETURNING *`,
       [
         id || null,               // absent → DB generates via gen_random_uuid()
@@ -196,7 +193,7 @@ router.post('/', async (req, res) => {
     }
   } catch (err) {
     // The restored number was taken again in the meantime (two undos racing).
-    if (err.code === '23505' && err.constraint === 'tasks_number_unique') {
+    if (err.code === '23505' && err.constraint === 'tasks_tenant_number_unique') {
       return res.status(409).json({ error: 'Task number already in use' })
     }
     console.error('POST /api/tasks error:', err.message)

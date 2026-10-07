@@ -221,6 +221,23 @@ test('renaming a section renames tasks and operator scopes', async () => {
   assert.equal((await su.del('/tenants/sm')).status, 409)
 })
 
+test('each board numbers its own tasks', async () => {
+  const before = (await backupAdmin.get('/t/backup/tasks')).body.map(t => t.number)
+  const smTask = await newTask(smAdmin, 'sm', 'Sezione B')
+  const smNext = await newTask(smAdmin, 'sm', 'Sezione B')
+  assert.equal(smNext.number, smTask.number + 1)
+  const backupTask = await newTask(backupAdmin, 'backup', 'Commvault')
+  assert.equal(backupTask.number, Math.max(...before) + 1)
+
+  // Undo-restore keeps the number; a number the board never issued does not.
+  assert.equal((await smAdmin.del(`/t/sm/tasks/${smNext.id}`)).status, 200)
+  const restored = await smAdmin.post('/t/sm/tasks', { id: smNext.id, group: 'Sezione B', owner: '', number: smNext.number })
+  assert.equal(restored.body.number, smNext.number)
+  const future = await smAdmin.post('/t/sm/tasks', { group: 'Sezione B', owner: '', number: 9999 })
+  assert.equal(future.body.number, smNext.number + 1)
+  assert.equal((await smAdmin.post('/t/sm/tasks', { group: 'Sezione B', owner: '', number: smTask.number })).status, 409)
+})
+
 test('a superadmin cannot lock themselves out', async () => {
   const me = (await su.get('/users')).body.find(u => u.email === 'super@example.com')
   assert.equal((await su.patch(`/users/${me.id}`, { isSuperadmin: false })).status, 400)

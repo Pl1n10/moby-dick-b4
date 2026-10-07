@@ -237,14 +237,16 @@ Risposte dell'utente (2026-10-07):
 
 Dettagli in AGENTS.md, "Feature UX". Verificata con E2E Playwright su DB usa e getta con task pre-esistenti (numerati per età), creazione → MD004, delete + undo → torna MD004, ricerca "md001", numero mai emesso rifiutato, doppione → 409. **Deployata il 2026-10-07**, tag `mauden-prod-2026-10-07` → `54ea5cd`, container `Up (healthy)`.
 
-### ★ Multi-tenant + lavagna Service Manager [in corso dal 2026-10-07]
+### ★ Multi-tenant + lavagna Service Manager [in corso dal 2026-10-07, branch `feat/multi-tenant`]
+
+Il lavoro sta sul branch **`feat/multi-tenant`** (ribasato su `mauden-prod-2026-10-07`); va in `main` solo a step 5 chiuso. La numerazione MD è diventata **per lavagna** (contatore + prefisso in `tenants`), vedi AGENTS.md "Lavagne".
 
 Requisiti e risposte nella sezione "Strategia evoluzione". ⚠️ Review puntigliosa su step 1–3: tocca ogni query (isolamento tra lavagne) e la prod Mauden.
 
-⚠️ **Da step 1 a step 3 `main` NON è deployabile**: lo schema ha `tenant_id NOT NULL` e il vecchio codice non lo scrive. Non fare `git pull` sulla VM finché lo step 5 non è chiuso.
+⚠️ **Il branch non è deployabile fino allo step 5** (frontend non ancora adattato). `main` resta deployabile.
 
 - **Step 0 — preparazione** [richiede Roberto: la VM non è raggiungibile dalla devbox]. Sulla VM: `git -C /opt/moby-dick-b4 log -1 --oneline` → taggare quel commit `mauden-prod-<data>`; `docker exec moby-db pg_dump -U moby moby | gzip > ~/moby-<data>.sql.gz` e portarlo sulla devbox (fuori dal repo) per provare la migration su dati veri.
-- ✅ **Step 1 — schema** (migration 012, provata su DB nuovo e su DB con dati pre-012, doppio run, rename sezione a cascata): `tenants` (slug, nome, `settings` JSONB: label colonne + feature on/off), `pillars` per tenant, `memberships` (email, tenant, ruolo, operator_groups), `users.is_superadmin`, `users.home_tenant_id`; `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK → `(tenant_id, key)`). Backfill una tantum nel tenant `backup`. 011 reso compatibile (re-run a ogni boot).
+- ✅ **Step 1 — schema** (migration 013 dopo il rebase, provata su DB nuovo e su DB con dati pre-012, doppio run, rename sezione a cascata): `tenants` (slug, nome, `settings` JSONB: label colonne + feature on/off), `pillars` per tenant, `memberships` (email, tenant, ruolo, operator_groups), `users.is_superadmin`, `users.home_tenant_id`; `tenant_id` su `tasks`, `recurring_templates`, `app_settings` (PK → `(tenant_id, key)`). Backfill una tantum nel tenant `backup`. 011 reso compatibile (re-run a ogni boot).
 - ✅ **Step 2 — backend** (11 test `node:test` verdi, verificato che falliscono togliendo il filtro tenant): route di lavagna sotto `/api/t/:slug/…` con middleware che risolve tenant + membership; ogni query filtra per tenant; `canWrite` sulla membership; sezioni validate contro `pillars`; owner = membri con display_owner; notify con link alla lavagna; `/api/me` con lavagne + superadmin; scelta lavagna al primo login; endpoint super admin (lavagne, sezioni, utenti) e admin di lavagna (membri). Primi test Supertest sull'isolamento.
 - **Step 3 — frontend**: URL `/t/<slug>`, switcher nell'header, pagina "scegli la tua lavagna" al primo login, sezioni/label/feature dalla config del tenant (al posto di `GROUPS` hardcoded), reperibile nascosto se spento.
 - **Step 4 — console**: super admin (lavagne, sezioni, utenti × lavagne, ruoli) + admin di lavagna (membri della propria). Assorbe `UsersModal`.

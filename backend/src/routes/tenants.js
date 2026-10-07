@@ -25,14 +25,18 @@ function mapTenantToClient(row, pillars) {
   }
 }
 
-// settings shape: { labels: { <field>: string }, features: { <name>: boolean } }.
-// Anything else is rejected, so the column cannot turn into a dumping ground.
+// settings shape: { idPrefix: "MD", labels: { <field>: string },
+// features: { <name>: boolean } }. Anything else is rejected, so the column
+// cannot turn into a dumping ground.
 function validateSettings(settings) {
   if (settings === null || typeof settings !== 'object' || Array.isArray(settings)) {
     return 'settings must be an object'
   }
   for (const key of Object.keys(settings)) {
-    if (!['labels', 'features'].includes(key)) return `Unknown settings key: ${key}`
+    if (!['idPrefix', 'labels', 'features'].includes(key)) return `Unknown settings key: ${key}`
+  }
+  if (settings.idPrefix !== undefined && !/^[A-Z]{1,6}$/.test(settings.idPrefix)) {
+    return 'settings.idPrefix must be 1-6 uppercase letters'
   }
   const { labels = {}, features = {} } = settings
   if (typeof labels !== 'object' || Array.isArray(labels)) return 'settings.labels must be an object'

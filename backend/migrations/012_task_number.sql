@@ -12,8 +12,8 @@
 -- by the undo of that very deletion (see POST /api/tasks).
 --
 -- Idempotent: the whole block runs only while the column does not exist.
-
-CREATE SEQUENCE IF NOT EXISTS task_number_seq;
+-- The sequence is created inside the block on purpose: 013 replaces it with
+-- a per-board counter and drops it, and it must not come back at next boot.
 
 DO $$
 BEGIN
@@ -21,6 +21,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'tasks' AND column_name = 'number'
   ) THEN
+    CREATE SEQUENCE IF NOT EXISTS task_number_seq;
     ALTER TABLE tasks ADD COLUMN number INT;
 
     UPDATE tasks t SET number = n.rn

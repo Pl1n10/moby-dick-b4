@@ -35,9 +35,10 @@ async function resolveOwnerEmail(ownerName, tenantId) {
   return rows[0].email
 }
 
-// Same format as formatTaskCode in src/utils.js.
-function formatTaskCode(n) {
-  return n == null ? null : `MD${String(n).padStart(3, '0')}`
+// Same format as formatTaskCode in src/utils.js: board prefix + number padded
+// to 3 digits ("MD001"); "#001" on a board without a prefix.
+function formatTaskCode(n, prefix) {
+  return n == null ? null : `${prefix || '#'}${String(n).padStart(3, '0')}`
 }
 
 function formatDeadline(d) {
@@ -73,7 +74,7 @@ export async function notifyAssignment({ task, tenant, event, assigner }) {
       event,
       task: {
         id: task.id,
-        code: formatTaskCode(task.number),   // additive: the Flow schema has no `required`
+        code: formatTaskCode(task.number, tenant.settings?.idPrefix),   // additive: the Flow schema has no `required`
         group: task.group_name,
         reference: task.reference || '',
         description: task.description || '',
