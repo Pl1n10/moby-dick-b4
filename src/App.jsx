@@ -138,7 +138,7 @@ export default function App() {
   const hasActiveFilters = search || filterStatus || filterOwner || (isCrossPillar && filterGroup)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0d1117', color: '#e6edf3' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <Header />
 
       <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} pillars={pillars} showReperibile={hasReperibile} />
@@ -198,10 +198,10 @@ export default function App() {
         <div style={{
           position: 'fixed', bottom: '24px', right: '24px', zIndex: 1000,
           maxWidth: '380px', padding: '10px 14px',
-          background: '#161b22', borderRadius: '8px',
-          border: `1px solid ${undoToast.kind === 'warn' ? '#d29922' : '#2ea043'}`,
-          color: '#e6edf3', fontSize: '13px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          background: 'var(--surface)', borderRadius: '8px',
+          border: `1px solid ${undoToast.kind === 'warn' ? 'var(--amber)' : 'var(--success)'}`,
+          color: 'var(--text)', fontSize: '13px',
+          boxShadow: '0 4px 16px var(--shadow)',
         }}>
           {undoToast.kind === 'warn' ? '⚠ ' : '↶ '}{undoToast.msg}
         </div>

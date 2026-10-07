@@ -41,7 +41,7 @@ export default function Linkify({ text, query }) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
-          style={{ color: '#58a6ff', textDecoration: 'underline', wordBreak: 'break-all' }}
+          style={{ color: 'var(--accent)', textDecoration: 'underline', wordBreak: 'break-all' }}
         >
           {query ? <Highlight text={seg.value} query={query} /> : seg.value}
         </a>

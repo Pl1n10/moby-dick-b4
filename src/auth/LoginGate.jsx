@@ -14,21 +14,21 @@ export default function LoginGate({ children }) {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0d1117', color: '#e6edf3',
+      minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
         maxWidth: '380px', padding: '32px', textAlign: 'center',
-        border: '1px solid #21262d', borderRadius: '8px', background: '#0d1117',
+        border: '1px solid var(--border-subtle)', borderRadius: '8px', background: 'var(--bg)',
       }}>
         <h1 style={{ margin: '0 0 8px', fontFamily: S.mono, fontSize: '22px' }}>
           KanbanOps
         </h1>
-        <p style={{ margin: '0 0 24px', fontFamily: S.sans, fontSize: '13px', color: '#8b949e' }}>
+        <p style={{ margin: '0 0 24px', fontFamily: S.sans, fontSize: '13px', color: 'var(--muted)' }}>
           Accedi con il tuo account Microsoft Mauden per continuare.
         </p>
         <button onClick={login} style={{
-          padding: '10px 18px', background: '#2563eb', border: '1px solid #58a6ff',
+          padding: '10px 18px', background: '#2563eb', border: '1px solid var(--accent)',
           borderRadius: '4px', color: '#fff', fontFamily: S.mono, fontSize: '13px',
           fontWeight: 600, cursor: 'pointer', width: '100%',
         }}>

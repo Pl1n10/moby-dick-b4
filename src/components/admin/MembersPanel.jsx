@@ -57,7 +57,7 @@ export default function MembersPanel({ onError }) {
       </Hint>
 
       {members === null ? (
-        <div style={{ color: '#484f58', padding: '20px', textAlign: 'center' }}>Loading…</div>
+        <div style={{ color: 'var(--faint)', padding: '20px', textAlign: 'center' }}>Loading…</div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
@@ -74,9 +74,9 @@ export default function MembersPanel({ onError }) {
               const isSelf = me.email && m.email === me.email
               const locked = isSelf && !isSuperadmin       // no self-demote / self-remove
               return (
-                <tr key={m.email} style={{ borderBottom: '1px solid #21262d' }}>
+                <tr key={m.email} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td style={tdStyle}>
-                    <span style={{ fontFamily: S.mono, fontSize: '12px', color: '#c9d1d9', wordBreak: 'break-all' }}>{m.email}</span>
+                    <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--text-2)', wordBreak: 'break-all' }}>{m.email}</span>
                     {isSelf && <YouBadge />}
                   </td>
                   <td style={tdStyle}>
@@ -122,10 +122,10 @@ function ScopeChecks({ pillars, role, value, onChange }) {
           <label key={g} title={isAdmin ? `${g}: gli admin scrivono ovunque` : g} style={{
             display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px', fontFamily: S.mono,
             cursor: isAdmin ? 'not-allowed' : 'pointer', opacity: isAdmin ? 0.4 : 1,
-            color: checked ? '#58a6ff' : '#8b949e', whiteSpace: 'nowrap',
+            color: checked ? 'var(--accent)' : 'var(--muted)', whiteSpace: 'nowrap',
           }}>
             <input type="checkbox" checked={checked} disabled={isAdmin} onChange={() => toggle(g)}
-              style={{ accentColor: '#58a6ff', cursor: isAdmin ? 'not-allowed' : 'pointer' }} />
+              style={{ accentColor: 'var(--accent)', cursor: isAdmin ? 'not-allowed' : 'pointer' }} />
             {g}
           </label>
         )
@@ -153,8 +153,8 @@ function AddMemberForm({ pillars, onAdd }) {
   }
 
   return (
-    <div style={{ marginTop: '20px', borderTop: '1px solid #21262d', paddingTop: '16px' }}>
-      <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '8px', fontFamily: S.mono }}>
+    <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+      <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px', fontFamily: S.mono }}>
         Aggiungi un collega (anche se non è mai entrato):
       </div>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>

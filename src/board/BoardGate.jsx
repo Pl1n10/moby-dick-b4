@@ -38,7 +38,7 @@ export default function BoardGate({ children }) {
 function Centered({ children }) {
   return (
     <div style={{
-      minHeight: '100vh', background: '#0d1117', color: '#8b949e',
+      minHeight: '100vh', background: 'var(--bg)', color: 'var(--muted)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: S.sans, fontSize: '13px',
     }}>{children}</div>
@@ -77,18 +77,18 @@ export function BoardChooser({ notice, firstLogin }) {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0d1117', color: '#e6edf3',
+      minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
     }}>
       <div style={{
         width: '100%', maxWidth: '440px', padding: '32px',
-        border: '1px solid #21262d', borderRadius: '8px', fontFamily: S.sans,
+        border: '1px solid var(--border-subtle)', borderRadius: '8px', fontFamily: S.sans,
       }}>
         <h1 style={{ margin: '0 0 8px', fontFamily: S.mono, fontSize: '22px' }}>KanbanOps</h1>
         {notice && (
-          <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#d29922' }}>{notice}</p>
+          <p style={{ margin: '0 0 12px', fontSize: '13px', color: 'var(--amber)' }}>{notice}</p>
         )}
-        <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#8b949e', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 20px', fontSize: '13px', color: 'var(--muted)', lineHeight: 1.5 }}>
           {firstLogin
             ? 'Benvenuto! Scegli la lavagna del tuo team: sarà quella che vedi all\'accesso e comparirai fra gli owner assegnabili. Potrai comunque consultare le altre lavagne.'
             : 'Scegli la lavagna da aprire.'}
@@ -97,21 +97,21 @@ export function BoardChooser({ notice, firstLogin }) {
           {(boards || []).map(b => (
             <button key={b.slug} onClick={() => pick(b.slug)} disabled={busy !== null} style={{
               padding: '12px 14px', textAlign: 'left',
-              background: '#161b22', border: '1px solid #30363d', borderRadius: '6px',
-              color: '#e6edf3', fontFamily: S.sans, fontSize: '14px', fontWeight: 600,
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px',
+              color: 'var(--text)', fontFamily: S.sans, fontSize: '14px', fontWeight: 600,
               cursor: busy ? 'wait' : 'pointer',
             }}>
               {b.name}
-              <span style={{ display: 'block', marginTop: '2px', fontSize: '12px', fontWeight: 400, color: '#8b949e' }}>
+              <span style={{ display: 'block', marginTop: '2px', fontSize: '12px', fontWeight: 400, color: 'var(--muted)' }}>
                 {busy === b.slug ? 'Un momento…' : b.pillars.map(p => p.name).join(' · ')}
               </span>
             </button>
           ))}
           {boards && boards.length === 0 && (
-            <p style={{ fontSize: '13px', color: '#484f58' }}>Nessuna lavagna configurata.</p>
+            <p style={{ fontSize: '13px', color: 'var(--faint)' }}>Nessuna lavagna configurata.</p>
           )}
         </div>
-        {err && <p style={{ marginTop: '12px', fontSize: '12px', color: '#f85149' }}>⚠ {err}</p>}
+        {err && <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--danger)' }}>⚠ {err}</p>}
       </div>
     </div>
   )

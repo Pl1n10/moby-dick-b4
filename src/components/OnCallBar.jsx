@@ -20,12 +20,12 @@ export default function OnCallBar({ onCall, loading, onChange }) {
     <div style={{
       display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
       padding: '12px 16px', marginBottom: '16px',
-      background: '#161b22', border: '1px solid #30363d', borderRadius: '8px',
+      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px',
     }}>
       <span style={{ fontSize: '18px', lineHeight: 1 }} role="img" aria-label="reperibile">📟</span>
       <span style={{
         fontFamily: S.sans, fontSize: '12px', fontWeight: 600,
-        textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8b949e',
+        textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)',
       }}>Reperibile</span>
 
       {isAdmin ? (
@@ -38,7 +38,7 @@ export default function OnCallBar({ onCall, loading, onChange }) {
       ) : (
         <span style={{
           fontFamily: S.sans, fontSize: '14px', fontWeight: 600,
-          color: onCall ? '#e6edf3' : '#484f58',
+          color: onCall ? 'var(--text)' : 'var(--faint)',
         }}>
           {loading ? '…' : (onCall || 'nessuno impostato')}
         </span>
@@ -47,13 +47,13 @@ export default function OnCallBar({ onCall, loading, onChange }) {
       {/* An admin still needs to see the current value while the select is
           closed — the select shows it, so only the empty case needs a nudge. */}
       {isAdmin && !loading && !onCall && (
-        <span style={{ fontFamily: S.sans, fontSize: '12px', color: '#8b949e' }}>
+        <span style={{ fontFamily: S.sans, fontSize: '12px', color: 'var(--muted)' }}>
           nessun reperibile impostato
         </span>
       )}
 
       {error && (
-        <span style={{ fontFamily: S.sans, fontSize: '12px', color: '#f85149' }}>
+        <span style={{ fontFamily: S.sans, fontSize: '12px', color: 'var(--danger)' }}>
           ⚠ {error}
         </span>
       )}

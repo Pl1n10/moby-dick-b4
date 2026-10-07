@@ -30,7 +30,7 @@ export default function Toolbar({
       <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '320px' }}>
         <span style={{
           position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
-          color: '#484f58', fontSize: '14px', pointerEvents: 'none',
+          color: 'var(--faint)', fontSize: '14px', pointerEvents: 'none',
         }}>🔍</span>
         <input
           type="text"
@@ -39,12 +39,12 @@ export default function Toolbar({
           placeholder={`Search ID, ${label('reference', 'reference').toLowerCase()}, description or checklist…`}
           style={{
             width: '100%', padding: '7px 12px 7px 32px',
-            background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px',
-            color: '#e6edf3', fontSize: '13px', fontFamily: S.sans, outline: 'none',
+            background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '6px',
+            color: 'var(--text)', fontSize: '13px', fontFamily: S.sans, outline: 'none',
             transition: 'border-color 0.15s',
           }}
-          onFocus={e => e.target.style.borderColor = '#58a6ff'}
-          onBlur={e => e.target.style.borderColor = '#30363d'}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
       </div>
 
@@ -54,8 +54,8 @@ export default function Toolbar({
           value={filterGroup}
           onChange={e => onFilterGroupChange(e.target.value)}
           style={{
-            padding: '7px 10px', background: '#0d1117', border: '1px solid #30363d',
-            borderRadius: '6px', color: filterGroup ? '#e6edf3' : '#8b949e',
+            padding: '7px 10px', background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: '6px', color: filterGroup ? 'var(--text)' : 'var(--muted)',
             fontSize: '13px', fontFamily: S.sans, cursor: 'pointer', outline: 'none',
           }}
         >
@@ -70,8 +70,8 @@ export default function Toolbar({
           value={filterStatus}
           onChange={e => onFilterStatusChange(e.target.value)}
           style={{
-            padding: '7px 10px', background: '#0d1117', border: '1px solid #30363d',
-            borderRadius: '6px', color: filterStatus ? '#e6edf3' : '#8b949e',
+            padding: '7px 10px', background: 'var(--bg)', border: '1px solid var(--border)',
+            borderRadius: '6px', color: filterStatus ? 'var(--text)' : 'var(--muted)',
             fontSize: '13px', fontFamily: S.sans, cursor: 'pointer', outline: 'none',
           }}
         >
@@ -85,8 +85,8 @@ export default function Toolbar({
         value={filterOwner}
         onChange={e => onFilterOwnerChange(e.target.value)}
         style={{
-          padding: '7px 10px', background: '#0d1117', border: '1px solid #30363d',
-          borderRadius: '6px', color: filterOwner ? '#e6edf3' : '#8b949e',
+          padding: '7px 10px', background: 'var(--bg)', border: '1px solid var(--border)',
+          borderRadius: '6px', color: filterOwner ? 'var(--text)' : 'var(--muted)',
           fontSize: '13px', fontFamily: S.sans, cursor: 'pointer', outline: 'none',
         }}
       >
@@ -97,18 +97,18 @@ export default function Toolbar({
       {/* Clear filters */}
       {hasActiveFilters && (
         <button onClick={onClearFilters} style={{
-          padding: '7px 12px', background: 'none', border: '1px solid #30363d',
-          borderRadius: '6px', color: '#8b949e', fontSize: '12px', fontFamily: S.mono,
+          padding: '7px 12px', background: 'none', border: '1px solid var(--border)',
+          borderRadius: '6px', color: 'var(--muted)', fontSize: '12px', fontFamily: S.mono,
           cursor: 'pointer', transition: 'all 0.15s',
         }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#f85149'; e.currentTarget.style.color = '#f85149' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#30363d'; e.currentTarget.style.color = '#8b949e' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
         >✕ Clear</button>
       )}
 
       {/* Result counter */}
       {hasActiveFilters && (
-        <span style={{ fontSize: '12px', fontFamily: S.mono, color: '#8b949e' }}>
+        <span style={{ fontSize: '12px', fontFamily: S.mono, color: 'var(--muted)' }}>
           {filteredCount} of {totalCount}
         </span>
       )}
@@ -116,18 +116,18 @@ export default function Toolbar({
       {/* Recurring button — admin-only (modal can edit/delete templates) */}
       {showRecurring && isAdmin && (
         <button onClick={onOpenRecurring} title="Manage recurring tasks" style={{
-          padding: '7px 12px', background: 'none', border: '1px solid #30363d',
-          borderRadius: '6px', color: '#8b949e', fontSize: '13px', fontFamily: S.sans,
+          padding: '7px 12px', background: 'none', border: '1px solid var(--border)',
+          borderRadius: '6px', color: 'var(--muted)', fontSize: '13px', fontFamily: S.sans,
           cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: '6px',
         }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#58a6ff'; e.currentTarget.style.color = '#58a6ff' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#30363d'; e.currentTarget.style.color = '#8b949e' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
         >
           Recurring
           {recurring.filter(r => r.active).length > 0 && (
             <span style={{
               fontSize: '10px', fontFamily: S.mono, padding: '1px 5px', borderRadius: '10px',
-              background: '#1c3a5e', color: '#58a6ff',
+              background: 'var(--accent-bg)', color: 'var(--accent)',
             }}>{recurring.filter(r => r.active).length}</span>
           )}
         </button>
@@ -142,22 +142,22 @@ export default function Toolbar({
           disabled={!canUndo}
           title={canUndo ? `Annulla: ${undoLabel} (Ctrl+Z)` : 'Niente da annullare'}
           style={{
-            padding: '7px 12px', background: 'none', border: '1px solid #30363d',
+            padding: '7px 12px', background: 'none', border: '1px solid var(--border)',
             borderRadius: '6px',
-            color: canUndo ? '#8b949e' : '#484f58',
+            color: canUndo ? 'var(--muted)' : 'var(--faint)',
             fontSize: '13px', fontFamily: S.sans,
             cursor: canUndo ? 'pointer' : 'not-allowed',
             transition: 'all 0.15s',
           }}
           onMouseEnter={e => {
             if (!canUndo) return
-            e.currentTarget.style.borderColor = '#58a6ff'
-            e.currentTarget.style.color = '#58a6ff'
+            e.currentTarget.style.borderColor = 'var(--accent)'
+            e.currentTarget.style.color = 'var(--accent)'
           }}
           onMouseLeave={e => {
             if (!canUndo) return
-            e.currentTarget.style.borderColor = '#30363d'
-            e.currentTarget.style.color = '#8b949e'
+            e.currentTarget.style.borderColor = 'var(--border)'
+            e.currentTarget.style.color = 'var(--muted)'
           }}
         >↶ Annulla</button>
       )}
@@ -166,27 +166,27 @@ export default function Toolbar({
         disabled={filteredCount === 0}
         title={filteredCount === 0 ? 'Nessun task da esportare' : `Esporta ${filteredCount} task in CSV`}
         style={{
-          padding: '7px 12px', background: 'none', border: '1px solid #30363d',
+          padding: '7px 12px', background: 'none', border: '1px solid var(--border)',
           borderRadius: '6px',
-          color: filteredCount === 0 ? '#484f58' : '#8b949e',
+          color: filteredCount === 0 ? 'var(--faint)' : 'var(--muted)',
           fontSize: '13px', fontFamily: S.sans,
           cursor: filteredCount === 0 ? 'not-allowed' : 'pointer',
           transition: 'all 0.15s',
         }}
         onMouseEnter={e => {
           if (filteredCount === 0) return
-          e.currentTarget.style.borderColor = '#58a6ff'
-          e.currentTarget.style.color = '#58a6ff'
+          e.currentTarget.style.borderColor = 'var(--accent)'
+          e.currentTarget.style.color = 'var(--accent)'
         }}
         onMouseLeave={e => {
           if (filteredCount === 0) return
-          e.currentTarget.style.borderColor = '#30363d'
-          e.currentTarget.style.color = '#8b949e'
+          e.currentTarget.style.borderColor = 'var(--border)'
+          e.currentTarget.style.color = 'var(--muted)'
         }}
       >↓ Export CSV</button>
       {!isStorico && canAdd && (
         <button onClick={onAdd} style={{
-          padding: '7px 16px', background: '#238636', border: '1px solid #2ea043',
+          padding: '7px 16px', background: 'var(--success-strong)', border: '1px solid var(--success)',
           borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: S.sans,
           fontWeight: 600, cursor: 'pointer',
         }}>+ New Task</button>

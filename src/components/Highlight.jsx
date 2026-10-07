@@ -5,7 +5,7 @@ export default function Highlight({ text, query }) {
   const parts = text.split(regex)
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase()
-      ? <mark key={i} style={{ background: '#58a6ff44', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
+      ? <mark key={i} style={{ background: 'var(--highlight)', color: 'inherit', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
       : part
   )
 }

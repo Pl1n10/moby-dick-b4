@@ -39,15 +39,15 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
   ]
 
   return (
-    <div style={{ border: '1px solid #21262d', borderRadius: '8px', overflow: 'hidden' }}>
+    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: S.sans, fontSize: '13px' }}>
         <thead>
-          <tr style={{ background: '#161b22' }}>
+          <tr style={{ background: 'var(--surface)' }}>
             {headers.map(h => (
               <th key={h || '_act'} style={{
                 padding: '10px 14px', textAlign: 'left', fontWeight: 600,
                 fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em',
-                color: '#8b949e', borderBottom: '1px solid #21262d',
+                color: 'var(--muted)', borderBottom: '1px solid var(--border-subtle)',
               }}>{h}</th>
             ))}
           </tr>
@@ -55,7 +55,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
         <tbody>
           {filteredTasks.length === 0 ? (
             <tr>
-              <td colSpan={headers.length} style={{ padding: '40px', textAlign: 'center', color: '#484f58' }}>
+              <td colSpan={headers.length} style={{ padding: '40px', textAlign: 'center', color: 'var(--faint)' }}>
                 {hasActiveFilters
                   ? 'No tasks match your filters.'
                   : emptyMessage || (isStorico

@@ -41,7 +41,7 @@ export default function EditableSelect({ value, options, onChange, renderValue }
         borderRadius: '4px',
         transition: 'background 0.1s',
       }}
-      onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {renderValue ? renderValue(value) : value}

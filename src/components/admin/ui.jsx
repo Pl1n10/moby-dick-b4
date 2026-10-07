@@ -6,7 +6,7 @@ import S from '../../styles.js'
 export const thStyle = {
   padding: '8px 12px', textAlign: 'left', fontWeight: 600,
   fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em',
-  color: '#8b949e', borderBottom: '1px solid #21262d',
+  color: 'var(--muted)', borderBottom: '1px solid var(--border-subtle)',
 }
 
 export const tdStyle = { padding: '8px 12px', verticalAlign: 'middle' }
@@ -16,17 +16,17 @@ export const smallSelect = {
 }
 
 export const actionButtonStyle = {
-  padding: '4px 10px', background: 'none', border: '1px solid #30363d',
-  borderRadius: '4px', color: '#8b949e', fontSize: '11px', fontFamily: S.mono,
+  padding: '4px 10px', background: 'none', border: '1px solid var(--border)',
+  borderRadius: '4px', color: 'var(--muted)', fontSize: '11px', fontFamily: S.mono,
   cursor: 'pointer',
 }
 
-export const dangerButtonStyle = { ...actionButtonStyle, borderColor: '#f85149aa', color: '#f85149' }
+export const dangerButtonStyle = { ...actionButtonStyle, borderColor: 'var(--danger-border)', color: 'var(--danger)' }
 
 export function PrimaryButton({ disabled, children, ...props }) {
   return (
     <button disabled={disabled} {...props} style={{
-      padding: '6px 14px', background: '#238636', border: '1px solid #2ea043',
+      padding: '6px 14px', background: 'var(--success-strong)', border: '1px solid var(--success)',
       borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: S.sans,
       fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
     }}>{children}</button>
@@ -35,7 +35,7 @@ export function PrimaryButton({ disabled, children, ...props }) {
 
 export function Hint({ children }) {
   return (
-    <p style={{ fontSize: '12px', color: '#8b949e', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
+    <p style={{ fontSize: '12px', color: 'var(--muted)', marginTop: 0, marginBottom: '12px', lineHeight: 1.5 }}>
       {children}
     </p>
   )
@@ -45,7 +45,7 @@ export function YouBadge() {
   return (
     <span style={{
       marginLeft: '6px', fontSize: '10px', padding: '1px 5px',
-      borderRadius: '8px', background: '#1c3a5e', color: '#58a6ff',
+      borderRadius: '8px', background: 'var(--accent-bg)', color: 'var(--accent)',
     }}>tu</span>
   )
 }
@@ -84,10 +84,10 @@ export function InlineText({ value, onSave, emptyLabel = '—', placeholder, mon
       title="Click per modificare"
       style={{
         cursor: 'pointer', padding: '3px 6px', borderRadius: '4px',
-        color: value ? '#c9d1d9' : '#484f58', fontStyle: value ? 'normal' : 'italic',
+        color: value ? 'var(--text-2)' : 'var(--faint)', fontStyle: value ? 'normal' : 'italic',
         fontFamily: mono ? S.mono : 'inherit', border: '1px dashed transparent',
       }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = '#30363d' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent' }}
     >{value || emptyLabel}</span>
   )

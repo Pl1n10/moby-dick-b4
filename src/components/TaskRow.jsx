@@ -54,9 +54,9 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
 
   return (
     <tr style={{
-      borderBottom: '1px solid #21262d', transition: 'background 0.1s',
+      borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.1s',
     }}
-      onMouseEnter={e => e.currentTarget.style.background = '#161b22'}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
@@ -72,7 +72,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             ? 'Info reperibile (sola lettura)'
             : 'Mostra questo task nella tab Info Reperibile'}
           style={{
-            accentColor: '#d29922', width: '14px', height: '14px',
+            accentColor: 'var(--amber)', width: '14px', height: '14px',
             cursor: readOnly ? 'default' : 'pointer',
             opacity: readOnly && !task.reperibile ? 0.4 : 1,
           }}
@@ -82,14 +82,14 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           "…" for the instant between the optimistic insert and the POST reply. */}
       <td style={{
         padding: '8px 10px', fontFamily: S.mono, fontSize: '11px',
-        color: '#8b949e', whiteSpace: 'nowrap', ...tb, ...(showReperibile ? null : leftEdge),
+        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb, ...(showReperibile ? null : leftEdge),
       }}>
         {task.number != null
           ? <Highlight text={formatTaskCode(task.number, idPrefix)} query={search} />
           : '…'}
       </td>
       {showGroup && (
-        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', ...tb }}>
+        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', ...tb }}>
           {task.group}
         </td>
       )}
@@ -100,21 +100,21 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             title={expanded ? 'Collassa checklist' : 'Espandi checklist'}
             style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-              color: hasChecklist ? '#58a6ff' : '#484f58',
+              color: hasChecklist ? 'var(--accent)' : 'var(--faint)',
               fontSize: '10px', fontFamily: S.mono, lineHeight: 1, flexShrink: 0,
             }}
           >{expanded ? '▼' : '▶'}</button>
           {hasChecklist && (
             <span title={`${open} aperti / ${total} totali`} style={{
               fontSize: '10px', fontFamily: S.mono, padding: '1px 5px', borderRadius: '8px',
-              background: allDone ? '#1a3a1f' : '#1c3a5e',
-              color: allDone ? '#7ee787' : '#58a6ff',
+              background: allDone ? 'var(--success-bg)' : 'var(--accent-bg)',
+              color: allDone ? 'var(--success-text)' : 'var(--accent)',
               flexShrink: 0,
             }}>{total - open}/{total}</span>
           )}
           {task.recurringTemplateId && (
             <span title="Created from recurring template" style={{
-              fontSize: '12px', color: '#8b949e', flexShrink: 0,
+              fontSize: '12px', color: 'var(--muted)', flexShrink: 0,
             }}>&#x1f504;</span>
           )}
           {showReperibileMark && (
@@ -123,7 +123,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             }}>&#x1f4df;</span>
           )}
           {readOnly ? (
-            <span style={{ fontFamily: S.mono, fontSize: '12px', color: '#58a6ff', padding: '2px 4px' }}>
+            <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--accent)', padding: '2px 4px' }}>
               {task.reference ? <Highlight text={task.reference} query={search} /> : '—'}
             </span>
           ) : (
@@ -139,7 +139,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       </td>
       <td style={{ padding: '8px 14px', maxWidth: '400px', ...tb }}>
         {readOnly ? (
-          <span style={{ color: '#c9d1d9', padding: '2px 4px', display: 'block' }}>
+          <span style={{ color: 'var(--text-2)', padding: '2px 4px', display: 'block' }}>
             {task.description ? <Linkify text={task.description} query={search} /> : '—'}
           </span>
         ) : (
@@ -190,20 +190,20 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       </td>
       <td style={{
         padding: '8px 14px', fontFamily: S.mono, fontSize: '11px',
-        color: '#8b949e', whiteSpace: 'nowrap', ...tb,
+        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb,
       }}>
         {formatDate(task.updatedAt)}
       </td>
       <td style={{
         padding: '8px 14px', whiteSpace: 'nowrap',
         ...(isOverdue(task.deadline) && task.status !== 'Closed' && task.status !== 'Resolved'
-          ? { background: '#f8514915' } : {}),
+          ? { background: 'var(--danger-faint)' } : {}),
         ...tb, ...lastCellEdge,
       }}>
         {readOnly ? (
           <span style={{
             fontFamily: S.mono, fontSize: '11px', padding: '2px 4px',
-            color: isOverdue(task.deadline) ? '#f85149' : '#8b949e',
+            color: isOverdue(task.deadline) ? 'var(--danger)' : 'var(--muted)',
             fontWeight: isOverdue(task.deadline) ? 600 : 400,
           }}>
             {task.deadline ? formatDeadline(task.deadline) : '—'}
@@ -219,12 +219,12 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         <td style={{ padding: '8px 8px', textAlign: 'center', ...tb, ...rightEdge }}>
           {!readOnly && (
             <button onClick={onDelete} title="Delete task" style={{
-              background: 'none', border: 'none', color: '#484f58',
+              background: 'none', border: 'none', color: 'var(--faint)',
               cursor: 'pointer', fontSize: '14px', padding: '4px 6px',
               borderRadius: '4px', transition: 'all 0.15s',
             }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#f85149'; e.currentTarget.style.background = '#f8514922' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#484f58'; e.currentTarget.style.background = 'none' }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.background = 'var(--danger-soft)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.background = 'none' }}
             >✕</button>
           )}
         </td>

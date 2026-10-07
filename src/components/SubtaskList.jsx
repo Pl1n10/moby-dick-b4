@@ -38,17 +38,17 @@ function EditableSubtaskDescription({ item, update, search }) {
         style={{
           flex: 1, cursor: 'pointer', padding: '2px 4px', borderRadius: '4px',
           minHeight: '18px', fontSize: '13px', fontFamily: S.sans,
-          color: item.done ? '#484f58' : '#e6edf3',
+          color: item.done ? 'var(--faint)' : 'var(--text)',
           textDecoration: item.done ? 'line-through' : 'none',
           opacity: saving ? 0.7 : 1,
           transition: 'background 0.1s',
         }}
-        onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
       >
         {item.description
           ? <Linkify text={item.description} query={search} />
-          : <span style={{ color: '#484f58', fontStyle: 'italic' }}>(testo vuoto)</span>}
+          : <span style={{ color: 'var(--faint)', fontStyle: 'italic' }}>(testo vuoto)</span>}
       </span>
     )
   }
@@ -70,7 +70,7 @@ function EditableSubtaskDescription({ item, update, search }) {
       placeholder="(testo vuoto)"
       style={{
         flex: 1, background: 'transparent', border: 'none', outline: 'none',
-        color: item.done ? '#484f58' : '#e6edf3', fontSize: '13px',
+        color: item.done ? 'var(--faint)' : 'var(--text)', fontSize: '13px',
         fontFamily: S.sans, padding: '2px 4px',
         textDecoration: item.done ? 'line-through' : 'none',
       }}
@@ -90,13 +90,13 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
 
   return (
     <div style={{
-      padding: '12px 24px 16px 64px', background: '#0a0d12',
-      borderTop: '1px dashed #21262d', fontFamily: S.sans,
+      padding: '12px 24px 16px 64px', background: 'var(--bg-sunken)',
+      borderTop: '1px dashed var(--border-subtle)', fontFamily: S.sans,
     }}>
       {loading ? (
-        <div style={{ color: '#484f58', fontSize: '12px' }}>Loading…</div>
+        <div style={{ color: 'var(--faint)', fontSize: '12px' }}>Loading…</div>
       ) : items.length === 0 && readOnly ? (
-        <div style={{ color: '#484f58', fontSize: '12px', fontStyle: 'italic' }}>
+        <div style={{ color: 'var(--faint)', fontSize: '12px', fontStyle: 'italic' }}>
           Nessun item nella checklist.
         </div>
       ) : (
@@ -111,11 +111,11 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                 checked={item.done}
                 disabled={readOnly}
                 onChange={e => update(item.id, 'done', e.target.checked).catch(() => {})}
-                style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: '#58a6ff' }}
+                style={{ width: '16px', height: '16px', cursor: readOnly ? 'default' : 'pointer', accentColor: 'var(--accent)' }}
               />
               {readOnly ? (
                 <span style={{
-                  flex: 1, color: item.done ? '#484f58' : '#c9d1d9',
+                  flex: 1, color: item.done ? 'var(--faint)' : 'var(--text-2)',
                   textDecoration: item.done ? 'line-through' : 'none',
                 }}>
                   <Linkify text={item.description} query={search} />
@@ -128,11 +128,11 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                   onClick={() => remove(item.id)}
                   title="Rimuovi item"
                   style={{
-                    background: 'none', border: 'none', color: '#484f58',
+                    background: 'none', border: 'none', color: 'var(--faint)',
                     cursor: 'pointer', fontSize: '13px', padding: '2px 6px', borderRadius: '4px',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.color = '#f85149' }}
-                  onMouseLeave={e => { e.currentTarget.style.color = '#484f58' }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--faint)' }}
                 >✕</button>
               )}
             </li>
@@ -142,7 +142,7 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
 
       {!readOnly && !loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-          <span style={{ color: '#484f58', fontSize: '14px', paddingLeft: '2px' }}>+</span>
+          <span style={{ color: 'var(--faint)', fontSize: '14px', paddingLeft: '2px' }}>+</span>
           <input
             type="text"
             value={draft}
@@ -151,13 +151,13 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
             placeholder="Aggiungi item…"
             style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: '#e6edf3', fontSize: '13px', fontFamily: S.sans, padding: '4px',
-              borderBottom: '1px dashed #30363d',
+              color: 'var(--text)', fontSize: '13px', fontFamily: S.sans, padding: '4px',
+              borderBottom: '1px dashed var(--border)',
             }}
           />
           {draft.trim() && (
             <button onClick={submit} style={{
-              padding: '4px 10px', background: '#238636', border: '1px solid #2ea043',
+              padding: '4px 10px', background: 'var(--success-strong)', border: '1px solid var(--success)',
               borderRadius: '4px', color: '#fff', fontSize: '11px', fontFamily: S.mono,
               fontWeight: 600, cursor: 'pointer',
             }}>Add</button>

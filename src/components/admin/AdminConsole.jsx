@@ -19,26 +19,26 @@ export default function AdminConsole({ onClose }) {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      position: 'fixed', inset: 0, background: 'var(--overlay)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{
-        background: '#161b22', border: '1px solid #30363d', borderRadius: '12px',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
         padding: '24px', width: '92%', maxWidth: '1000px', maxHeight: '85vh', overflowY: 'auto',
-        color: '#e6edf3', fontFamily: S.sans,
+        color: 'var(--text)', fontFamily: S.sans,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ margin: 0, fontFamily: S.mono, fontSize: '16px' }}>Gestione permessi</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#8b949e', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer' }}>✕</button>
         </div>
 
         {tabs.length > 1 && (
-          <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid #21262d', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '16px' }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => { setTab(t.id); setError(null) }} style={{
                 padding: '8px 14px', background: 'none', border: 'none',
-                borderBottom: tab === t.id ? '2px solid #58a6ff' : '2px solid transparent',
-                color: tab === t.id ? '#58a6ff' : '#8b949e',
+                borderBottom: tab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
+                color: tab === t.id ? 'var(--accent)' : 'var(--muted)',
                 fontFamily: S.sans, fontSize: '13px', fontWeight: tab === t.id ? 600 : 400, cursor: 'pointer',
               }}>{t.label}</button>
             ))}
@@ -48,11 +48,11 @@ export default function AdminConsole({ onClose }) {
         {error && (
           <div style={{
             padding: '8px 12px', marginBottom: '12px', borderRadius: '6px',
-            background: '#311', border: '1px solid #f85149', color: '#f85149',
+            background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)',
             fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <span>{error}</span>
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: '#f85149', cursor: 'pointer' }}>✕</button>
+            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>✕</button>
           </div>
         )}
 

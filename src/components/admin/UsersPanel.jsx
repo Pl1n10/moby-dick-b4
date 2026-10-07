@@ -43,7 +43,7 @@ export default function UsersPanel({ onError }) {
         come <code>viewer</code>. Il super admin è admin ovunque e gestisce lavagne e utenti.
       </Hint>
       {users === null ? (
-        <div style={{ color: '#484f58', padding: '20px', textAlign: 'center' }}>Loading…</div>
+        <div style={{ color: 'var(--faint)', padding: '20px', textAlign: 'center' }}>Loading…</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -60,9 +60,9 @@ export default function UsersPanel({ onError }) {
               {users.map(u => {
                 const isSelf = me.email && u.email === me.email
                 return (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #21262d' }}>
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={tdStyle}>
-                      <span style={{ fontFamily: S.mono, fontSize: '12px', color: '#c9d1d9', wordBreak: 'break-all' }}>{u.email}</span>
+                      <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--text-2)', wordBreak: 'break-all' }}>{u.email}</span>
                       {isSelf && <YouBadge />}
                     </td>
                     <td style={tdStyle}>
@@ -75,7 +75,7 @@ export default function UsersPanel({ onError }) {
                         <td key={b.slug} style={tdStyle}>
                           <select value={m ? m.role : ''} onChange={e => setMembership(u, b.slug, e.target.value)}
                             title={u.homeBoard === b.slug ? 'Lavagna di casa' : ''}
-                            style={{ ...smallSelect, minWidth: '80px', color: m ? '#e6edf3' : '#484f58' }}>
+                            style={{ ...smallSelect, minWidth: '80px', color: m ? 'var(--text)' : 'var(--faint)' }}>
                             <option value="">—</option>
                             <option value="viewer">viewer</option>
                             <option value="admin">admin</option>
@@ -116,8 +116,8 @@ function AddUserForm({ onCreate }) {
       .finally(() => setBusy(false))
   }
   return (
-    <div style={{ marginTop: '20px', borderTop: '1px solid #21262d', paddingTop: '16px' }}>
-      <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '8px', fontFamily: S.mono }}>
+    <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+      <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px', fontFamily: S.mono }}>
         Pre-registra un account (poi assegnagli le lavagne dalla tabella):
       </div>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

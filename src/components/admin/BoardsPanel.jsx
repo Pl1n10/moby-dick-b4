@@ -31,7 +31,7 @@ export default function BoardsPanel({ onError }) {
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-      <span style={{ color: '#8b949e', minWidth: '130px' }}>{label}</span>
+      <span style={{ color: 'var(--muted)', minWidth: '130px' }}>{label}</span>
       {children}
     </div>
   )
@@ -75,7 +75,7 @@ function BoardCard({ board, run, onSlugChanged, onDeleted }) {
   }
 
   return (
-    <div style={{ border: '1px solid #21262d', borderRadius: '8px', padding: '14px', marginBottom: '12px', background: '#0d1117' }}>
+    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '14px', marginBottom: '12px', background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
         <span style={{ fontSize: '15px', fontWeight: 600 }}>
           <InlineText value={board.name} onSave={v => v && run(adminCall('PATCH', base, { name: v }))} />
@@ -86,7 +86,7 @@ function BoardCard({ board, run, onSlugChanged, onDeleted }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <Field label="Indirizzo">
-          <span style={{ fontFamily: S.mono, fontSize: '12px', color: '#8b949e' }}>/t/</span>
+          <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--muted)' }}>/t/</span>
           <InlineText value={board.slug} mono onSave={renameSlug} />
         </Field>
         <Field label="Prefisso ID task">
@@ -100,17 +100,17 @@ function BoardCard({ board, run, onSlugChanged, onDeleted }) {
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
             <input type="checkbox" checked={features.reperibile === true}
               onChange={e => patchSettings({ ...settings, features: { ...features, reperibile: e.target.checked } })} />
-            <span style={{ color: '#c9d1d9' }}>tab, colonna Rep. e reperibile di turno</span>
+            <span style={{ color: 'var(--text-2)' }}>tab, colonna Rep. e reperibile di turno</span>
           </label>
         </Field>
       </div>
 
-      <div style={{ marginTop: '12px', fontSize: '12px', color: '#8b949e' }}>Sezioni</div>
+      <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--muted)' }}>Sezioni</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px', alignItems: 'center' }}>
         {board.pillars.map(p => (
           <span key={p.id} style={{
             display: 'inline-flex', alignItems: 'center', gap: '2px',
-            border: '1px solid #30363d', borderRadius: '6px', padding: '2px 4px 2px 2px', fontSize: '12px',
+            border: '1px solid var(--border)', borderRadius: '6px', padding: '2px 4px 2px 2px', fontSize: '12px',
           }}>
             <InlineText value={p.name} maxWidth="180px"
               onSave={v => v && run(adminCall('PATCH', `${base}/pillars/${p.id}`, { name: v }))} />
@@ -118,13 +118,13 @@ function BoardCard({ board, run, onSlugChanged, onDeleted }) {
               onClick={() => {
                 if (window.confirm(`Eliminare la sezione "${p.name}"?`)) run(adminCall('DELETE', `${base}/pillars/${p.id}`))
               }}
-              style={{ background: 'none', border: 'none', color: '#484f58', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+              style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: '12px' }}>✕</button>
           </span>
         ))}
         <input value={newSection} onChange={e => setNewSection(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') addSection() }}
           placeholder="+ nuova sezione"
-          style={{ ...S.inputBase, width: '160px', padding: '3px 6px', fontSize: '12px', border: '1px solid #30363d' }} />
+          style={{ ...S.inputBase, width: '160px', padding: '3px 6px', fontSize: '12px', border: '1px solid var(--border)' }} />
         {newSection.trim() && <button onClick={addSection} style={actionButtonStyle}>Aggiungi</button>}
       </div>
     </div>
@@ -163,10 +163,10 @@ function NewBoardForm({ run }) {
       .finally(() => setBusy(false))
   }
 
-  const input = { ...S.inputBase, border: '1px solid #30363d' }
+  const input = { ...S.inputBase, border: '1px solid var(--border)' }
   return (
-    <div style={{ marginTop: '20px', borderTop: '1px solid #21262d', paddingTop: '16px' }}>
-      <div style={{ fontSize: '12px', color: '#8b949e', marginBottom: '8px', fontFamily: S.mono }}>Nuova lavagna:</div>
+    <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+      <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: '8px', fontFamily: S.mono }}>Nuova lavagna:</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome (es. Service Manager)" style={input} />
         <input value={effectiveSlug} onChange={e => { setSlug(e.target.value); setSlugTouched(true) }}
@@ -177,7 +177,7 @@ function NewBoardForm({ run }) {
           style={{ ...input, gridColumn: '1 / -1' }} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#c9d1d9', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-2)', cursor: 'pointer' }}>
           <input type="checkbox" checked={reperibile} onChange={e => setReperibile(e.target.checked)} />
           Info Reperibile
         </label>

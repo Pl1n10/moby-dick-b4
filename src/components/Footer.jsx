@@ -47,12 +47,12 @@ export default function Footer() {
       <footer style={{
         marginTop: '40px',
         padding: '16px 32px',
-        borderTop: '1px solid #21262d',
+        borderTop: '1px solid var(--border-subtle)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         fontSize: '12px',
-        color: '#8b949e',
+        color: 'var(--muted)',
         fontFamily: S.sans,
       }}>
         <span

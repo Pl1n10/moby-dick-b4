@@ -62,10 +62,10 @@ export default function EditableText({ value, onChange, mono, placeholder, multi
         borderRadius: '4px',
         transition: 'background 0.1s',
         minHeight: '20px',
-        ...(mono ? { fontFamily: S.mono, fontSize: '12px', color: '#58a6ff' } : { color: '#c9d1d9' }),
-        ...(isEmpty ? { color: '#484f58', fontStyle: 'italic' } : {}),
+        ...(mono ? { fontFamily: S.mono, fontSize: '12px', color: 'var(--accent)' } : { color: 'var(--text-2)' }),
+        ...(isEmpty ? { color: 'var(--faint)', fontStyle: 'italic' } : {}),
       }}
-      onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {isEmpty

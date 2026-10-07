@@ -1,3 +1,46 @@
+/* Theme tokens. Every color in the inline styles is a var(--…) defined here,
+   so a theme is just a different set of values. Dark is the original palette
+   (GitHub-dark-like); keep the two blocks in sync when adding a token.
+   Status/priority badges keep their own pastel colors (styles.js): they read
+   well on both backgrounds. */
+:root {
+  --color-scheme: dark;
+  --bg: #0d1117;
+  --bg-sunken: #0a0d12;
+  --surface: #161b22;
+  --surface-hover: #1c2333;
+  --border-subtle: #21262d;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-2: #c9d1d9;
+  --muted: #8b949e;
+  --muted-2: #6e7681;
+  --faint: #484f58;
+  --accent: #58a6ff;
+  --accent-strong: #388bfd;
+  --accent-border: #1f6feb;
+  --accent-bg: #1c3a5e;
+  --accent-bg-faint: #1c3a5e33;
+  --highlight: #58a6ff44;
+  --selection: #58a6ff33;
+  --danger: #f85149;
+  --danger-border: #f85149aa;
+  --danger-soft: #f8514922;
+  --danger-faint: #f8514915;
+  --danger-bg: #311;
+  --amber: #d29922;
+  --amber-bg: #3d2e0a;
+  --success: #2ea043;
+  --success-strong: #238636;
+  --success-text: #7ee787;
+  --success-bg: #1a3a1f;
+  --badge-bg: #1f2937;
+  --badge-border: #374151;
+  --badge-warn: #f59e0b;
+  --overlay: rgba(0,0,0,0.6);
+  --shadow: rgba(0,0,0,0.5);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,9 +50,9 @@
 body {
   font-family: 'IBM Plex Sans', -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #0d1117;
+  background: var(--bg);
 }
 
 ::selection {
-  background: #58a6ff33;
+  background: var(--selection);
 }

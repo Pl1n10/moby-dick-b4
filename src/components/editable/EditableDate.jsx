@@ -26,7 +26,7 @@ export default function EditableDate({ value, onChange }) {
           width: 'auto',
           minWidth: '130px',
           cursor: 'pointer',
-          colorScheme: 'dark',
+          colorScheme: 'var(--color-scheme)',
         }}
       />
     )
@@ -47,11 +47,11 @@ export default function EditableDate({ value, onChange }) {
         transition: 'background 0.1s',
         fontFamily: S.mono,
         fontSize: '11px',
-        color: overdue ? '#f85149' : (value ? '#8b949e' : '#484f58'),
+        color: overdue ? 'var(--danger)' : (value ? 'var(--muted)' : 'var(--faint)'),
         fontWeight: overdue ? 600 : 400,
         fontStyle: value ? 'normal' : 'italic',
       }}
-      onMouseEnter={e => e.currentTarget.style.background = '#1c2333'}
+      onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {display || '—'}
