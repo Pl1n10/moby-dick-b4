@@ -1,3 +1,10 @@
+// Task number → "MD001". Padding to 3 digits only: MD1000 follows MD999.
+// Same format as formatTaskCode in backend/src/notify.js. null while a new
+// task is still waiting for the server to assign its number.
+export function formatTaskCode(n) {
+  return n == null ? null : `MD${String(n).padStart(3, '0')}`
+}
+
 export function formatDate(iso) {
   return new Date(iso).toLocaleDateString('it-IT', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -54,8 +61,9 @@ function slugify(s) {
 // Build a CSV blob with `;` separator and UTF-8 BOM so Excel italian opens it
 // directly as a table. Triggers a download in the browser.
 export function exportTasksToCsv(tasks, groupLabel) {
-  const headers = ['Gruppo', 'Riferimento', 'Descrizione', 'Priorità', 'Stato', 'Owner', 'Reperibile', 'Scadenza', 'Aggiornato']
+  const headers = ['ID', 'Gruppo', 'Riferimento', 'Descrizione', 'Priorità', 'Stato', 'Owner', 'Reperibile', 'Scadenza', 'Aggiornato']
   const rows = tasks.map(t => [
+    formatTaskCode(t.number) ?? '',
     t.group,
     t.reference,
     t.description,

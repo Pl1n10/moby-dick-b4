@@ -1,7 +1,7 @@
 import S from '../styles.js'
 import { STATUSES, PRIORITIES } from '../data.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
-import { formatDate, formatDeadline, isOverdue } from '../utils.js'
+import { formatDate, formatDeadline, isOverdue, formatTaskCode } from '../utils.js'
 import Highlight from './Highlight.jsx'
 import Linkify from './Linkify.jsx'
 import StatusBadge from './StatusBadge.jsx'
@@ -73,6 +73,16 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             opacity: readOnly && !task.reperibile ? 0.4 : 1,
           }}
         />
+      </td>
+      {/* Task number (MD001…): assigned by the server, never editable.
+          "…" for the instant between the optimistic insert and the POST reply. */}
+      <td style={{
+        padding: '8px 10px', fontFamily: S.mono, fontSize: '11px',
+        color: '#8b949e', whiteSpace: 'nowrap', ...tb,
+      }}>
+        {task.number != null
+          ? <Highlight text={formatTaskCode(task.number)} query={search} />
+          : '…'}
       </td>
       {showGroup && (
         <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: '#8b949e', whiteSpace: 'nowrap', ...tb }}>

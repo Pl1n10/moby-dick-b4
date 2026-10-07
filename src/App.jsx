@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { GROUPS } from './data.js'
-import { exportTasksToCsv } from './utils.js'
+import { exportTasksToCsv, formatTaskCode } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
 import useOnCall from './hooks/useOnCall.js'
@@ -111,6 +111,7 @@ export default function App() {
       if (search) {
         const q = search.toLowerCase()
         if (!t.reference.toLowerCase().includes(q)
+          && !(formatTaskCode(t.number) || '').toLowerCase().includes(q)
           && !t.description.toLowerCase().includes(q)
           && !(t.subtasksText || '').toLowerCase().includes(q)) return false
       }

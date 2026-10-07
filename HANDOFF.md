@@ -234,6 +234,10 @@ Domande aperte (da chiudere in pianificazione):
 
 ## Step pending (in ordine di priorità)
 
+### ✅ Numerazione task MD001… (2026-10-07) — richiesta del team backup, fatta mettendo in pausa la multitenancy
+
+Dettagli in AGENTS.md, "Feature UX". Verificata con E2E Playwright su DB usa e getta con task pre-esistenti (numerati per età), creazione → MD004, delete + undo → torna MD004, ricerca "md001", numero mai emesso rifiutato, doppione → 409. **Da deployare**: è su `main`, che è deployabile (la multitenancy sta sul branch). Dopo il deploy: tag `mauden-prod-<data>`.
+
 ### ★ Multi-tenant + lavagna Service Manager [in pianificazione, 2026-10-07]
 
 Requisiti e domande aperte nella sezione "Strategia evoluzione" sopra. Piano a step da scrivere qui dopo la pianificazione con l'utente. ⚠️ Review puntigliosa: tocca ogni query (isolamento tra lavagne) e la prod Mauden.

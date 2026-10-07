@@ -159,6 +159,13 @@ export default function useTasks() {
       body: JSON.stringify(newTask),
     }).then(rejectOnHttpError)
 
+    // The number (MD001…) is assigned by the server: merge it in as soon as
+    // the POST answers instead of waiting for the next poll.
+    request
+      .then(r => r.clone().json())
+      .then(saved => setTasks(prev => prev.map(t => (t.id === saved.id ? { ...t, number: saved.number } : t))))
+      .catch(() => {})   // failure handled below (rollback via discard)
+
     const discard = pushUndo('creazione nuovo task', async () => {
       try {
         await request
@@ -219,6 +226,7 @@ export default function useTasks() {
       // avoids re-sending the assignment email on restore.
       const payload = {
         id: task.id,
+        number: task.number,     // same MDxxx as before the deletion
         group: task.group,
         reference: task.reference,
         description: task.description,

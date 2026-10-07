@@ -29,6 +29,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
   // scope, so that column may be visually empty for out-of-scope users.
   const headers = [
     'Rep.',
+    'ID',
     ...(showGroup ? ['Gruppo'] : []),
     'Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza',
     ...(isStorico ? [] : ['']),

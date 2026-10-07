@@ -20,6 +20,7 @@ function formatDate(d) {
 function mapTaskToClient(row) {
   return {
     id: row.id,
+    number: row.number != null ? Number(row.number) : null,   // shown as MD001…
     group: row.group_name,
     reference: row.reference,
     description: row.description,
@@ -109,15 +110,25 @@ router.post('/reset', requireAdmin, async (req, res) => {
 // the target pillar (admin everywhere, operator on listed groups).
 router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, priority, reperibile, deadline, recurringTemplateId } = req.body
+    const { id, group, reference, description, status, owner, priority, reperibile, deadline, recurringTemplateId, number } = req.body
     const prio = isValidPriority(priority) ? priority : 3   // default medium
+    // `number` is sent only by the undo-restore of a deleted task, so the task
+    // comes back as the same MDxxx. Accepted only up to the sequence's last
+    // value: a number the sequence has not reached yet would collide with a
+    // future task. Anything else → the column DEFAULT assigns the next one.
+    const restoredNumber = Number.isInteger(number) && number > 0 ? number : null
     const { rows } = await pool.query(
       // COALESCE, not a bare $1: node-postgres sends `undefined` as an
       // explicit NULL, which OVERRIDES the column DEFAULT instead of falling
       // back to it — an id-less POST used to fail the NOT NULL constraint.
       // The client normally sends its own UUID, so this only bites API callers.
-      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at)
-       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+      `INSERT INTO tasks (id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number)
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(),
+               -- next value the sequence will hand out (is_called=false right
+               -- after the migration's setval: last_value not issued yet)
+               CASE WHEN $11::int < (SELECT CASE WHEN is_called THEN last_value + 1 ELSE last_value END
+                                     FROM task_number_seq) THEN $11::int
+                    ELSE nextval('task_number_seq') END)
        RETURNING *`,
       [
         id || null,               // absent → DB generates via gen_random_uuid()
@@ -130,6 +141,7 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
         reperibile === true,      // preserved by undo-restore of a deleted task
         deadline || null,
         recurringTemplateId || null,   // set by undo-restore to keep the 🔄 badge
+        restoredNumber,
       ]
     )
     res.status(201).json(mapTaskToClient(rows[0]))
@@ -141,6 +153,10 @@ router.post('/', requireWriteAccess(req => req.body.group), async (req, res) => 
       notifyAssignment({ task: rows[0], event: 'task.assigned', assigner: req.user })
     }
   } catch (err) {
+    // The restored number was taken again in the meantime (two undos racing).
+    if (err.code === '23505' && err.constraint === 'tasks_number_unique') {
+      return res.status(409).json({ error: 'Task number already in use' })
+    }
     console.error('POST /api/tasks error:', err.message)
     res.status(500).json({ error: 'Failed to create task' })
   }

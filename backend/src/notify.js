@@ -32,6 +32,11 @@ async function resolveOwnerEmail(ownerName) {
   return rows[0].email
 }
 
+// Same format as formatTaskCode in src/utils.js.
+function formatTaskCode(n) {
+  return n == null ? null : `MD${String(n).padStart(3, '0')}`
+}
+
 function formatDeadline(d) {
   if (!d) return null
   if (d instanceof Date) return d.toISOString().slice(0, 10)
@@ -64,6 +69,7 @@ export async function notifyAssignment({ task, event, assigner }) {
       event,
       task: {
         id: task.id,
+        code: formatTaskCode(task.number),   // additive: the Flow schema has no `required`
         group: task.group_name,
         reference: task.reference || '',
         description: task.description || '',
