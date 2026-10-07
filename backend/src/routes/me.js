@@ -39,6 +39,7 @@ router.get('/', async (req, res) => {
   const name = req.user.name
   let owner = null
   let homeBoard = null
+  let theme = null
   let memberships = []
   let inUsersTable = false
 
@@ -56,7 +57,7 @@ router.get('/', async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `SELECT u.display_owner, t.slug AS home_slug
+      `SELECT u.display_owner, u.theme, t.slug AS home_slug
        FROM users u LEFT JOIN tenants t ON t.id = u.home_tenant_id
        WHERE u.email = $1`,
       [email],
@@ -64,6 +65,7 @@ router.get('/', async (req, res) => {
     if (rows.length > 0) {
       owner = rows[0].display_owner
       homeBoard = rows[0].home_slug
+      theme = rows[0].theme
       inUsersTable = true
       memberships = await loadMemberships(email)
     }
@@ -77,6 +79,7 @@ router.get('/', async (req, res) => {
     owner,
     isSuperadmin: req.userCtx.isSuperadmin,
     homeBoard,
+    theme,          // null = follow the OS
     memberships,
     inUsersTable,
   })
@@ -112,6 +115,29 @@ router.put('/home', async (req, res) => {
   } catch (err) {
     console.error('PUT /api/me/home error:', err.message)
     res.status(500).json({ error: 'Failed to set home board' })
+  }
+})
+
+// PUT /api/me/theme — body { theme: 'light' | 'dark' | null }. null goes back
+// to following the operating system.
+router.put('/theme', async (req, res) => {
+  if (!AUTH_ENABLED) return res.status(400).json({ error: 'Not available in demo mode' })
+  const email = req.userCtx.email
+  if (!email) return res.status(400).json({ error: 'Token has no email claim' })
+  const { theme } = req.body
+  if (theme !== null && theme !== 'light' && theme !== 'dark') {
+    return res.status(400).json({ error: "theme must be 'light', 'dark' or null" })
+  }
+  try {
+    await pool.query(
+      `INSERT INTO users (email, role, theme) VALUES ($1, 'viewer', $2)
+       ON CONFLICT (email) DO UPDATE SET theme = EXCLUDED.theme`,
+      [email, theme],
+    )
+    res.json({ theme })
+  } catch (err) {
+    console.error('PUT /api/me/theme error:', err.message)
+    res.status(500).json({ error: 'Failed to save theme' })
   }
 })
 

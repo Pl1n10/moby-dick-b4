@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { useIsAuthenticated } from '@azure/msal-react'
 import { AUTH_ENABLED } from './authConfig.js'
 import apiFetch from './apiFetch.js'
+import { syncThemeFromServer } from '../theme/theme.js'
 
 // Demo stub keeps local dev permissive — superadmin (admin on every board)
 // when auth is off, matching the backend demo mode.
@@ -31,7 +32,10 @@ export function UserInfoProvider({ children }) {
   const refresh = useCallback(() => {
     return apiFetch('/api/me')
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => setInfo({ ...DEFAULT_INFO, ...data, loading: false }))
+      .then(data => {
+        syncThemeFromServer(data.theme)
+        setInfo({ ...DEFAULT_INFO, ...data, loading: false })
+      })
       .catch(err => {
         console.error('Failed to fetch /api/me:', err)
         setInfo({ ...DEFAULT_INFO, loading: false, error: err.message })

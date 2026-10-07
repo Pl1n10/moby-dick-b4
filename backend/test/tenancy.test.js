@@ -238,6 +238,16 @@ test('each board numbers its own tasks', async () => {
   assert.equal((await smAdmin.post('/t/sm/tasks', { group: 'Sezione B', owner: '', number: smTask.number })).status, 409)
 })
 
+test('theme preference is stored per user', async () => {
+  assert.equal((await operator.get('/me')).body.theme, null)
+  assert.equal((await operator.put('/me/theme', { theme: 'light' })).status, 200)
+  assert.equal((await operator.get('/me')).body.theme, 'light')
+  assert.equal((await smAdmin.get('/me')).body.theme, null)
+  assert.equal((await operator.put('/me/theme', { theme: 'blue' })).status, 400)
+  assert.equal((await operator.put('/me/theme', { theme: null })).status, 200)
+  assert.equal((await operator.get('/me')).body.theme, null)
+})
+
 test('a superadmin cannot lock themselves out', async () => {
   const me = (await su.get('/users')).body.find(u => u.email === 'super@example.com')
   assert.equal((await su.patch(`/users/${me.id}`, { isSuperadmin: false })).status, 400)

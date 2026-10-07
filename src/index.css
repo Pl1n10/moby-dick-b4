@@ -3,8 +3,12 @@
    (GitHub-dark-like); keep the two blocks in sync when adding a token.
    Status/priority badges keep their own pastel colors (styles.js): they read
    well on both backgrounds. */
+/* Dark is also the fallback when data-theme is missing (index.html sets it
+   before the app loads, src/theme/theme.js keeps it current). */
 :root {
+  color-scheme: dark;
   --color-scheme: dark;
+  --logo-border: transparent;
   --bg: #0d1117;
   --bg-sunken: #0a0d12;
   --surface: #161b22;
@@ -39,6 +43,48 @@
   --badge-warn: #f59e0b;
   --overlay: rgba(0,0,0,0.6);
   --shadow: rgba(0,0,0,0.5);
+}
+
+/* Light: GitHub-light-like. Accent/danger/amber are darker than in dark mode
+   so text in those colors keeps contrast on white. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-scheme: light;
+  --logo-border: #d0d7de;       /* white logo card on a white page needs an edge */
+  --bg: #ffffff;
+  --bg-sunken: #f6f8fa;
+  --surface: #f6f8fa;
+  --surface-hover: #eaeef2;
+  --border-subtle: #d8dee4;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-2: #31373d;
+  --muted: #59636e;
+  --muted-2: #6e7781;
+  --faint: #8c959f;
+  --accent: #0969da;
+  --accent-strong: #0969da;
+  --accent-border: #54aeff;
+  --accent-bg: #ddf4ff;
+  --accent-bg-faint: #ddf4ff99;
+  --highlight: #fff8c5;
+  --selection: #0969da33;
+  --danger: #cf222e;
+  --danger-border: #cf222eaa;
+  --danger-soft: #ffebe9;
+  --danger-faint: #fff5f4;
+  --danger-bg: #ffebe9;
+  --amber: #9a6700;
+  --amber-bg: #fff8c5;
+  --success: #1a7f37;
+  --success-strong: #1f883d;
+  --success-text: #1a7f37;
+  --success-bg: #dafbe1;
+  --badge-bg: #f6f8fa;
+  --badge-border: #d0d7de;
+  --badge-warn: #9a6700;
+  --overlay: rgba(31,35,40,0.45);
+  --shadow: rgba(31,35,40,0.15);
 }
 
 * {

@@ -1,6 +1,7 @@
 import S from '../styles.js'
 import UserMenu from '../auth/UserMenu.jsx'
 import { useBoard } from '../board/BoardProvider.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 
 export default function Header() {
   const { boards, board, goToBoard } = useBoard()
@@ -12,6 +13,7 @@ export default function Header() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <div style={{
           background: '#ffffff', padding: '4px 8px', borderRadius: '4px',
+          border: '1px solid var(--logo-border)',
           display: 'flex', alignItems: 'center',
         }}>
           <img src="/mauden-logo.png" alt="Mauden — A RICOH Company" style={{ height: '56px', display: 'block' }} />
@@ -21,6 +23,8 @@ export default function Header() {
         </h1>
         <UserMenu />
       </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <ThemeToggle />
       {/* Board switcher. Visibility is permissive (2026-10-07): every board is
           listed, the role badges in UserMenu say what you can do on it. */}
       {boards && boards.length > 1 ? (
@@ -39,6 +43,7 @@ export default function Header() {
           {board?.name || ''}
         </span>
       )}
+      </div>
     </header>
   )
 }
