@@ -4,7 +4,7 @@ import useAuth from './useAuth.js'
 import { AUTH_ENABLED } from './authConfig.js'
 import { useUserInfo } from './UserInfoProvider.jsx'
 import { useBoard } from '../board/BoardProvider.jsx'
-import UsersModal from '../components/UsersModal.jsx'
+import AdminConsole from '../components/admin/AdminConsole.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -17,16 +17,7 @@ function initials(name) {
  * When auth is enabled shows initials + name + a logout button.
  */
 export default function UserMenu() {
-  if (!AUTH_ENABLED) {
-    return (
-      <span style={{
-        padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-        fontFamily: S.mono, background: '#1f2937', color: '#f59e0b', border: '1px solid #374151',
-      }}>
-        Auth: OFF (Demo)
-      </span>
-    )
-  }
+  if (!AUTH_ENABLED) return <DemoMenu />
 
   const { account, logout } = useAuth()
   const { loading } = useUserInfo()
@@ -95,7 +86,7 @@ export default function UserMenu() {
                 textAlign: 'left',
               }}
             >
-              ⚙ Gestione utenti
+              ⚙ Gestione permessi
             </button>
           )}
           <button onClick={logout} style={{
@@ -107,7 +98,28 @@ export default function UserMenu() {
           </button>
         </div>
       )}
-      {showUsers && <UsersModal onClose={() => setShowUsers(false)} />}
+      {showUsers && <AdminConsole onClose={() => setShowUsers(false)} />}
+    </div>
+  )
+}
+
+// Demo mode: no account, everyone is superadmin. The console stays reachable
+// so boards and members can be tried locally.
+function DemoMenu() {
+  const [showConsole, setShowConsole] = useState(false)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{
+        padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+        fontFamily: S.mono, background: '#1f2937', color: '#f59e0b', border: '1px solid #374151',
+      }}>
+        Auth: OFF (Demo)
+      </span>
+      <button onClick={() => setShowConsole(true)} style={{
+        padding: '2px 8px', background: 'none', border: '1px solid #30363d', borderRadius: '4px',
+        color: '#8b949e', cursor: 'pointer', fontFamily: S.mono, fontSize: '11px',
+      }}>⚙ Gestione permessi</button>
+      {showConsole && <AdminConsole onClose={() => setShowConsole(false)} />}
     </div>
   )
 }

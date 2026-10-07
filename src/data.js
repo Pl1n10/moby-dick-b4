@@ -1,5 +1,3 @@
-export const GROUPS = ['Commvault', 'Cohesity', 'Data Domain - ZFS', 'NBU - Banche Estere'];
-
 export const STATUSES = ['New', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 
 // Task priority, P0..P5. Convention: 0 = most urgent (drop everything),
@@ -7,6 +5,7 @@ export const STATUSES = ['New', 'In Progress', 'Waiting', 'Resolved', 'Closed'];
 export const PRIORITIES = [0, 1, 2, 3, 4, 5];
 export const DEFAULT_PRIORITY = 3;
 
-// OWNERS is now dynamic — fetched from /api/users/owners. See OwnersProvider.
+// Sections (ex GROUPS) and owners are per board, fetched from the API: see
+// src/board/BoardProvider.jsx and src/auth/OwnersProvider.jsx.
 
 export const FREQUENCIES = ['daily', 'weekly', 'monthly'];
