@@ -4,10 +4,20 @@ Stato al 2026-10-07.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
+## ▶ Ripresa (pausa del 2026-10-07 sera)
+
+Si riparte dallo **step 5b** (prova sul dump di prod), sezione "Multi-tenant" più sotto. Primo gesto di Roberto, sulla VM `mauden-ubuntu` (comandi su una riga: il terminale rompe gli heredoc incollati):
+
+1. `git -C /opt/moby-dick-b4 log -1 --oneline` → deve essere `54ea5cd` (tag `mauden-prod-2026-10-07`); se è diverso, annotarlo.
+2. `docker exec moby-db pg_dump -U moby moby | gzip > ~/moby-$(date +%F).sql.gz`
+3. Copiarlo sulla devbox in `~/backups/kanbanops/` (fuori dal repo: contiene nomi e mail reali).
+
+Poi l'agente: restore in un DB locale usa e getta (`kanbanops_dump`, mai il DB `moby` di sviluppo), snapshot "prima" (utenti/ruoli/scope, conteggi task/subtask/template, on_call, max numero MD), boot del backend nuovo su quel DB (migrazioni), confronto "dopo" con le attese del 5b, E2E in demo sui dati veri. Esito → si fissa il giorno del deploy (5d, di mattina presto).
+
 ## Stato git
 
 - Branch di lavoro: **`feat/light-mode`** (contiene `feat/multi-tenant` + tema chiaro + icone). `main` = produzione, nessun commit multi-lavagna.
-- Ultimo commit: vedi `git log -1` (step 5a: transizione invisibile)
+- Ultimo commit: `6dda65f` — step 5a (transizione invisibile) + questo aggiornamento; tutto pushato su origin
 - Working tree: clean
 - Tag annotato **`mauden-prod-2026-10-07` → `54ea5cd`** = stato in produzione dal 2026-10-07 (numerazione MD + tutto ciò che c'era su `main`). Precedente: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
