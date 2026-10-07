@@ -1,12 +1,13 @@
 import S from '../styles.js'
 import { useTheme, setThemePref } from '../theme/theme.js'
+import Icon from './Icon.jsx'
 
 // Three-way switch: light / follow the OS / dark. "Sistema" is the default
 // until the user picks one; the pick is remembered (server + localStorage).
 const OPTIONS = [
-  { value: 'light', label: '☀', title: 'Tema chiaro' },
-  { value: null, label: '◐', title: 'Segui il sistema' },
-  { value: 'dark', label: '☾', title: 'Tema scuro' },
+  { value: 'light', icon: 'sun', title: 'Tema chiaro' },
+  { value: null, icon: 'circle-half', title: 'Segui il sistema' },
+  { value: 'dark', icon: 'moon-stars', title: 'Tema scuro' },
 ]
 
 export default function ThemeToggle() {
@@ -24,7 +25,7 @@ export default function ThemeToggle() {
               background: active ? 'var(--accent-bg)' : 'transparent',
               color: active ? 'var(--accent)' : 'var(--muted)',
               fontFamily: S.sans, fontSize: '13px', lineHeight: 1,
-            }}>{o.label}</button>
+            }}><Icon name={o.icon} /></button>
         )
       })}
     </div>

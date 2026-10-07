@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import S from '../../styles.js'
+import Icon from '../Icon.jsx'
 import { useBoard } from '../../board/BoardProvider.jsx'
 import { useUserInfo } from '../../auth/UserInfoProvider.jsx'
 import { useRefreshOwners } from '../../auth/OwnersProvider.jsx'
@@ -166,7 +167,7 @@ function AddMemberForm({ pillars, onAdd }) {
           <option value="viewer">viewer</option>
           <option value="admin">admin</option>
         </select>
-        <PrimaryButton onClick={submit} disabled={busy || !email.trim()}>+ Aggiungi</PrimaryButton>
+        <PrimaryButton onClick={submit} disabled={busy || !email.trim()}><Icon name="plus-lg" style={{ marginRight: '6px' }} />Aggiungi</PrimaryButton>
       </div>
       {role !== 'admin' && pillars.length > 0 && (
         <div style={{ marginTop: '10px' }}>

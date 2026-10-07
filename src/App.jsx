@@ -14,6 +14,7 @@ import Toolbar from './components/Toolbar.jsx'
 import TaskTable from './components/TaskTable.jsx'
 import RecurringModal from './components/RecurringModal.jsx'
 import OnCallBar from './components/OnCallBar.jsx'
+import Icon from './components/Icon.jsx'
 
 // Rendered once per board (BoardApp keys it by slug): everything below is
 // about the current board — its sections, labels, features and API.
@@ -179,7 +180,7 @@ export default function App() {
           showGroup={isCrossPillar}
           showReperibile={hasReperibile}
           // Inside the Info Reperibile tab every row is flagged: the amber bar
-          // and 📟 badge would mark everything, i.e. nothing.
+          // and on-call badge would mark everything, i.e. nothing.
           highlightReperibile={!isReperibile}
           emptyMessage={isReperibile
             ? 'Nessun task marcato "info reperibile". Spunta la casella Rep. su un task per farlo comparire qui.'
@@ -203,7 +204,7 @@ export default function App() {
           color: 'var(--text)', fontSize: '13px',
           boxShadow: '0 4px 16px var(--shadow)',
         }}>
-          {undoToast.kind === 'warn' ? '⚠ ' : '↶ '}{undoToast.msg}
+          <Icon name={undoToast.kind === 'warn' ? 'exclamation-triangle-fill' : 'arrow-counterclockwise'} style={{ marginRight: '6px' }} />{undoToast.msg}
         </div>
       )}
 

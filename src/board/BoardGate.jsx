@@ -4,6 +4,7 @@ import apiFetch from '../auth/apiFetch.js'
 import { useUserInfo } from '../auth/UserInfoProvider.jsx'
 import { apiErrorReason } from '../utils.js'
 import { useBoard } from './BoardProvider.jsx'
+import Icon from '../components/Icon.jsx'
 
 // Decides what the user sees before a board renders:
 //   /t/<slug> of an existing board  → the board (children)
@@ -111,7 +112,7 @@ export function BoardChooser({ notice, firstLogin }) {
             <p style={{ fontSize: '13px', color: 'var(--faint)' }}>Nessuna lavagna configurata.</p>
           )}
         </div>
-        {err && <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--danger)' }}>⚠ {err}</p>}
+        {err && <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--danger)' }}><Icon name="exclamation-triangle-fill" style={{ marginRight: '6px' }} />{err}</p>}
       </div>
     </div>
   )

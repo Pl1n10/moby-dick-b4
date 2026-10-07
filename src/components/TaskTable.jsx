@@ -28,7 +28,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
   // the reperibile feature), then the task ID, then an
   // optional "Gruppo" column on the cross-pillar views (Storico, Info
   // Reperibile), and closes with a trailing actions column outside Storico.
-  // Each row decides whether to render the ✕ button based on per-task write
+  // Each row decides whether to render the delete button based on per-task write
   // scope, so that column may be visually empty for out-of-scope users.
   const headers = [
     ...(showReperibile ? ['Rep.'] : []),

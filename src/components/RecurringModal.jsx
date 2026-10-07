@@ -4,6 +4,7 @@ import { FREQUENCIES } from '../data.js'
 import { useBoard, useLabel } from '../board/BoardProvider.jsx'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDeadline } from '../utils.js'
+import Icon from './Icon.jsx'
 
 export default function RecurringModal({ templates, onSave, onClose }) {
   const [drafts, setDrafts] = useState(templates)
@@ -51,7 +52,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
           <h2 style={{ margin: 0, fontFamily: S.mono, fontSize: '16px' }}>Recurring Tasks</h2>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer',
-          }}>✕</button>
+          }}><Icon name="x-lg" /></button>
         </div>
 
         {drafts.length === 0 && (
@@ -135,7 +136,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
           <button onClick={addTemplate} style={{
             padding: '7px 16px', background: 'none', border: '1px solid var(--border)',
             borderRadius: '6px', color: 'var(--text)', fontSize: '13px', fontFamily: S.sans, cursor: 'pointer',
-          }}>+ Add Template</button>
+          }}><Icon name="plus-lg" style={{ marginRight: '6px' }} />Add Template</button>
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={{
             padding: '7px 16px', background: 'none', border: '1px solid var(--border)',

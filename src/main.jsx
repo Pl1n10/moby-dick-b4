@@ -7,6 +7,7 @@ import { OwnersProvider } from './auth/OwnersProvider.jsx'
 import { BoardProvider } from './board/BoardProvider.jsx'
 import BoardGate from './board/BoardGate.jsx'
 import BoardApp from './board/BoardApp.jsx'
+import 'bootstrap-icons/font/bootstrap-icons.min.css'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(

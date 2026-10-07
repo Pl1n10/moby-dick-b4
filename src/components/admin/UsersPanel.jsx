@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import S from '../../styles.js'
+import Icon from '../Icon.jsx'
 import { useBoard } from '../../board/BoardProvider.jsx'
 import { useUserInfo } from '../../auth/UserInfoProvider.jsx'
 import { useRefreshOwners } from '../../auth/OwnersProvider.jsx'
@@ -80,7 +81,7 @@ export default function UsersPanel({ onError }) {
                             <option value="viewer">viewer</option>
                             <option value="admin">admin</option>
                           </select>
-                          {u.homeBoard === b.slug && <span title="Lavagna di casa" style={{ marginLeft: '4px', fontSize: '11px' }}>⌂</span>}
+                          {u.homeBoard === b.slug && <span title="Lavagna di casa" style={{ marginLeft: '4px', fontSize: '11px', color: 'var(--muted)' }}><Icon name="house-door-fill" /></span>}
                         </td>
                       )
                     })}
@@ -125,7 +126,7 @@ function AddUserForm({ onCreate }) {
           style={{ ...S.inputBase, flex: '2 1 220px', maxWidth: '320px' }} />
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Nome owner (opzionale)"
           style={{ ...S.inputBase, flex: '2 1 180px', maxWidth: '240px' }} />
-        <PrimaryButton onClick={submit} disabled={busy || !email.trim()}>+ Aggiungi</PrimaryButton>
+        <PrimaryButton onClick={submit} disabled={busy || !email.trim()}><Icon name="plus-lg" style={{ marginRight: '6px' }} />Aggiungi</PrimaryButton>
       </div>
     </div>
   )

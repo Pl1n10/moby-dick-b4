@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import S from '../styles.js'
 import useSubtasks from '../hooks/useSubtasks.js'
 import Linkify from './Linkify.jsx'
+import Icon from './Icon.jsx'
 
 // Click-to-edit, same pattern as EditableText: a display span (so search
 // highlighting and clickable links work for writable rows too) that swaps to
@@ -133,7 +134,7 @@ export default function SubtaskList({ taskId, readOnly, search, onCountChange })
                   }}
                   onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)' }}
                   onMouseLeave={e => { e.currentTarget.style.color = 'var(--faint)' }}
-                >✕</button>
+                ><Icon name="x-lg" /></button>
               )}
             </li>
           ))}

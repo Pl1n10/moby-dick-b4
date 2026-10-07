@@ -2,6 +2,7 @@ import S from '../styles.js'
 import { STATUSES } from '../data.js'
 import { useBoard, useIsBoardAdmin, useLabel } from '../board/BoardProvider.jsx'
 import { useOwners } from '../auth/OwnersProvider.jsx'
+import Icon from './Icon.jsx'
 
 export default function Toolbar({
   isStorico, search, onSearchChange,
@@ -31,7 +32,7 @@ export default function Toolbar({
         <span style={{
           position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)',
           color: 'var(--faint)', fontSize: '14px', pointerEvents: 'none',
-        }}>🔍</span>
+        }}><Icon name="search" /></span>
         <input
           type="text"
           value={search}
@@ -103,7 +104,7 @@ export default function Toolbar({
         }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)' }}
-        >✕ Clear</button>
+        ><Icon name="x-lg" style={{ marginRight: '4px' }} />Clear</button>
       )}
 
       {/* Result counter */}
@@ -159,7 +160,7 @@ export default function Toolbar({
             e.currentTarget.style.borderColor = 'var(--border)'
             e.currentTarget.style.color = 'var(--muted)'
           }}
-        >↶ Annulla</button>
+        ><Icon name="arrow-counterclockwise" style={{ marginRight: '4px' }} />Annulla</button>
       )}
       <button
         onClick={onExport}
@@ -183,13 +184,13 @@ export default function Toolbar({
           e.currentTarget.style.borderColor = 'var(--border)'
           e.currentTarget.style.color = 'var(--muted)'
         }}
-      >↓ Export CSV</button>
+      ><Icon name="download" style={{ marginRight: '6px' }} />Export CSV</button>
       {!isStorico && canAdd && (
         <button onClick={onAdd} style={{
           padding: '7px 16px', background: 'var(--success-strong)', border: '1px solid var(--success)',
           borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: S.sans,
           fontWeight: 600, cursor: 'pointer',
-        }}>+ New Task</button>
+        }}><Icon name="plus-lg" style={{ marginRight: '6px' }} />New Task</button>
       )}
     </div>
   )

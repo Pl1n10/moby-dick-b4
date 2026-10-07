@@ -1,4 +1,5 @@
 import S from '../styles.js'
+import Icon from './Icon.jsx'
 
 // UI del drawer "Bit Adder". Pura presentazione: state e callback vengono
 // passati dal Footer che ospita lo hook useBitAdder.
@@ -45,7 +46,7 @@ export default function BitAdder({
           borderRadius: '4px', color: 'var(--muted)', fontSize: '11px',
           fontFamily: S.mono, cursor: 'pointer',
         }}
-      >× Hide</button>
+      ><Icon name="eye-slash" style={{ marginRight: '4px' }} />Hide</button>
 
       <div style={{ display: 'flex', gap: '12px', minHeight: '200px' }}>
         {/* ── Clicker ─────────────────────────────────────── */}
@@ -69,7 +70,7 @@ export default function BitAdder({
                 borderRadius: '6px', color: '#fff', fontSize: '13px',
                 fontFamily: S.sans, fontWeight: 600, cursor: 'pointer',
               }}
-            >+ Aggiungo un bit</button>
+            ><Icon name="plus-lg" style={{ marginRight: '6px' }} />Aggiungo un bit</button>
           </div>
         </Panel>
 
@@ -80,7 +81,7 @@ export default function BitAdder({
             alignItems: 'center', justifyContent: 'center', gap: '8px',
           }}>
             <div style={{ fontFamily: S.sans, fontSize: '14px', color: 'var(--text)', fontWeight: 600 }}>
-              🤖 Bot
+              <Icon name="robot" style={{ marginRight: '6px' }} />Bot
             </div>
             <div style={{ fontFamily: S.sans, fontSize: '11px', color: 'var(--muted)', textAlign: 'center' }}>
               Genera 1 bit / secondo<br/>

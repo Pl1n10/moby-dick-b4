@@ -3,6 +3,7 @@ import S from '../../styles.js'
 import { useBoard } from '../../board/BoardProvider.jsx'
 import { adminCall } from './adminApi.js'
 import { actionButtonStyle, dangerButtonStyle, PrimaryButton, Hint, InlineText } from './ui.jsx'
+import Icon from '../Icon.jsx'
 
 // Superadmin: boards, their sections and per-board settings (task id prefix,
 // label of the reference column, on-call feature). Changes reach every open
@@ -118,7 +119,7 @@ function BoardCard({ board, run, onSlugChanged, onDeleted }) {
               onClick={() => {
                 if (window.confirm(`Eliminare la sezione "${p.name}"?`)) run(adminCall('DELETE', `${base}/pillars/${p.id}`))
               }}
-              style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+              style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: '12px' }}><Icon name="x-lg" /></button>
           </span>
         ))}
         <input value={newSection} onChange={e => setNewSection(e.target.value)}
@@ -182,7 +183,7 @@ function NewBoardForm({ run }) {
           Info Reperibile
         </label>
         <div style={{ flex: 1 }} />
-        <PrimaryButton onClick={submit} disabled={busy || !name.trim() || !effectiveSlug}>+ Crea lavagna</PrimaryButton>
+        <PrimaryButton onClick={submit} disabled={busy || !name.trim() || !effectiveSlug}><Icon name="plus-lg" style={{ marginRight: '6px' }} />Crea lavagna</PrimaryButton>
       </div>
     </div>
   )

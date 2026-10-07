@@ -199,6 +199,7 @@ Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `rout
 
 - **Due temi, chiaro e scuro** (dal 2026-10-07): ogni colore negli stili inline è una `var(--token)` definita in `src/index.css` (blocco `:root` = scuro, `:root[data-theme="light"]` = chiaro). **Mai più colori esadecimali negli stili**: un colore nuovo è un token nuovo, in entrambi i blocchi. Eccezioni volute: i badge pastello di status/priorità (`styles.js`, leggibili su entrambi gli sfondi), il bianco sui bottoni colorati, il blu dell'avatar.
 - **Preferenza tema**: `users.theme` (`'light'|'dark'|NULL`=segui il sistema, migration 014, `PUT /api/me/theme`), copia in `localStorage` (`kanbanops:theme`). Lo script inline in `index.html` imposta `data-theme` su `<html>` prima che parta l'app (niente lampo); `src/theme/theme.js` lo tiene allineato (tasto ☀/◐/☾ nell'header, cambio del tema del sistema, valore di `/api/me` che vince sulla copia locale).
+- **Icone: Bootstrap Icons** (pacchetto ufficiale `bootstrap-icons`, font importato in `main.jsx`) tramite `src/components/Icon.jsx` (`<Icon name="x-lg" />`). Niente emoji nell'interfaccia: hanno colori propri che non seguono il tema, le icone prendono `currentColor`. Il significato va nel `title`/`aria-label` del bottone che le contiene.
 - **Dark theme**: bg `#0d1117`, text `#e6edf3`, borders `#21262d` / `#30363d`
 - **Accent blue**: `#58a6ff` (links, active tab, focus rings)
 - **Status colors**: New (blue), In Progress (orange), Waiting (red), Resolved (green), Closed (gray)

@@ -247,7 +247,7 @@ export default function useTasks() {
       })
       let r = await post(payload)
       // The recurring template may have been deleted in the meantime (FK):
-      // better a restored task without the 🔄 badge than a failed undo.
+      // better a restored task without the recurring badge than a failed undo.
       if (!r.ok && payload.recurringTemplateId) {
         r = await post({ ...payload, recurringTemplateId: null })
       }

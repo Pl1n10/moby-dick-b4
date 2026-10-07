@@ -5,6 +5,7 @@ import { AUTH_ENABLED } from './authConfig.js'
 import { useUserInfo } from './UserInfoProvider.jsx'
 import { useBoard } from '../board/BoardProvider.jsx'
 import AdminConsole from '../components/admin/AdminConsole.jsx'
+import Icon from '../components/Icon.jsx'
 
 function initials(name) {
   if (!name) return '?'
@@ -86,7 +87,7 @@ export default function UserMenu() {
                 textAlign: 'left',
               }}
             >
-              ⚙ Gestione permessi
+              <Icon name="gear" style={{ marginRight: '6px' }} />Gestione permessi
             </button>
           )}
           <button onClick={logout} style={{
@@ -118,7 +119,7 @@ function DemoMenu() {
       <button onClick={() => setShowConsole(true)} style={{
         padding: '2px 8px', background: 'none', border: '1px solid var(--border)', borderRadius: '4px',
         color: 'var(--muted)', cursor: 'pointer', fontFamily: S.mono, fontSize: '11px',
-      }}>⚙ Gestione permessi</button>
+      }}><Icon name="gear" style={{ marginRight: '4px' }} />Gestione permessi</button>
       {showConsole && <AdminConsole onClose={() => setShowConsole(false)} />}
     </div>
   )

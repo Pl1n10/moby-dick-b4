@@ -10,6 +10,7 @@ import PriorityBadge from './PriorityBadge.jsx'
 import EditableText from './editable/EditableText.jsx'
 import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
+import Icon from './Icon.jsx'
 
 // Priority options for the inline select: numeric value, "Px" label.
 const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
@@ -103,7 +104,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
               color: hasChecklist ? 'var(--accent)' : 'var(--faint)',
               fontSize: '10px', fontFamily: S.mono, lineHeight: 1, flexShrink: 0,
             }}
-          >{expanded ? '▼' : '▶'}</button>
+          ><Icon name={expanded ? 'chevron-down' : 'chevron-right'} /></button>
           {hasChecklist && (
             <span title={`${open} aperti / ${total} totali`} style={{
               fontSize: '10px', fontFamily: S.mono, padding: '1px 5px', borderRadius: '8px',
@@ -115,12 +116,12 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           {task.recurringTemplateId && (
             <span title="Created from recurring template" style={{
               fontSize: '12px', color: 'var(--muted)', flexShrink: 0,
-            }}>&#x1f504;</span>
+            }}><Icon name="arrow-repeat" /></span>
           )}
           {showReperibileMark && (
             <span title="Info reperibile" style={{
-              fontSize: '12px', flexShrink: 0, lineHeight: 1,
-            }}>&#x1f4df;</span>
+              fontSize: '12px', flexShrink: 0, lineHeight: 1, color: 'var(--amber)',
+            }}><Icon name="telephone-fill" /></span>
           )}
           {readOnly ? (
             <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--accent)', padding: '2px 4px' }}>
@@ -225,7 +226,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             }}
               onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.background = 'var(--danger-soft)' }}
               onMouseLeave={e => { e.currentTarget.style.color = 'var(--faint)'; e.currentTarget.style.background = 'none' }}
-            >✕</button>
+            ><Icon name="x-lg" /></button>
           )}
         </td>
       )}

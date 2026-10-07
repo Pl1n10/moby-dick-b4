@@ -4,6 +4,7 @@ import { useBoard } from '../../board/BoardProvider.jsx'
 import MembersPanel from './MembersPanel.jsx'
 import BoardsPanel from './BoardsPanel.jsx'
 import UsersPanel from './UsersPanel.jsx'
+import Icon from '../Icon.jsx'
 
 // Permissions console. A board admin sees only the members of the current
 // board; the superadmin also manages boards/sections and every account.
@@ -29,7 +30,7 @@ export default function AdminConsole({ onClose }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ margin: 0, fontFamily: S.mono, fontSize: '16px' }}>Gestione permessi</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '18px', cursor: 'pointer' }}><Icon name="x-lg" /></button>
         </div>
 
         {tabs.length > 1 && (
@@ -52,7 +53,7 @@ export default function AdminConsole({ onClose }) {
             fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <span>{error}</span>
-            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>✕</button>
+            <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}><Icon name="x-lg" /></button>
           </div>
         )}
 

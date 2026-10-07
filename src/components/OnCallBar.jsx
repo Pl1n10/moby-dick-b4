@@ -2,6 +2,7 @@ import { useState } from 'react'
 import S from '../styles.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { useIsBoardAdmin } from '../board/BoardProvider.jsx'
+import Icon from './Icon.jsx'
 
 // Header of the "Info Reperibile" tab: who is on call right now.
 // Admins get a select to change it; everybody else reads it.
@@ -22,7 +23,7 @@ export default function OnCallBar({ onCall, loading, onChange }) {
       padding: '12px 16px', marginBottom: '16px',
       background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px',
     }}>
-      <span style={{ fontSize: '18px', lineHeight: 1 }} role="img" aria-label="reperibile">📟</span>
+      <span style={{ fontSize: '16px', lineHeight: 1, color: 'var(--amber)' }} role="img" aria-label="reperibile"><Icon name="telephone-fill" /></span>
       <span style={{
         fontFamily: S.sans, fontSize: '12px', fontWeight: 600,
         textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)',
@@ -54,7 +55,7 @@ export default function OnCallBar({ onCall, loading, onChange }) {
 
       {error && (
         <span style={{ fontFamily: S.sans, fontSize: '12px', color: 'var(--danger)' }}>
-          ⚠ {error}
+          <Icon name="exclamation-triangle-fill" style={{ marginRight: '6px' }} />{error}
         </span>
       )}
     </div>
