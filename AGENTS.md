@@ -304,9 +304,9 @@ Payload inviato al webhook:
   docker-compose up -d
   ```
   Mai `docker-compose up -d --build` (bug `KeyError: 'ContainerConfig'` con docker-compose v1.29.2 su recreate dopo rebuild). Se il bug è già scattato su nginx: `docker-compose rm -f nginx && docker-compose up -d nginx`. `moby-db` non viene toccato dal recreate.
-- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza in vista del fork futuro (vedi `HANDOFF.md`, sezione "Strategia evoluzione"). Tag attivo: `mauden-prod-2026-06-04` → `81c68c3` (priorità task P0–P5 + notifiche di assegnazione ATTIVE).
-- **Pinning del deploy a un tag**: **non ancora attivo**. La VM continua a fare `git pull` su `main`. Diventerà necessario quando si inizierà il fork generico per "servizi gestiti", per evitare che cambiamenti generici raggiungano la prod Mauden via pull. Lo snippet di deploy da applicare alla VM in quel momento è descritto in `HANDOFF.md`.
-- **Fork strategy**: il software è oggi mono-tenant Mauden con pillar/admin/brand hardcoded. Se si concretizza l'espansione interna al settore "servizi gestiti", si forka invece di rifattorizzare a multi-tenant — decisione e razionale in `HANDOFF.md`. Quando arriva il momento, anche nel fork si parte data-driven (tabella `pillars`, env per admin bootstrap e brand) per non ripetere l'errore degli hardcode.
+- **Tag di produzione**: convention `mauden-prod-YYYY-MM-DD`. Ogni snapshot stabile in produzione riceve un tag annotato. Permette rollback puntuali e — più importante — fa da ancora di sicurezza prima di deploy rischiosi come la migrazione multi-tenant. Tag attivo: `mauden-prod-2026-06-04` → `81c68c3` (priorità task P0–P5 + notifiche di assegnazione ATTIVE).
+- **Pinning del deploy a un tag**: non attivo e, dopo la decisione multi-tenant del 2026-10-07, non più previsto. La VM fa `git pull` su `main`; prima di ogni deploy rischioso si tagga lo stato di prod.
+- **Multi-tenant (2026-10-07, sostituisce la vecchia "fork strategy")**: per dare la lavagna anche al Service Manager si aggiunge la multitenancy nello stesso repo/deploy (lavagne = tenant, super admin, console permessi), non un fork. Requisiti, razionale e domande aperte in `HANDOFF.md` sezione "Strategia evoluzione". Pillar, label e feature per lavagna vanno resi data-driven: niente nuovi hardcode.
 
 ## Upgrade TODO
 

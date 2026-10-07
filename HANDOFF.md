@@ -1,14 +1,16 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-07-16.
+Stato al 2026-10-07.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## Stato git
 
 - Branch: `main`
-- Ultimo commit feature: vedi `git log --oneline -n 5` (2026-07-16: highlight subtask nella ricerca + undo per-utente)
+- Ultimo commit feature: `ef636cf` (2026-07-20: Info Reperibile) + fix `0d21f5a`; dopo solo doc/chore
 - Working tree: clean
+- ⚠️ Al 2026-10-07 `4021109` (AGENTS.md) non era ancora pushato su origin
+- ⚠️ Quale commit giri davvero in prod non è certo: la VM fa `git pull` su `main`, quindi probabilmente è più avanti del tag 2026-06-04 (Info Reperibile inclusa?). Verificare con `git -C /opt/moby-dick-b4 log -1` sulla VM e taggare quello stato **prima** di iniziare la multitenancy.
 - Tag annotato `mauden-prod-2026-06-04` → `81c68c3` (stato attualmente in produzione su `mauden-ubuntu`: priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
@@ -187,40 +189,54 @@ Nota gotcha Ctrl+Z: il guard tastiera esclude solo i campi di testo (INPUT text-
 
 5 admin attualmente in DB: Roberto, Amilcare, Alessio, Marco, Andrea.
 
-## Strategia evoluzione (2026-05-19) — fork per MSP expansion
+### Info Reperibile (2026-07-20) — `ef636cf`
 
-Il manager dell'utente ha prospettato un'estensione di KanbanOps a tutta l'area "servizi gestiti" Mauden se il rollout interno va bene. Sceneggiatura plausibile: 5+ team interni, eventualmente uso fuori Mauden. Se si concretizza, verranno assegnati dev dedicati al progetto.
+Tab cross-pillar + flag `tasks.reperibile` (vista filtrata, non copia) + reperibile corrente in `app_settings` (key `on_call`, admin-only). Dettagli in AGENTS.md sezione "Info Reperibile". Fix collegato `0d21f5a` (POST senza id).
 
-**Decisione: fork-driven, non multi-tenant in single repo.**
+### Notifiche ripristinate su Flow non-Premium (2026-09-28) — `0427a4e`
 
-Razionale:
-- È ancora una fase esplorativa: il successo non è scontato, non vale la pena di pagare 1-2 settimane di refactor multi-tenant ora.
-- Se davvero si diffonde, arrivano dev veri che possono decidere la giusta architettura (probabilmente proprio multi-tenant). A loro lasciamo una base pulita, non un fork ammuffito.
-- Nel frattempo l'utente lavora sul fork senza paura di rompere la prod Mauden.
+Il Flow del 2026-06-04 (trigger HTTP, Premium in trial) era morto a settembre. Ricreato con trigger "When a Teams webhook request is received" + Condition `@mauden.com`. Dettagli in AGENTS.md sezione "Notifiche di assegnazione".
 
-**Tagging strategy** (per la sicurezza della prod Mauden):
+## Strategia evoluzione
 
-- `mauden-prod-YYYY-MM-DD` è la convention. Ogni snapshot stabile di produzione riceve un tag. La VM Mauden può sempre tornare a un tag noto se qualcosa va storto.
-- Tag in essere: `mauden-prod-2026-06-04` → `81c68c3` (priorità P0–P5 + notifiche ATTIVE) — attualmente in prod. `mauden-prod-2026-06-03` → `e9c80d9` (webhook OFF) e `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg) conservati come ancore di rollback.
-- **Pinning attivo del deploy script NON ancora applicato**. La VM continua a fare `git pull` su `main`. Il pinning (sostituire `git pull` con `git fetch && git checkout <tag>` nello script di deploy a `/opt/moby-dick-b4/`) verrà applicato quando l'utente inizierà davvero il fork generico, non prima.
+### 2026-10-07 — multi-tenant nello stesso repo (sostituisce la decisione "fork" del 2026-05-19)
 
-**Plan d'azione quando si parte col fork** (futuro, non oggi):
+Richiesta concreta: la stessa lavagna anche per il **Service Manager**. Decisione: **multitenancy dentro l'app**, non fork.
 
-1. Creare repo `kanbanops-msp` (o nome a piacere) da `mauden-prod-<ultimo-tag>`.
-2. Sulla VM Mauden: modificare lo script di deploy per fare `git fetch origin && git checkout <ultimo-tag-mauden>` invece di `git pull`. Da quel momento, `main` può divergere senza toccare prod.
-3. Nel fork, **disegnare i nuovi meccanismi multi-gruppo come data-driven fin da subito** anche se è un fork:
-   - Tabella `pillars` (id, name, position, active) invece di array hardcoded in `src/data.js` + `auth.js`. Migration idempotente che seeda i pillar correnti per Mauden. CHECK constraint `tasks.group_name` → FK su `pillars.name`.
-   - `BOOTSTRAP_ADMIN_EMAILS` da `.env` invece di migration 004 con email Mauden hardcoded.
-   - `APP_NAME`, `BRAND_LOGO_URL` da `.env` invece di "KanbanOps" + logo Mauden nel codice.
-4. Costo: poco più del fork copia-rinomina, beneficio doppio (ogni nuovo "cliente"/team = variabile d'ambiente, e il futuro dev team eredita una base pulita).
+Perché cambia rispetto a maggio: allora lo scenario era un'espansione incerta a 5+ team con dev dedicati in arrivo, e il fork evitava un refactor speculativo. Oggi c'è un secondo cliente reale, stessa azienda, stesso tenant Entra, stessa VM: il fork costerebbe un secondo stack, un secondo vhost sul reverse proxy Mauden, un secondo redirect URI Entra e due deploy da allineare. In-app = un host, un deploy, zero lavoro sul reverse proxy (nginx fa già fallback SPA su qualsiasi path). Le idee "data-driven" del vecchio piano (tabella `pillars`, niente hardcode) restano valide e diventano parte del lavoro.
 
-**File toccati per la strategia** (oggi):
+Requisiti raccolti (2026-10-07):
 
-- Tag `mauden-prod-2026-05-19` e `mauden-prod-2026-06-03` creati e pushati.
-- `HANDOFF.md`: questa sezione.
-- `CLAUDE.md`: nota tag convention nella sezione operations.
+- **Lavagne = tenant.** Tenant iniziali: `backup` (la lavagna attuale, invariata) e `service-manager`.
+- **Primo login**: l'utente sceglie a quale lavagna appartiene. Se chiede di vedere **tutto**, la richiesta va approvata da un **super admin**.
+- **Super admin** (ruolo globale nuovo): crea lavagne, gestisce chi sta su quali lavagne (anche più d'una) e con che ruolo, approva le richieste → serve una **console permessi**.
+- Admin di una lavagna non diventa admin delle altre: ruolo per (utente, lavagna).
+- **Lavagna Service Manager**:
+  - Sezioni (al posto dei pillar Commvault/Cohesity/…): **Cassina, Bruscagin, Polato, Bonsignore**
+  - Colonna `reference` mostrata come **"Attività"**; descrizione, priorità, status, owner, updated invariati
+  - Storico invariato
+  - **Niente reperibile**: né tab Info Reperibile, né checkbox Rep., né on-call bar
+  - ⇒ servono personalizzazioni per lavagna (label colonne, feature on/off), non solo dati separati
+
+Domande aperte (da chiudere in pianificazione):
+
+1. "Togliere reperibile" vale solo per la lavagna SM (assunto) o anche per backup?
+2. Lavagna SM: restano scadenza (deadline), checklist subtask, task ricorrenti, export CSV? Non citati nella richiesta.
+3. Scelta al primo login: l'appartenenza a **una** lavagna è concessa subito (come viewer, come oggi l'auto-register) o anche quella va approvata?
+4. Owner: lista per lavagna (chi è membro) o globale?
+5. Chi è super admin all'inizio (Roberto + ?).
+
+### Tagging strategy (resta valida)
+
+- `mauden-prod-YYYY-MM-DD` è la convention: ogni snapshot stabile di produzione riceve un tag annotato, ancora di rollback.
+- Tag in essere: `mauden-prod-2026-06-04` → `81c68c3`, `mauden-prod-2026-06-03` → `e9c80d9`, `mauden-prod-2026-05-19` → `ade7da1`.
+- Il pinning del deploy a un tag (previsto per il fork) **non serve più**: si resta su `main` + tag prima di ogni deploy rischioso. La migrazione multi-tenant va provata su un dump del DB di prod prima del deploy.
 
 ## Step pending (in ordine di priorità)
+
+### ★ Multi-tenant + lavagna Service Manager [in pianificazione, 2026-10-07]
+
+Requisiti e domande aperte nella sezione "Strategia evoluzione" sopra. Piano a step da scrivere qui dopo la pianificazione con l'utente. ⚠️ Review puntigliosa: tocca ogni query (isolamento tra lavagne) e la prod Mauden.
 
 > ✅ **Notifiche di assegnazione ATTIVE** (2026-06-04): Flow Power Automate creato + acceso, `NOTIFY_WEBHOOK_URL` settata sulla VM. Resta solo il test end-to-end dall'app (non bloccante) — dettagli nella sezione "Notifiche di assegnazione" sopra.
 
