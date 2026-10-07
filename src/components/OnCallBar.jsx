@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import S from '../styles.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
-import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
+import { useIsBoardAdmin } from '../board/BoardProvider.jsx'
 
 // Header of the "Info Reperibile" tab: who is on call right now.
 // Admins get a select to change it; everybody else reads it.
 export default function OnCallBar({ onCall, loading, onChange }) {
   const owners = useOwners()
-  const isAdmin = useIsAdmin()
+  const isAdmin = useIsBoardAdmin()
   const [error, setError] = useState(null)
 
   const handleChange = async (e) => {

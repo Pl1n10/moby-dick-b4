@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { GROUPS } from './data.js'
 import { exportTasksToCsv, formatTaskCode } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
 import useOnCall from './hooks/useOnCall.js'
 import { useUndoState, undoLast } from './undo/undoStore.js'
-import { useUserInfo, useCanWrite } from './auth/UserInfoProvider.jsx'
+import { useUserInfo } from './auth/UserInfoProvider.jsx'
+import { useBoard, useCanWrite, useFeature, useIdPrefix, useLabel } from './board/BoardProvider.jsx'
 import { useOwners } from './auth/OwnersProvider.jsx'
 import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
@@ -15,18 +15,26 @@ import TaskTable from './components/TaskTable.jsx'
 import RecurringModal from './components/RecurringModal.jsx'
 import OnCallBar from './components/OnCallBar.jsx'
 
-const ACTIVE_GROUP_KEY = 'kanbanops:activeGroup'
-const isValidGroup = (v) => v === '__storico__' || v === '__reperibile__' || GROUPS.includes(v)
-
+// Rendered once per board (BoardApp keys it by slug): everything below is
+// about the current board — its sections, labels, features and API.
 export default function App() {
+  const { slug, pillars, role, operatorGroups } = useBoard()
+  const hasReperibile = useFeature('reperibile')
+  const idPrefix = useIdPrefix()
+  const label = useLabel()
+
+  // Last open tab, remembered per board.
+  const activeGroupKey = `kanbanops:activeGroup:${slug}`
+  const isValidGroup = (v) => v === '__storico__' || (v === '__reperibile__' && hasReperibile) || pillars.includes(v)
   const [activeGroup, setActiveGroup] = useState(() => {
-    const saved = localStorage.getItem(ACTIVE_GROUP_KEY)
-    return isValidGroup(saved) ? saved : GROUPS[0]
+    let saved = null
+    try { saved = localStorage.getItem(activeGroupKey) } catch { /* storage blocked */ }
+    return isValidGroup(saved) ? saved : (pillars[0] ?? '__storico__')
   })
 
   useEffect(() => {
-    localStorage.setItem(ACTIVE_GROUP_KEY, activeGroup)
-  }, [activeGroup])
+    try { localStorage.setItem(activeGroupKey, activeGroup) } catch { /* storage blocked */ }
+  }, [activeGroupKey, activeGroup])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [filterOwner, setFilterOwner] = useState('')
@@ -42,17 +50,18 @@ export default function App() {
 
   const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
-  const { onCall, loading: onCallLoading, setOnCallPerson } = useOnCall()
+  const { onCall, loading: onCallLoading, setOnCallPerson } = useOnCall(hasReperibile)
   const userInfo = useUserInfo()
   const owners = useOwners()
   const canWrite = useCanWrite()
-  const defaultOwner = userInfo.owner || owners[0] || ''
+  // Default owner of a new task: the caller, if they are an owner on this
+  // board (owners are per board); otherwise the first one.
+  const defaultOwner = owners.includes(userInfo.owner) ? userInfo.owner : (owners[0] || '')
   const canAdd = !isCrossPillar && canWrite(activeGroup)
 
   // ── Per-user undo ───────────────────────────────────────
   // Pure read-only users never accumulate undoable actions: hide the button.
-  const canWriteAnything = userInfo.role === 'admin'
-    || (Array.isArray(userInfo.operatorGroups) && userInfo.operatorGroups.length > 0)
+  const canWriteAnything = role === 'admin' || operatorGroups.length > 0
   const undoState = useUndoState()
   const [undoToast, setUndoToast] = useState(null)
   const toastTimer = useRef(null)
@@ -111,7 +120,7 @@ export default function App() {
       if (search) {
         const q = search.toLowerCase()
         if (!t.reference.toLowerCase().includes(q)
-          && !(formatTaskCode(t.number) || '').toLowerCase().includes(q)
+          && !(formatTaskCode(t.number, idPrefix) || '').toLowerCase().includes(q)
           && !t.description.toLowerCase().includes(q)
           && !(t.subtasksText || '').toLowerCase().includes(q)) return false
       }
@@ -132,7 +141,7 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: '#0d1117', color: '#e6edf3' }}>
       <Header />
 
-      <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} />
+      <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} pillars={pillars} showReperibile={hasReperibile} />
 
       <main style={{ padding: '24px 32px' }}>
         {isReperibile && (
@@ -154,6 +163,7 @@ export default function App() {
           onExport={() => exportTasksToCsv(
             filteredTasks,
             isStorico ? 'storico' : isReperibile ? 'reperibile' : activeGroup,
+            { prefix: idPrefix, referenceLabel: label('reference', 'Riferimento'), reperibile: hasReperibile, slug },
           )}
           canAdd={canAdd}
           showUndo={canWriteAnything}
@@ -167,6 +177,7 @@ export default function App() {
           canWrite={canWrite}
           isStorico={isStorico}
           showGroup={isCrossPillar}
+          showReperibile={hasReperibile}
           // Inside the Info Reperibile tab every row is flagged: the amber bar
           // and 📟 badge would mark everything, i.e. nothing.
           highlightReperibile={!isReperibile}

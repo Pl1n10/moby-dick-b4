@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import apiFetch from '../auth/apiFetch.js'
 import { apiErrorReason, shortQuote } from '../utils.js'
 import { pushUndo, subscribeSubtasksRefresh, emitSubtasksRefresh } from '../undo/undoStore.js'
+import { useBoard } from '../board/BoardProvider.jsx'
 
 async function readJsonOrThrow(response) {
   const data = await response.json().catch(() => null)
@@ -16,8 +17,8 @@ const itemLabel = (text) => shortQuote(text) ?? 'item vuoto'
 // Fetches the current server-side checklist of a task; undo entries use it to
 // conflict-check before inverting (never trust the possibly-unmounted local
 // state of a collapsed row).
-async function fetchServerItems(taskId) {
-  const r = await apiFetch(`/api/tasks/${taskId}/subtasks`)
+async function fetchServerItems(base) {
+  const r = await apiFetch(base)
   if (!r.ok) return { error: await apiErrorReason(r) }
   const data = await r.json().catch(() => null)
   return { items: Array.isArray(data) ? data : [] }
@@ -31,6 +32,8 @@ async function fetchServerItems(taskId) {
  * Every successful mutation records its inverse on the per-user undo stack.
  */
 export default function useSubtasks(taskId, onCountChange) {
+  // /api/t/<slug>/tasks/<id>/subtasks — the parent task's board.
+  const base = `${useBoard().apiBase}/tasks/${taskId}/subtasks`
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const onCountChangeRef = useRef(onCountChange)
@@ -42,11 +45,11 @@ export default function useSubtasks(taskId, onCountChange) {
   // Always resolves (errors are logged): mount effect and the undo-refresh
   // subscription share the same fetch path.
   const refetch = useCallback(() => {
-    return apiFetch(`/api/tasks/${taskId}/subtasks`)
+    return apiFetch(base)
       .then(readJsonOrThrow)
       .then(data => { if (Array.isArray(data)) setItems(data) })
       .catch(err => console.error('Failed to fetch subtasks:', err))
-  }, [taskId])
+  }, [base])
 
   useEffect(() => {
     setLoading(true)
@@ -74,7 +77,7 @@ export default function useSubtasks(taskId, onCountChange) {
   const add = (description) => {
     const text = (description || '').trim()
     if (!text) return
-    const request = apiFetch(`/api/tasks/${taskId}/subtasks`, {
+    const request = apiFetch(base, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ description: text }),
@@ -87,7 +90,7 @@ export default function useSubtasks(taskId, onCountChange) {
       } catch {
         return { ok: false, reason: "l'aggiunta non era andata a buon fine" }
       }
-      const { items: server, error } = await fetchServerItems(taskId)
+      const { items: server, error } = await fetchServerItems(base)
       if (error) return { ok: false, reason: error }
       const cur = server.find(s => s.id === created.id)
       if (!cur) return { ok: false, reason: "l'item non esiste più" }
@@ -95,7 +98,7 @@ export default function useSubtasks(taskId, onCountChange) {
       if (cur.description !== text || cur.done) {
         return { ok: false, reason: "l'item è stato modificato nel frattempo" }
       }
-      const r = await apiFetch(`/api/tasks/${taskId}/subtasks/${created.id}`, { method: 'DELETE' })
+      const r = await apiFetch(`${base}/${created.id}`, { method: 'DELETE' })
       if (!r.ok) return { ok: false, reason: await apiErrorReason(r) }
       emitSubtasksRefresh(taskId)
       return { ok: true }
@@ -122,7 +125,7 @@ export default function useSubtasks(taskId, onCountChange) {
       // done true -> one less open. done false -> one more open.
       onCountChange?.({ totalDelta: 0, openDelta: value ? -1 : 1 })
     }
-    const request = apiFetch(`/api/tasks/${taskId}/subtasks/${id}`, {
+    const request = apiFetch(`${base}/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value }),
@@ -137,12 +140,12 @@ export default function useSubtasks(taskId, onCountChange) {
       } catch {
         return { ok: false, reason: 'la modifica non era andata a buon fine' }
       }
-      const { items: server, error } = await fetchServerItems(taskId)
+      const { items: server, error } = await fetchServerItems(base)
       if (error) return { ok: false, reason: error }
       const cur = server.find(s => s.id === id)
       if (!cur) return { ok: false, reason: "l'item non esiste più" }
       if (cur[field] !== value) return { ok: false, reason: "l'item è stato modificato nel frattempo" }
-      const r = await apiFetch(`/api/tasks/${taskId}/subtasks/${id}`, {
+      const r = await apiFetch(`${base}/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ field, value: prevValue }),
@@ -173,7 +176,7 @@ export default function useSubtasks(taskId, onCountChange) {
     if (!target) return
     setItems(prev => prev.filter(s => s.id !== id))
     onCountChange?.({ totalDelta: -1, openDelta: target.done ? 0 : -1 })
-    const request = apiFetch(`/api/tasks/${taskId}/subtasks/${id}`, { method: 'DELETE' })
+    const request = apiFetch(`${base}/${id}`, { method: 'DELETE' })
       .then(readJsonOrThrow)
 
     const discard = pushUndo(`rimozione item ${itemLabel(target.description)}`, async () => {
@@ -184,7 +187,7 @@ export default function useSubtasks(taskId, onCountChange) {
       }
       // Re-create (new id, POST appends), then restore done flag and the
       // original position so the item slots back where it was.
-      const r = await apiFetch(`/api/tasks/${taskId}/subtasks`, {
+      const r = await apiFetch(base, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ description: target.description }),
@@ -192,7 +195,7 @@ export default function useSubtasks(taskId, onCountChange) {
       if (!r.ok) return { ok: false, reason: await apiErrorReason(r) }
       const created = await r.json().catch(() => null)
       if (created) {
-        const patch = (field, value) => apiFetch(`/api/tasks/${taskId}/subtasks/${created.id}`, {
+        const patch = (field, value) => apiFetch(`${base}/${created.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ field, value }),

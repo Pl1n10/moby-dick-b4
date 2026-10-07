@@ -1,7 +1,8 @@
 import S from '../styles.js'
-import { GROUPS } from '../data.js'
 
-export default function TabNav({ tasks, activeGroup, onChangeGroup }) {
+// `pillars` = the current board's sections; `showReperibile` = the board has
+// the on-call feature (otherwise no Info Reperibile tab at all).
+export default function TabNav({ tasks, activeGroup, onChangeGroup, pillars, showReperibile }) {
   const isStorico = activeGroup === '__storico__'
   const isReperibile = activeGroup === '__reperibile__'
   const closedCount = tasks.filter(t => t.status === 'Closed').length
@@ -10,7 +11,7 @@ export default function TabNav({ tasks, activeGroup, onChangeGroup }) {
 
   return (
     <nav style={{ padding: '0 32px', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center' }}>
-      {GROUPS.map(g => {
+      {pillars.map(g => {
         const count = tasks.filter(t => t.group === g && t.status !== 'Closed').length
         const isActive = g === activeGroup
         return (
@@ -34,7 +35,7 @@ export default function TabNav({ tasks, activeGroup, onChangeGroup }) {
 
       {/* Cross-pillar view of the tasks flagged as relevant for whoever is
           on call. Amber to read as "duty", distinct from the pillar blue. */}
-      <button onClick={() => onChangeGroup('__reperibile__')} style={{
+      {showReperibile && <button onClick={() => onChangeGroup('__reperibile__')} style={{
         padding: '12px 20px', background: 'none', border: 'none',
         borderBottom: isReperibile ? '2px solid #d29922' : '2px solid transparent',
         color: isReperibile ? '#d29922' : '#8b949e',
@@ -47,7 +48,7 @@ export default function TabNav({ tasks, activeGroup, onChangeGroup }) {
           background: isReperibile ? '#3d2e0a' : '#21262d',
           color: isReperibile ? '#d29922' : '#8b949e',
         }}>{reperibileCount}</span>}
-      </button>
+      </button>}
 
       <button onClick={() => onChangeGroup('__storico__')} style={{
         padding: '12px 20px', background: 'none', border: 'none',

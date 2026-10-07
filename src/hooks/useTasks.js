@@ -3,8 +3,7 @@ import apiFetch from '../auth/apiFetch.js'
 import { DEFAULT_PRIORITY } from '../data.js'
 import { apiErrorReason, shortQuote } from '../utils.js'
 import { pushUndo, registerTasksAccessor, getCurrentTasks, emitSubtasksRefresh } from '../undo/undoStore.js'
-
-const API = '/api'
+import { useBoard } from '../board/BoardProvider.jsx'
 
 // Human labels for the undo tooltip ("Annulla: cambio status su "INC123"").
 const FIELD_LABELS = {
@@ -37,7 +36,10 @@ const rejectOnHttpError = (r) => {
   return r
 }
 
+// Board-scoped: every call goes to /api/t/<slug>. App is remounted on board
+// switch (keyed by slug), so API is stable for the life of the hook.
 export default function useTasks() {
+  const API = useBoard().apiBase
   const [tasks, setTasks] = useState([])
   const lastUpdateRef = useRef(0)
   const tasksRef = useRef(tasks)
@@ -57,7 +59,7 @@ export default function useTasks() {
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setTasks(data) })
       .catch(err => console.error('Failed to fetch tasks:', err))
-  }, [])
+  }, [API])
 
   useEffect(() => {
     refetchTasks()

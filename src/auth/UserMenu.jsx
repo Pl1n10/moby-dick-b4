@@ -3,6 +3,7 @@ import S from '../styles.js'
 import useAuth from './useAuth.js'
 import { AUTH_ENABLED } from './authConfig.js'
 import { useUserInfo } from './UserInfoProvider.jsx'
+import { useBoard } from '../board/BoardProvider.jsx'
 import UsersModal from '../components/UsersModal.jsx'
 
 function initials(name) {
@@ -28,7 +29,10 @@ export default function UserMenu() {
   }
 
   const { account, logout } = useAuth()
-  const { role, operatorGroups = [], loading } = useUserInfo()
+  const { loading } = useUserInfo()
+  // Badges describe the role on the CURRENT board: the same person can be
+  // admin on one board and read-only on another.
+  const { role, operatorGroups } = useBoard()
   const [open, setOpen] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
   if (!account) return null

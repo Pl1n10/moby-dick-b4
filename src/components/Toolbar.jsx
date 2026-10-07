@@ -1,6 +1,6 @@
 import S from '../styles.js'
-import { GROUPS, STATUSES } from '../data.js'
-import { useIsAdmin } from '../auth/UserInfoProvider.jsx'
+import { STATUSES } from '../data.js'
+import { useBoard, useIsBoardAdmin, useLabel } from '../board/BoardProvider.jsx'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 
 export default function Toolbar({
@@ -18,7 +18,9 @@ export default function Toolbar({
   canAdd = false,
   showUndo = false, canUndo = false, undoLabel = null, onUndo,
 }) {
-  const isAdmin = useIsAdmin()
+  const isAdmin = useIsBoardAdmin()
+  const { pillars } = useBoard()
+  const label = useLabel()
   const owners = useOwners()
   return (
     <div style={{
@@ -34,7 +36,7 @@ export default function Toolbar({
           type="text"
           value={search}
           onChange={e => onSearchChange(e.target.value)}
-          placeholder="Search ID, reference, description or checklist…"
+          placeholder={`Search ID, ${label('reference', 'reference').toLowerCase()}, description or checklist…`}
           style={{
             width: '100%', padding: '7px 12px 7px 32px',
             background: '#0d1117', border: '1px solid #30363d', borderRadius: '6px',
@@ -58,7 +60,7 @@ export default function Toolbar({
           }}
         >
           <option value="">All groups</option>
-          {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+          {pillars.map(g => <option key={g} value={g}>{g}</option>)}
         </select>
       )}
 

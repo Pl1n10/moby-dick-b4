@@ -1,8 +1,8 @@
-// Task number → "MD001". Padding to 3 digits only: MD1000 follows MD999.
-// Same format as formatTaskCode in backend/src/notify.js. null while a new
-// task is still waiting for the server to assign its number.
-export function formatTaskCode(n) {
-  return n == null ? null : `MD${String(n).padStart(3, '0')}`
+// Task number → "MD001" (board prefix + number padded to 3 digits; MD1000
+// follows MD999). Same format as formatTaskCode in backend/src/notify.js.
+// null while a new task is still waiting for the server to assign its number.
+export function formatTaskCode(n, prefix = '#') {
+  return n == null ? null : `${prefix}${String(n).padStart(3, '0')}`
 }
 
 export function formatDate(iso) {
@@ -60,17 +60,19 @@ function slugify(s) {
 
 // Build a CSV blob with `;` separator and UTF-8 BOM so Excel italian opens it
 // directly as a table. Triggers a download in the browser.
-export function exportTasksToCsv(tasks, groupLabel) {
-  const headers = ['ID', 'Gruppo', 'Riferimento', 'Descrizione', 'Priorità', 'Stato', 'Owner', 'Reperibile', 'Scadenza', 'Aggiornato']
+// `board` carries the per-board presentation: id prefix, the label of the
+// reference column, and whether the reperibile column exists at all.
+export function exportTasksToCsv(tasks, groupLabel, { prefix, referenceLabel = 'Riferimento', reperibile = true, slug = 'board' } = {}) {
+  const headers = ['ID', 'Gruppo', referenceLabel, 'Descrizione', 'Priorità', 'Stato', 'Owner', ...(reperibile ? ['Reperibile'] : []), 'Scadenza', 'Aggiornato']
   const rows = tasks.map(t => [
-    formatTaskCode(t.number) ?? '',
+    formatTaskCode(t.number, prefix) ?? '',
     t.group,
     t.reference,
     t.description,
     `P${t.priority ?? 3}`,
     t.status,
     t.owner,
-    t.reperibile ? 'Sì' : '',
+    ...(reperibile ? [t.reperibile ? 'Sì' : ''] : []),
     t.deadline ? formatDeadline(t.deadline) : '',
     t.updatedAt ? formatDate(t.updatedAt) : '',
   ])
@@ -79,7 +81,7 @@ export function exportTasksToCsv(tasks, groupLabel) {
   const csv = '﻿' + lines.join('\r\n')
 
   const today = new Date().toISOString().slice(0, 10)
-  const filename = `moby-dick-${slugify(groupLabel)}-${today}.csv`
+  const filename = `kanbanops-${slug}-${slugify(groupLabel)}-${today}.csv`
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)

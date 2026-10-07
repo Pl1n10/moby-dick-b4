@@ -1,7 +1,9 @@
 import S from '../styles.js'
 import UserMenu from '../auth/UserMenu.jsx'
+import { useBoard } from '../board/BoardProvider.jsx'
 
 export default function Header() {
+  const { boards, board, goToBoard } = useBoard()
   return (
     <header style={{
       padding: '20px 32px', borderBottom: '1px solid #21262d',
@@ -19,9 +21,24 @@ export default function Header() {
         </h1>
         <UserMenu />
       </div>
-      <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: S.sans }}>
-        Backup Task Tracker
-      </span>
+      {/* Board switcher. Visibility is permissive (2026-10-07): every board is
+          listed, the role badges in UserMenu say what you can do on it. */}
+      {boards && boards.length > 1 ? (
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#8b949e', fontFamily: S.sans }}>
+          Lavagna
+          <select
+            value={board?.slug || ''}
+            onChange={e => goToBoard(e.target.value)}
+            style={{ ...S.inputBase, width: 'auto', border: '1px solid #30363d', cursor: 'pointer', fontWeight: 600 }}
+          >
+            {boards.map(b => <option key={b.slug} value={b.slug}>{b.name}</option>)}
+          </select>
+        </label>
+      ) : (
+        <span style={{ fontSize: '12px', color: '#8b949e', fontFamily: S.sans }}>
+          {board?.name || ''}
+        </span>
+      )}
     </header>
   )
 }

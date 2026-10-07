@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import apiFetch from '../auth/apiFetch.js'
-
-const API = '/api'
+import { useBoard } from '../board/BoardProvider.jsx'
 
 /**
  * Recurring templates hook — CRUD only.
@@ -9,6 +8,7 @@ const API = '/api'
  * The setTasks parameter is accepted for interface compatibility but not used.
  */
 export default function useRecurring(/* setTasks — unused, kept for API compat */) {
+  const API = useBoard().apiBase
   const [recurring, setRecurringState] = useState([])
   const [showRecurringModal, setShowRecurringModal] = useState(false)
 
@@ -18,7 +18,7 @@ export default function useRecurring(/* setTasks — unused, kept for API compat
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setRecurringState(data) })
       .catch(err => console.error('Failed to fetch recurring:', err))
-  }, [])
+  }, [API])
 
   // ── Save all templates (called by RecurringModal onSave) ─
   const setRecurring = (templates) => {

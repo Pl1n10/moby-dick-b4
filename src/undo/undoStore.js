@@ -54,6 +54,13 @@ export function pushUndo(label, run) {
   }
 }
 
+// Empties the stack. Called when switching board: the entries are inverse
+// calls against the previous board's API.
+export function clearUndo() {
+  entries = []
+  refreshSnapshot()
+}
+
 export async function undoLast() {
   if (busy || entries.length === 0) return null
   const entry = entries.pop()

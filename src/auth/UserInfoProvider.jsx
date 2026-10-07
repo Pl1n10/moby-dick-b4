@@ -1,15 +1,17 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useIsAuthenticated } from '@azure/msal-react'
 import { AUTH_ENABLED } from './authConfig.js'
 import apiFetch from './apiFetch.js'
 
-// Demo stub keeps local dev permissive — everyone is admin when auth is off.
-const DEMO_INFO = { authenticated: false, demo: true, role: 'admin', owner: null, operatorGroups: [], inUsersTable: false, loading: false }
+// Demo stub keeps local dev permissive — superadmin (admin on every board)
+// when auth is off, matching the backend demo mode.
+const DEMO_INFO = { authenticated: false, demo: true, isSuperadmin: true, owner: null, homeBoard: null, memberships: [], inUsersTable: false, loading: false, refresh: () => Promise.resolve() }
 
-// Default in auth mode: viewer with no scope until /api/me resolves. Components
-// rendering during the brief loading window must not show admin-only UI
-// prematurely.
-const DEFAULT_INFO = { role: 'viewer', owner: null, operatorGroups: [], inUsersTable: false, loading: true }
+// Default in auth mode: no superadmin, no boards until /api/me resolves.
+// Components rendering during the brief loading window must not show
+// admin-only UI prematurely. Board roles come from `memberships`, see
+// src/board/BoardProvider.jsx.
+const DEFAULT_INFO = { isSuperadmin: false, owner: null, homeBoard: null, memberships: [], inUsersTable: false, loading: true }
 
 const UserInfoContext = createContext(DEMO_INFO)
 
@@ -23,43 +25,27 @@ export function UserInfoProvider({ children }) {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [info, setInfo] = useState(DEFAULT_INFO)
 
+  // Re-run after anything that changes the caller's boards (home board
+  // choice, membership edits on themselves).
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => {
-    if (!isAuthenticated) return
-    let cancelled = false
-    apiFetch('/api/me')
+  const refresh = useCallback(() => {
+    return apiFetch('/api/me')
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => {
-        if (cancelled) return
-        setInfo({ ...DEFAULT_INFO, ...data, loading: false })
-      })
+      .then(data => setInfo({ ...DEFAULT_INFO, ...data, loading: false }))
       .catch(err => {
         console.error('Failed to fetch /api/me:', err)
-        if (cancelled) return
         setInfo({ ...DEFAULT_INFO, loading: false, error: err.message })
       })
-    return () => { cancelled = true }
-  }, [isAuthenticated])
+  }, [])
 
-  return <UserInfoContext.Provider value={info}>{children}</UserInfoContext.Provider>
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (isAuthenticated) refresh()
+  }, [isAuthenticated, refresh])
+
+  return <UserInfoContext.Provider value={{ ...info, refresh }}>{children}</UserInfoContext.Provider>
 }
 
 export function useUserInfo() {
   return useContext(UserInfoContext)
-}
-
-export function useIsAdmin() {
-  return useContext(UserInfoContext).role === 'admin'
-}
-
-// Returns a predicate (group) => boolean. Admin everywhere, otherwise the
-// pillar must be in operatorGroups. Mirrors the backend canWrite helper —
-// keep them in sync.
-export function useCanWrite() {
-  const info = useContext(UserInfoContext)
-  return (group) => {
-    if (info.role === 'admin') return true
-    if (!group) return false
-    return Array.isArray(info.operatorGroups) && info.operatorGroups.includes(group)
-  }
 }

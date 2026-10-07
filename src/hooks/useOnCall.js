@@ -1,24 +1,27 @@
 import { useState, useEffect, useCallback } from 'react'
 import apiFetch from '../auth/apiFetch.js'
 import { apiErrorReason } from '../utils.js'
-
-const API = '/api'
+import { useBoard } from '../board/BoardProvider.jsx'
 
 // Who is currently on call (a display_owner string, or null when unset).
 // Stored server-side in app_settings so it's the same for everybody and
 // survives a refresh; polled on focus like the owners list, since an admin
 // may switch the on-call person from another device mid-shift.
-export default function useOnCall() {
+// `enabled` = the board has the reperibile feature; otherwise the setting
+// does not exist (404) and nothing is fetched.
+export default function useOnCall(enabled = true) {
+  const API = useBoard().apiBase
   const [onCall, setOnCall] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(() => {
+    if (!enabled) { setLoading(false); return }
     apiFetch(`${API}/settings/on_call`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => { if (data) setOnCall(data.value ?? null) })
       .catch(err => console.error('Failed to fetch on-call setting:', err))
       .finally(() => setLoading(false))
-  }, [])
+  }, [API, enabled])
 
   useEffect(() => {
     refresh()
@@ -47,7 +50,7 @@ export default function useOnCall() {
       setOnCall(previous)
       return err.message
     }
-  }, [onCall])
+  }, [onCall, API])
 
   return { onCall, loading, setOnCallPerson, refreshOnCall: refresh }
 }

@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import S from '../styles.js'
-import { GROUPS, FREQUENCIES } from '../data.js'
+import { FREQUENCIES } from '../data.js'
+import { useBoard, useLabel } from '../board/BoardProvider.jsx'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDeadline } from '../utils.js'
 
 export default function RecurringModal({ templates, onSave, onClose }) {
   const [drafts, setDrafts] = useState(templates)
   const owners = useOwners()
+  const { pillars } = useBoard()
+  const label = useLabel()
 
   const addTemplate = () => {
     setDrafts(prev => [...prev, {
       id: crypto.randomUUID(),
-      group: GROUPS[0],
+      group: pillars[0] || '',
       reference: '',
       description: '',
       owner: owners[0] || '',
@@ -67,7 +70,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
                 Group
                 <select value={tmpl.group} onChange={e => updateDraft(tmpl.id, 'group', e.target.value)}
                   style={{ ...S.inputBase, display: 'block', marginTop: '4px' }}>
-                  {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                  {pillars.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </label>
               <label style={{ fontSize: '12px', color: '#8b949e' }}>
@@ -79,7 +82,7 @@ export default function RecurringModal({ templates, onSave, onClose }) {
               </label>
 
               <label style={{ fontSize: '12px', color: '#8b949e', gridColumn: '1 / -1' }}>
-                Reference
+                {label('reference', 'Reference')}
                 <input value={tmpl.reference} onChange={e => updateDraft(tmpl.id, 'reference', e.target.value)}
                   placeholder="e.g. Daily Backup Check"
                   style={{ ...S.inputBase, display: 'block', marginTop: '4px' }} />

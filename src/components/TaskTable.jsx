@@ -2,11 +2,13 @@ import { Fragment, useState } from 'react'
 import S from '../styles.js'
 import TaskRow from './TaskRow.jsx'
 import SubtaskList from './SubtaskList.jsx'
+import { useLabel } from '../board/BoardProvider.jsx'
 
 // `showGroup` is decoupled from `isStorico` because the Info Reperibile tab is
 // also cross-pillar (needs the Gruppo column) but stays fully writable.
-export default function TaskTable({ filteredTasks, canWrite, isStorico, showGroup = isStorico, highlightReperibile = true, emptyMessage, hasActiveFilters, search, onUpdate, onDelete, onSubtaskCountChange }) {
+export default function TaskTable({ filteredTasks, canWrite, isStorico, showGroup = isStorico, showReperibile = true, highlightReperibile = true, emptyMessage, hasActiveFilters, search, onUpdate, onDelete, onSubtaskCountChange }) {
   const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const label = useLabel()
 
   const toggleExpand = (id) => {
     setExpandedIds(prev => {
@@ -22,16 +24,17 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
   const matchesInSubtasks = (task) =>
     !!q && (task.subtasksText || '').toLowerCase().includes(q)
 
-  // Header layout. Always leads with the "Rep." checkbox column, then an
+  // Header layout. Leads with the "Rep." checkbox column (only on boards with
+  // the reperibile feature), then the task ID, then an
   // optional "Gruppo" column on the cross-pillar views (Storico, Info
   // Reperibile), and closes with a trailing actions column outside Storico.
   // Each row decides whether to render the ✕ button based on per-task write
   // scope, so that column may be visually empty for out-of-scope users.
   const headers = [
-    'Rep.',
+    ...(showReperibile ? ['Rep.'] : []),
     'ID',
     ...(showGroup ? ['Gruppo'] : []),
-    'Reference', 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza',
+    label('reference', 'Reference'), 'Description', 'Priorità', 'Status', 'Owner', 'Updated', 'Scadenza',
     ...(isStorico ? [] : ['']),
   ]
 
@@ -74,6 +77,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
                     readOnly={rowReadOnly}
                     showDelete={!isStorico}
                     showGroup={showGroup}
+                    showReperibile={showReperibile}
                     highlightReperibile={highlightReperibile}
                     expanded={isExpanded}
                     onToggleExpand={() => toggleExpand(task.id)}

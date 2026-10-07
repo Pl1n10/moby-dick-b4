@@ -3,6 +3,7 @@ import { STATUSES, PRIORITIES } from '../data.js'
 import { useOwners } from '../auth/OwnersProvider.jsx'
 import { formatDate, formatDeadline, isOverdue, formatTaskCode } from '../utils.js'
 import Highlight from './Highlight.jsx'
+import { useIdPrefix, useLabel } from '../board/BoardProvider.jsx'
 import Linkify from './Linkify.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import PriorityBadge from './PriorityBadge.jsx'
@@ -13,8 +14,10 @@ import EditableDate from './editable/EditableDate.jsx'
 // Priority options for the inline select: numeric value, "Px" label.
 const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
 
-export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, highlightReperibile = true, expanded = false, onToggleExpand }) {
+export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, showReperibile = true, highlightReperibile = true, expanded = false, onToggleExpand }) {
   const owners = useOwners()
+  const idPrefix = useIdPrefix()
+  const label = useLabel()
   const total = task.subtasksTotal ?? 0
   const open = task.subtasksOpen ?? 0
   const hasChecklist = total > 0
@@ -32,8 +35,9 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   const tb = isP0 ? { borderTop: edge, borderBottom: edge } : null
   const leftEdge = isP0 ? { borderLeft: edge } : null
   const rightEdge = isP0 ? { borderRight: edge } : null
-  // The "Rep." checkbox is always the first cell, so it always carries the
-  // left edge. Only the last cell varies (actions column only outside Storico).
+  // The first cell carries the left edge: the "Rep." checkbox on boards with
+  // the reperibile feature, the ID otherwise. The last cell varies too
+  // (actions column only outside Storico).
   const lastCellEdge = showDelete ? null : rightEdge     // applied to Scadenza when no actions col
 
   // "Info reperibile" marker: an amber bar down the left of the row. Drawn as
@@ -42,7 +46,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   // inside the red instead of fighting it for the same edge.
   // Suppressed inside the Info Reperibile tab itself, where every row is
   // flagged and the marker would be pure noise (highlightReperibile=false).
-  const isReperibile = task.reperibile === true
+  const isReperibile = showReperibile && task.reperibile === true
   const showReperibileMark = isReperibile && highlightReperibile
   const repBar = showReperibileMark
     ? { boxShadow: `inset 3px 0 0 ${S.reperibileAmber}` }
@@ -58,7 +62,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
           makes the task appear in the Info Reperibile tab, where it stays the
           same task — edits and closes there apply here too. */}
-      <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...leftEdge, ...repBar }}>
+      {showReperibile && <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...leftEdge, ...repBar }}>
         <input
           type="checkbox"
           checked={task.reperibile === true}
@@ -73,15 +77,15 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
             opacity: readOnly && !task.reperibile ? 0.4 : 1,
           }}
         />
-      </td>
+      </td>}
       {/* Task number (MD001…): assigned by the server, never editable.
           "…" for the instant between the optimistic insert and the POST reply. */}
       <td style={{
         padding: '8px 10px', fontFamily: S.mono, fontSize: '11px',
-        color: '#8b949e', whiteSpace: 'nowrap', ...tb,
+        color: '#8b949e', whiteSpace: 'nowrap', ...tb, ...(showReperibile ? null : leftEdge),
       }}>
         {task.number != null
-          ? <Highlight text={formatTaskCode(task.number)} query={search} />
+          ? <Highlight text={formatTaskCode(task.number, idPrefix)} query={search} />
           : '…'}
       </td>
       {showGroup && (
@@ -127,7 +131,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
               value={task.reference}
               onChange={v => onUpdate('reference', v)}
               mono
-              placeholder="add reference"
+              placeholder={`add ${label('reference', 'reference').toLowerCase()}`}
               highlight={search}
             />
           )}
