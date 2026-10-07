@@ -9,9 +9,7 @@ Stato al 2026-10-07.
 - Branch: `main`
 - Ultimo commit feature: `ef636cf` (2026-07-20: Info Reperibile) + fix `0d21f5a`; dopo solo doc/chore
 - Working tree: clean
-- ⚠️ Al 2026-10-07 `4021109` (AGENTS.md) non era ancora pushato su origin
-- ⚠️ Quale commit giri davvero in prod non è certo: la VM fa `git pull` su `main`, quindi probabilmente è più avanti del tag 2026-06-04 (Info Reperibile inclusa?). Verificare con `git -C /opt/moby-dick-b4 log -1` sulla VM e taggare quello stato **prima** di iniziare la multitenancy.
-- Tag annotato `mauden-prod-2026-06-04` → `81c68c3` (stato attualmente in produzione su `mauden-ubuntu`: priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
+- Tag annotato **`mauden-prod-2026-10-07` → `54ea5cd`** = stato in produzione dal 2026-10-07 (numerazione MD + tutto ciò che c'era su `main`). Precedente: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
 
@@ -236,7 +234,7 @@ Domande aperte (da chiudere in pianificazione):
 
 ### ✅ Numerazione task MD001… (2026-10-07) — richiesta del team backup, fatta mettendo in pausa la multitenancy
 
-Dettagli in AGENTS.md, "Feature UX". Verificata con E2E Playwright su DB usa e getta con task pre-esistenti (numerati per età), creazione → MD004, delete + undo → torna MD004, ricerca "md001", numero mai emesso rifiutato, doppione → 409. **Da deployare**: è su `main`, che è deployabile (la multitenancy sta sul branch). Dopo il deploy: tag `mauden-prod-<data>`.
+Dettagli in AGENTS.md, "Feature UX". Verificata con E2E Playwright su DB usa e getta con task pre-esistenti (numerati per età), creazione → MD004, delete + undo → torna MD004, ricerca "md001", numero mai emesso rifiutato, doppione → 409. **Deployata il 2026-10-07**, tag `mauden-prod-2026-10-07` → `54ea5cd`, container `Up (healthy)`.
 
 ### ★ Multi-tenant + lavagna Service Manager [in pianificazione, 2026-10-07]
 
