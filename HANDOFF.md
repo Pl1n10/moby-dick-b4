@@ -1,23 +1,19 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-10-07.
+Stato al 2026-10-08.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
-## ▶ Ripresa (pausa del 2026-10-07 sera)
+## ▶ Ripresa
 
-Si riparte dallo **step 5b** (prova sul dump di prod), sezione "Multi-tenant" più sotto. Primo gesto di Roberto, sulla VM `mauden-ubuntu` (comandi su una riga: il terminale rompe gli heredoc incollati):
+Step **5b chiuso il 2026-10-08** (esito nella sezione "Multi-tenant"). Prossimo: **5c merge + tag** e **5d deploy di mattina presto**, giorno da fissare con Roberto. La mattina del deploy, sulla VM: il banner dice *System restart required* (unattended-upgrades) → riavviare la VM dopo il dump fresco e prima del `docker-compose up`, così il disservizio è uno solo.
 
-1. `git -C /opt/moby-dick-b4 log -1 --oneline` → deve essere `54ea5cd` (tag `mauden-prod-2026-10-07`); se è diverso, annotarlo.
-2. `docker exec moby-db pg_dump -U moby moby | gzip > ~/moby-$(date +%F).sql.gz`
-3. Copiarlo sulla devbox in `~/backups/kanbanops/` (fuori dal repo: contiene nomi e mail reali).
-
-Poi l'agente: restore in un DB locale usa e getta (`kanbanops_dump`, mai il DB `moby` di sviluppo), snapshot "prima" (utenti/ruoli/scope, conteggi task/subtask/template, on_call, max numero MD), boot del backend nuovo su quel DB (migrazioni), confronto "dopo" con le attese del 5b, E2E in demo sui dati veri. Esito → si fissa il giorno del deploy (5d, di mattina presto).
+Sul terminale della VM i comandi incollati arrivano a volte storpiati (`git -C` → `gito-Cn`): dare comandi brevi, uno per riga, senza testo attorno.
 
 ## Stato git
 
 - Branch di lavoro: **`feat/light-mode`** (contiene `feat/multi-tenant` + tema chiaro + icone). `main` = produzione, nessun commit multi-lavagna.
-- Ultimo commit: `6dda65f` — step 5a (transizione invisibile) + questo aggiornamento; tutto pushato su origin
+- Ultimo commit: questo aggiornamento (esito 5b); `6dda65f` = step 5a
 - Working tree: clean
 - Tag annotato **`mauden-prod-2026-10-07` → `54ea5cd`** = stato in produzione dal 2026-10-07 (numerazione MD + tutto ciò che c'era su `main`). Precedente: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
@@ -268,7 +264,8 @@ Requisiti e risposte nella sezione "Strategia evoluzione". ⚠️ Review puntigl
     - Selettore "Lavagna" solo per super admin e membri di più lavagne; chi ha una sola lavagna non vede né selettore né nome. Le altre lavagne restano apribili per URL (visibilità permissiva invariata).
     - Tab ricordata: su `backup` si legge anche la vecchia chiave `kanbanops:activeGroup`.
     - ⚠️ Non provabile in demo (serve Entra): selettore/nome lavagna nascosti per un utente reale con una sola membership → da guardare al collaudo con un account non super admin.
-  - **5b — prova sul dump di prod** [serve Roberto]: dump in `~/backups/kanbanops/` (fuori dal repo). Migration su DB locale e confronto prima/dopo: stesso numero di utenti con stesso ruolo/scope ora in `memberships` su Backup, tutti con `home_tenant_id` e `theme='dark'`, task/subtask/template/on_call invariati e su Backup, `last_task_number` = ultimo MD emesso. Poi E2E in demo sui dati veri.
+  - ✅ **5b — prova sul dump di prod** (2026-10-08, dump `~/backups/kanbanops/moby-2026-10-08.sql.gz` della prod a `54ea5cd`, fuori dal repo). Restore in DB usa e getta, boot del backend nuovo (001→014 senza errori), confronto prima/dopo: utenti con ruolo/scope ora in `memberships` di Backup **identici riga per riga**, task e subtask identici (id, numero, campi, `updated_at`), on_call su Backup, tutti con `home_tenant_id` = Backup e `theme='dark'`, un solo super admin (Roberto), `last_task_number` = ultimo MD emesso, sequenza globale eliminata. Nuovo task → numero successivo; secondo boot → nessun cambiamento. Route nuove e vecchie restituiscono gli stessi task. E2E in demo: `/` → `/t/backup`, conteggi di ogni tab uguali al DB, reperibile corrente visibile, zero chiamate API fallite, zero errori in console. DB usa e getta cancellato.
+    - ⚠️ Già presente in prod, non causato dalla multi-lavagna: la 004 semina un admin con l'**email scritta male** (`alessio.coletta@…`, una `l` sola); l'account vero (`colletta`) esiste a parte e ha i task. Risultato: un doppione nel picker owner e un admin fantasma. Cancellarlo dalla console non basta, perché la 004 lo reinserisce a ogni boot: va prima corretta la 004 (togliere la riga dal seed) e poi cancellato l’account. Da fare dopo il deploy, non dentro.
   - **5c — merge e tag**: `feat/light-mode` → `main`.
   - **5d — deploy di mattina presto**, prima che arrivi il team. Sulla VM: `git log -1 --oneline` (annotare l'hash) + tag `mauden-prod-<data>` sullo stato attuale se diverso da `54ea5cd`; dump fresco; poi la procedura standard `docker-compose` v1 (build → rm api/nginx → up -d). ⚠️ **Rollback = checkout del tag precedente + restore del dump**, non solo git: lo schema nuovo non è compatibile col codice vecchio, e un restore tardivo perde il lavoro fatto nel frattempo.
   - **5e — verifica subito dopo**: migration nei log di `moby-api`, `/api/health`, login di Roberto: `/` → `/t/backup`, ID MD, reperibile corrente, ricorrenti. Login di un collega non super admin (o lo chiede a uno del team): nessun selettore lavagna, tema scuro, stessi permessi.
