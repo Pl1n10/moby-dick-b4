@@ -419,7 +419,7 @@ Il prodotto si chiama **KanbanOps** ma diverse cose tecniche mantengono lo slug 
 ### Admin attualmente registrati (in `migration 004_team_real.sql`)
 - `roberto.novara@mauden.com` → "Roberto Novara"
 - `amilcare.iacono@mauden.com` → "Amilcare Iacono"
-- `alessio.coletta@mauden.com` → "Alessio Coletta"
+- ~~`alessio.coletta@mauden.com`~~ — refuso, tolto dalla 004 il 2026-10-10; l'account vero è `alessio.colletta@mauden.com` (auto-registrato)
 - `marco.fauci@mauden.com` → "Marco Fauci"
 - `andrea.craparo@mauden.com` → "Andrea Craparo"
 

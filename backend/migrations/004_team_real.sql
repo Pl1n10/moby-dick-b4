@@ -26,10 +26,12 @@ DROP TYPE IF EXISTS user_display_owner;
 
 -- 2) Real admin seed. ON CONFLICT updates display_owner + role so re-runs
 -- and migration tweaks converge to the latest values.
+-- A misspelled 'alessio.coletta@' row used to be seeded here: the real
+-- account is 'alessio.colletta@' (auto-registered). Removed 2026-10-10,
+-- since every boot re-inserted the phantom admin after it was deleted.
 INSERT INTO users (email, display_owner, role) VALUES
   ('roberto.novara@mauden.com',  'Roberto Novara',  'admin'),
   ('amilcare.iacono@mauden.com', 'Amilcare Iacono', 'admin'),
-  ('alessio.coletta@mauden.com', 'Alessio Coletta', 'admin'),
   ('marco.fauci@mauden.com',     'Marco Fauci',     'admin'),
   ('andrea.craparo@mauden.com',  'Andrea Craparo',  'admin')
 ON CONFLICT (email) DO UPDATE
