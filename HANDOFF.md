@@ -6,14 +6,20 @@ Stato al 2026-10-10.
 
 ## ▶ Ripresa
 
-**Multi-lavagna in produzione dal 2026-10-10** (sabato, step 5c/5d/5e chiusi: esito nella sezione "Multi-tenant"). Prossimo: **lunedì 2026-10-12**, verificare che un collega non super admin veda la lavagna come prima (nessun selettore, tema scuro, stessi permessi; se un admin vede "Read-only" → Ctrl+F5, vedi 5e). Poi **5f** (lavagna Service Manager dalla console). L'admin fantasma `alessio.coletta@` è stato cancellato da Roberto dalla console e tolto dalla 004 (commit post-deploy, entra in prod col prossimo deploy: fino ad allora un riavvio di `moby-api` lo reinserisce, ma senza membership, quindi solo nella tab Utenti — ricancellarlo). Sulla VM resta da aggiornare a mano `ubuntu-pro-client` (unattended-upgrades lo salta: chiede conferma su un conffile) → `sudo apt install ubuntu-pro-client`, non urgente.
+**Multi-lavagna in produzione dal 2026-10-10** (step 5c/5d/5e chiusi: esito nella sezione "Multi-tenant"). Il 2026-10-10 è stato deployato anche `759647b` (004 senza l'admin fantasma `alessio.coletta@`, già cancellato da Roberto dalla console: non torna più). Prod = `main` = `759647b`; il tag `mauden-prod-2026-10-10` resta su `0fddd0a` (stesso schema, differenza solo nel seed della 004).
+
+**Prossimo, in ordine:**
+1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
+2. **5f — lavagna Service Manager**, la crea Roberto dalla console (non ancora fatta). Gestione permessi → Lavagne → Nuova: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (proposto, da confermare prima di creare: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = i quattro cognomi della sezione "Strategia evoluzione" (solo da console, mai nel repo). Poi in Utenti un admin SM (**chi sia non è ancora deciso**). Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
+3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
+4. VM, non urgente: `sudo apt install ubuntu-pro-client` (unattended-upgrades lo salta per un conffile prompt).
 
 Sul terminale della VM i comandi incollati arrivano a volte storpiati (`git -C` → `gito-Cn`): dare comandi brevi, uno per riga, senza testo attorno.
 
 ## Stato git
 
 - `main` = `feat/light-mode` (fast-forward del 2026-10-08) = produzione, multi-lavagna inclusa. Si lavora su `main` o su un branch nuovo.
-- Ultimo commit: questo aggiornamento (deploy); codice in prod = `0fddd0a`
+- Ultimo commit: questo aggiornamento; codice in prod = `759647b` (deploy 2026-10-10)
 - Working tree: clean
 - Tag annotato **`mauden-prod-2026-10-10` → `0fddd0a`** = stato in produzione dal 2026-10-10 (multi-lavagna + tema chiaro + Bootstrap Icons). Rollback: tag **`mauden-prod-2026-10-07` → `54ea5cd`** + restore del dump `~/backups/kanbanops/moby-2026-10-10.sql.gz` (devbox; copia anche in `~mauden/` sulla VM), fatto subito prima del deploy. Precedente ancora: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
