@@ -10,7 +10,7 @@ Stato al 2026-10-10.
 
 **Prossimo, in ordine:**
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
-2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = i quattro cognomi della sezione "Strategia evoluzione" (solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
+2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
 3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
 4. VM, non urgente: `sudo apt install ubuntu-pro-client` (unattended-upgrades lo salta per un conffile prompt).
 
@@ -222,7 +222,7 @@ Requisiti raccolti (2026-10-07):
 - **Super admin** (ruolo globale nuovo): crea lavagne, gestisce chi sta su quali lavagne (anche più d'una) e con che ruolo, approva le richieste → serve una **console permessi**.
 - Admin di una lavagna non diventa admin delle altre: ruolo per (utente, lavagna).
 - **Lavagna Service Manager**:
-  - Sezioni (al posto dei pillar Commvault/Cohesity/…): **Cassina, Bruscagin, Polato, Bonsignore**
+  - Sezioni (al posto dei pillar Commvault/Cohesity/…): **quattro, una per persona del team SM**; i nomi stanno solo nella console, mai nel repo (è pubblico)
   - Colonna `reference` mostrata come **"Attività"**; descrizione, priorità, status, owner, updated invariati
   - Storico invariato
   - **Niente reperibile**: né tab Info Reperibile, né checkbox Rep., né on-call bar
