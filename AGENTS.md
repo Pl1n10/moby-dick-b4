@@ -128,10 +128,11 @@ Dal 2026-10-07 l'app è **multi-lavagna** (vedi sezione "Lavagne (multi-tenant)"
 | POST/PATCH/DELETE | `/api/tenants[/:slug]` | Super admin: crea/modifica/elimina lavagna (DELETE solo se vuota → 409) |
 | POST/PATCH/DELETE | `/api/tenants/:slug/pillars[/:id]` | Super admin: sezioni. Rename a cascata su task/template/operator_groups; DELETE solo se inutilizzata |
 | GET/POST/PATCH/DELETE | `/api/users[/:id]` | Super admin: account globali (`displayOwner`, `isSuperadmin`) con le loro membership |
-| GET | `/api/t/:slug/tasks` | Task della lavagna, `updated_at DESC` |
+| GET | `/api/t/:slug/tasks` | Task della lavagna, con `position` (ordine manuale) |
 | POST | `/api/t/:slug/tasks` | Crea task (sezione validata contro `pillars`) |
 | POST | `/api/t/:slug/tasks/reset` | Admin di lavagna: svuota task + template **di quella lavagna** |
 | PATCH/DELETE | `/api/t/:slug/tasks/:id` | Modifica campo / elimina (404 se il task è di un'altra lavagna) |
+| POST | `/api/t/:slug/tasks/:id/move` | `{beforeId}`: drag & drop, mette il task sopra `beforeId` (null = in fondo) e rinumera la sezione. Scrittura sulla sezione |
 | * | `/api/t/:slug/tasks/:taskId/subtasks[/:id]` | Checklist; il task padre deve essere della lavagna |
 | GET/PUT/DELETE | `/api/t/:slug/recurring` | Template della lavagna (scrittura: admin di lavagna) |
 | GET/PUT | `/api/t/:slug/settings/on_call` | Reperibile corrente; 404 se la lavagna non ha la feature `reperibile` |
@@ -149,7 +150,7 @@ Test backend: `cd backend && npm test` (`node:test`, DB PostgreSQL usa e getta c
 ### Database Schema (001_init.sql)
 
 **tasks** table:
-- `id` UUID PK, `group_name`, `reference`, `description`, `status` (CHECK), `owner`, `priority`, `reperibile`, `waiting`, `deadline` DATE, `recurring_template_id` UUID FK, `updated_at`, `created_at`
+- `id` UUID PK, `group_name`, `reference`, `description`, `status` (CHECK), `owner`, `priority`, `reperibile`, `waiting`, `deadline` DATE, `recurring_template_id` UUID FK, `position` INT (ordine manuale, migration 015), `updated_at`, `created_at`
 - FK: `recurring_template_id → recurring_templates(id) ON DELETE SET NULL`
 
 **recurring_templates** table:
@@ -186,6 +187,7 @@ Implemented symmetrically in both `useTasks.js` (frontend, optimistic) and `rout
   reperibile: boolean, // Mostra il task nella tab "Info Reperibile" (flag, non copia)
   waiting: boolean,    // Synced with status (see logic above)
   deadline: string,    // "YYYY-MM-DD" or null
+  position: number,    // Ordine manuale nella sezione, crescente = in alto (vedi "Ordine manuale")
   updatedAt: string,   // ISO 8601 (auto-updated on edit, except waiting)
 }
 ```
@@ -217,7 +219,7 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - All styling is inline (CSS-in-JS objects) — no external CSS files besides index.css reset
 - UUIDs via `crypto.randomUUID()` (frontend) or `gen_random_uuid()` (PostgreSQL)
 - `window.confirm()` per delete — system dialog, da sostituire (il prompt di reset è stato rimosso dall'UI nel commit `ade7da1`; endpoint `POST /api/tasks/reset` resta vivo per emergenze via curl con JWT admin)
-- Sorting sempre per `updatedAt` desc
+- Ordinamento: sezioni per `position` (ordine manuale, drag & drop); Storico per `updatedAt` desc; Info Reperibile per sezione, poi `position`
 - Commit messages: `feat:`, `fix:`, `refactor:`, `chore:` prefissi
 - **Owners list dinamica**: `display_owner` valorizzati nella tabella `users`. Popolazione self-service via `/api/me` (auto-INSERT al primo login). Frontend via `OwnersProvider` context, no più `OWNERS` hardcoded.
 - **Migrations idempotenti**: `runMigrations()` (`backend/src/db.js`) riapplica TUTTI i file `.sql` ad ogni boot. Ogni migration usa `IF NOT EXISTS`, `ON CONFLICT`, guard `DO $$ BEGIN ... EXCEPTION`, ecc.
@@ -256,6 +258,18 @@ Annulla **l'ultima azione fatta dall'utente in questa tab**, non un rollback glo
 - Dopo ogni undo riuscito: `refetchTasks(true)` + `emitSubtasksRefresh(taskId)` per riallineare board e checklist montate.
 - `skipNotify: true` nel body di POST (restore) e PATCH owner (undo di riassegnazione) evita di rimandare la mail di assegnazione. È un flag client-side su endpoint condivisi: tradeoff accettato per tool interno con utenti fidati — l'alternativa (endpoint di restore server-side) è over-engineering allo stato attuale.
 
+## Ordine manuale (drag & drop)
+
+Richiesta del team (2026-10-16): riordinare i task trascinandoli, "stile Jira". **Decisione: una modifica non sposta più la riga.** Prima ogni edit portava il task in cima (ordine per `updatedAt desc`); tenere quella regola avrebbe disfatto l'ordine trascinato alla prima modifica di un collega.
+
+- **Schema** (`015_task_position.sql`): `tasks.position INT`, crescente = in alto, valori significativi solo dentro una sezione. Backfill una tantum con l'ordine di prima (`updated_at desc` per sezione): al deploy la board è identica. Verificato sul dump di prod del 2026-10-10.
+- **Task nuovi in cima**: trigger `trg_assign_task_position` (MIN della sezione − 1) su ogni INSERT senza `position`, quindi vale anche per i ricorrenti. Un task spostato in un'altra sezione (PATCH `group`) finisce in cima a quella.
+- **Spostamento**: `POST /tasks/:id/move {beforeId}` rinumera la sezione 0..n-1 in una transazione con lock sulla riga della lavagna (due drag contemporanei si serializzano). Include i task chiusi, che restano nella sequenza ma non si vedono. **Non** tocca `updated_at`. Specchio client: `moveInSection` in `src/utils.js` (stesso tie-break: `position`, `updatedAt desc`, `id`).
+- **Ordine condiviso**, uguale per tutti. Trascina chi ha scrittura sulla sezione (admin, operatori); per gli altri la maniglia non c'è.
+- **Dove**: solo nelle tab di sezione. Con un filtro o una ricerca attiva la maniglia resta ma è disabilitata (lasciare un task fra due righe visibili non dice dove va rispetto a quelle nascoste). Storico resta per `updatedAt desc`; Info Reperibile mostra le sezioni nell'ordine della lavagna, ciascuna col suo ordine manuale.
+- **UI**: `@dnd-kit` (core/sortable/modifiers, versioni esatte). Ogni task è un suo `<tbody>` (riga + checklist aperta), così la checklist si sposta col task. Maniglia `grip-vertical` come prima colonna; solo lei avvia il drag (il resto della riga resta editabile). Funziona anche da tastiera (spazio, frecce, spazio). Collisioni `closestCorners`: con `closestCenter` un task con la checklist aperta (più alto) trascinato in cima finiva secondo.
+- **Undo**: Ctrl+Z riporta il task sopra il vicino di prima; saltato se nel frattempo l'ordine attorno è cambiato. Il restore di un task cancellato lo rimette alla sua `position`.
+
 ## Info Reperibile
 
 Tab cross-pillar con i task rilevanti per chi è di turno, più l'indicazione di **chi è il reperibile corrente**.
@@ -263,7 +277,7 @@ Tab cross-pillar con i task rilevanti per chi è di turno, più l'indicazione di
 **Il flag NON è una copia.** `tasks.reperibile BOOLEAN` — la tab è una vista filtrata (`WHERE reperibile AND status <> 'Closed'`) sugli stessi task. Modificarli o chiuderli dalla tab modifica/chiude il task originale del pillar: una sola verità, nessun drift, nessuna domanda su "cosa succede se l'originale viene cancellato". Scelta deliberata su alternativa "clone indipendente" (2026-07-20).
 
 - **Checkbox "Rep."**: prima colonna di ogni riga, in tutte le tab (Storico inclusa, lì in sola lettura). Abilitata per chi ha write sul pillar del task — stesso `canWrite` di ogni altra mutazione, nessun permesso nuovo.
-- **`updated_at` NON viene bumpato** quando si spunta il flag. Il sorting è per `updatedAt desc` ovunque: bumparlo farebbe saltare la riga in cima ad ogni spunta. Stessa ratio del vecchio flag `waiting`. Enforced in due punti da tenere in sync: `NO_TOUCH_FIELDS` in `backend/src/routes/tasks.js` e in `src/hooks/useTasks.js` (se solo il client bumpa, la riga salta e poi torna giù al refetch).
+- **`updated_at` NON viene bumpato** quando si spunta il flag: una spunta non è una modifica del task (colonna "Updated", ordine dello Storico). In origine serviva a non far saltare la riga in cima, quando le sezioni erano ordinate per `updatedAt desc` (prima della 015). Stessa ratio del vecchio flag `waiting`. Enforced in due punti da tenere in sync: `NO_TOUCH_FIELDS` in `backend/src/routes/tasks.js` e in `src/hooks/useTasks.js` (se solo il client bumpa, la riga salta e poi torna giù al refetch).
 - **Evidenza visiva**: un task flaggato mostra una **fascia ambra** sul bordo sinistro della riga + un badge **📟** accanto al reference. La fascia è un `box-shadow: inset`, NON un border: così occupa un canale visivo diverso dal contorno rosso P0 e su una riga che è P0 *e* reperibile l'ambra sta appena dentro il rosso invece di litigare per lo stesso bordo. Ambra e non rosso perché segnala rilevanza di turno, non urgenza.
 - **Marker soppressi dentro la tab Info Reperibile** (`highlightReperibile={!isReperibile}`): lì ogni riga è flaggata, evidenziarle tutte non evidenzia niente. Il contorno P0 invece resta anche lì — l'urgenza continua a contare.
 - **Task chiusi**: escono dalla tab e finiscono in Storico come qualsiasi altro task. Il flag resta sul record.
@@ -369,7 +383,7 @@ Payload inviato al webhook:
 - [x] **Numerazione task MD001…** (2026-10-07) — colonna `tasks.number` (migration 012): i task esistenti numerati una volta per `created_at`, i nuovi dal `DEFAULT nextval('task_number_seq')` (vale anche per i ricorrenti). Prefisso e padding sono solo presentazione (`formatTaskCode` in `src/utils.js` e `backend/src/notify.js`, da tenere uguali). Colonna "ID" in tabella, ricercabile, in testa al CSV, `task.code` nel payload delle notifiche. Un numero non si riusa mai, tranne dall'undo della cancellazione dello stesso task (il POST accetta `number` solo se la sequenza l'ha già emesso; doppione → 409).
 - [ ] Sostituire `window.confirm()` con modal custom dark theme (P2)
 - [ ] Drag & drop ordinamento subtasks (P3) — campo `position` già nel schema, manca solo l'UI handle (`@dnd-kit/sortable`)
-- [ ] Drag & drop riordinamento task (P4)
+- [x] **Drag & drop riordinamento task** (2026-10-16) — ordine manuale condiviso, stile Jira. Vedi sezione "Ordine manuale (drag & drop)".
 
 ### Solidità tecnica
 - [ ] ESLint + Prettier (P3)

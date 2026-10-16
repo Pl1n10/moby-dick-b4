@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { exportTasksToCsv, formatTaskCode } from './utils.js'
+import { exportTasksToCsv, formatTaskCode, compareByPosition } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
 import useOnCall from './hooks/useOnCall.js'
@@ -54,7 +54,7 @@ export default function App() {
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
-  const { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
+  const { tasks, setTasks, updateTask, moveTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
   const { onCall, loading: onCallLoading, setOnCallPerson } = useOnCall(hasReperibile)
   const userInfo = useUserInfo()
@@ -134,7 +134,14 @@ export default function App() {
       if (filterOwner && t.owner !== filterOwner) return false
       return true
     })
-    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+    // Sections follow the manual order (drag & drop): an edit no longer moves
+    // the row. Storico stays chronological (last change first). Info
+    // Reperibile mixes sections: grouped by section, each in its own order.
+    .sort(isStorico
+      ? (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+      : isReperibile
+        ? (a, b) => pillars.indexOf(a.group) - pillars.indexOf(b.group) || compareByPosition(a, b)
+        : compareByPosition)
 
   const totalGroupTasks = isStorico
     ? tasks.filter(t => t.status === 'Closed').length
@@ -142,6 +149,11 @@ export default function App() {
       ? tasks.filter(t => t.reperibile && t.status !== 'Closed').length
       : tasks.filter(t => t.group === activeGroup && t.status !== 'Closed').length
   const hasActiveFilters = search || filterStatus || filterOwner || (isCrossPillar && filterGroup)
+  // Drag & drop only inside a section, for whoever can write it. With a
+  // filter on, the handle is shown but disabled: dropping between two
+  // visible rows would say nothing about the hidden ones in between.
+  const showDragHandle = canAdd
+  const canReorder = showDragHandle && !hasActiveFilters
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
@@ -193,6 +205,9 @@ export default function App() {
           hasActiveFilters={hasActiveFilters}
           search={search}
           onUpdate={updateTask}
+          onMove={moveTask}
+          showDragHandle={showDragHandle}
+          canReorder={canReorder}
           onDelete={handleDelete}
           onSubtaskCountChange={updateSubtaskCounters}
         />

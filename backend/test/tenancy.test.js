@@ -291,3 +291,75 @@ test('legacy single-board routes keep a pre-deploy tab working on the backup boa
   // The users router stays superadmin-only.
   assert.equal((await backupAdmin.get('/users')).status, 403)
 })
+
+// Runs after the rename test: section A of the sm board is 'Sezione A2'.
+// Manual order (migration 015): ids of a section's tasks, top first.
+async function sectionOrder(client, slug, group) {
+  const r = await client.get(`/t/${slug}/tasks`)
+  return r.body
+    .filter(t => t.group === group)
+    .sort((a, b) => a.position - b.position)
+    .map(t => t.id)
+}
+
+test('new tasks land on top and edits do not move them', async () => {
+  const a = await newTask(smAdmin, 'sm', 'Sezione A2')
+  const b = await newTask(smAdmin, 'sm', 'Sezione A2')
+  let order = await sectionOrder(smAdmin, 'sm', 'Sezione A2')
+  assert.deepEqual(order.slice(0, 2), [b.id, a.id])
+
+  assert.equal((await smAdmin.patch(`/t/sm/tasks/${a.id}`, { field: 'reference', value: 'edited' })).status, 200)
+  order = await sectionOrder(smAdmin, 'sm', 'Sezione A2')
+  assert.deepEqual(order.slice(0, 2), [b.id, a.id])
+})
+
+test('drag and drop: a task moves before another, or to the bottom', async () => {
+  const [x, y, z] = [
+    await newTask(backupAdmin, 'backup', 'Data Domain - ZFS'),
+    await newTask(backupAdmin, 'backup', 'Data Domain - ZFS'),
+    await newTask(backupAdmin, 'backup', 'Data Domain - ZFS'),
+  ]
+  // top → bottom: z, y, x, …
+  const moved = await backupAdmin.post(`/t/backup/tasks/${x.id}/move`, { beforeId: z.id })
+  assert.equal(moved.status, 200, JSON.stringify(moved.body))
+  let order = await sectionOrder(backupAdmin, 'backup', 'Data Domain - ZFS')
+  assert.deepEqual(order.slice(0, 3), [x.id, z.id, y.id])
+
+  assert.equal((await backupAdmin.post(`/t/backup/tasks/${x.id}/move`, { beforeId: null })).status, 200)
+  order = await sectionOrder(backupAdmin, 'backup', 'Data Domain - ZFS')
+  assert.equal(order.at(-1), x.id)
+  // Positions are a clean 0..n-1 after a move.
+  const positions = (await backupAdmin.get('/t/backup/tasks')).body
+    .filter(t => t.group === 'Data Domain - ZFS').map(t => t.position).sort((p, q) => p - q)
+  assert.deepEqual(positions, positions.map((_, i) => i))
+
+  // A task restored by undo comes back at its old position.
+  const before = (await backupAdmin.get('/t/backup/tasks')).body.find(t => t.id === y.id)
+  assert.equal((await backupAdmin.del(`/t/backup/tasks/${y.id}`)).status, 200)
+  const restored = await backupAdmin.post('/t/backup/tasks', { id: y.id, group: 'Data Domain - ZFS', owner: '', position: before.position })
+  assert.equal(restored.body.position, before.position)
+})
+
+test('drag and drop respects sections, boards and write scope', async () => {
+  const a = await newTask(smAdmin, 'sm', 'Sezione A2')
+  const b = await newTask(smAdmin, 'sm', 'Sezione B')
+  const other = await newTask(backupAdmin, 'backup', 'Commvault')
+
+  // beforeId must be in the same section of the same board
+  assert.equal((await smAdmin.post(`/t/sm/tasks/${a.id}/move`, { beforeId: b.id })).status, 400)
+  assert.equal((await smAdmin.post(`/t/sm/tasks/${a.id}/move`, { beforeId: other.id })).status, 400)
+  assert.equal((await smAdmin.post(`/t/sm/tasks/${a.id}/move`, { beforeId: 'not-a-uuid' })).status, 400)
+  // a task of another board is not found
+  assert.equal((await smAdmin.post(`/t/sm/tasks/${other.id}/move`, { beforeId: null })).status, 404)
+  // read-only on another board, operator only on their section
+  assert.equal((await smAdmin.post(`/t/backup/tasks/${other.id}/move`, { beforeId: null })).status, 403)
+  assert.equal((await operator.post(`/t/sm/tasks/${b.id}/move`, { beforeId: null })).status, 403)
+  assert.equal((await operator.post(`/t/sm/tasks/${a.id}/move`, { beforeId: null })).status, 200)
+})
+
+test('a task moved to another section lands on top of it', async () => {
+  await newTask(smAdmin, 'sm', 'Sezione B')
+  const a = await newTask(smAdmin, 'sm', 'Sezione A2')
+  assert.equal((await smAdmin.patch(`/t/sm/tasks/${a.id}`, { field: 'group', value: 'Sezione B' })).status, 200)
+  assert.equal((await sectionOrder(smAdmin, 'sm', 'Sezione B'))[0], a.id)
+})

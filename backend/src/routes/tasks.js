@@ -21,6 +21,7 @@ function mapTaskToClient(row) {
   return {
     id: row.id,
     number: row.number != null ? Number(row.number) : null,   // shown as MD001…
+    position: row.position != null ? Number(row.position) : 0,  // manual order, ascending
     group: row.group_name,
     reference: row.reference,
     description: row.description,
@@ -53,9 +54,10 @@ const FIELD_TO_COLUMN = {
   group: 'group_name',
 }
 
-// Flag-only fields: toggling them must NOT bump updated_at. Sorting is by
-// updated_at desc everywhere, so ticking a checkbox would otherwise teleport
-// the row to the top of the board — same rationale the old `waiting` flag had.
+// Flag-only fields: toggling them must NOT bump updated_at. Sections are
+// sorted by `position` (manual order, migration 015), but Storico still sorts
+// by updated_at desc and the "Updated" column shows it: ticking a checkbox is
+// not an edit of the task — same rationale the old `waiting` flag had.
 const NO_TOUCH_FIELDS = new Set(['reperibile'])
 
 // Priority is the only numeric, range-constrained field. Validate here so a
@@ -79,7 +81,7 @@ async function loadTask(tenantId, id) {
 
 // ── Routes ──────────────────────────────────────────────
 
-// GET /api/t/:slug/tasks — the board's tasks, sorted by updated_at desc.
+// GET /api/t/:slug/tasks — the board's tasks, in manual order.
 // Joins aggregated subtask counts so the client can render the "3/5" badge
 // without N extra fetches.
 router.get('/', async (req, res) => {
@@ -99,7 +101,7 @@ router.get('/', async (req, res) => {
         GROUP BY task_id
       ) s ON s.task_id = t.id
       WHERE t.tenant_id = $1
-      ORDER BY t.updated_at DESC
+      ORDER BY t.group_name, t.position, t.updated_at DESC
     `, [req.tenant.id])
     res.json(rows.map(mapTaskToClient))
   } catch (err) {
@@ -134,7 +136,7 @@ router.post('/reset', requireBoardAdmin, async (req, res) => {
 // sections). The section must exist on this board.
 router.post('/', async (req, res) => {
   try {
-    const { id, group, reference, description, status, owner, priority, reperibile, deadline, number } = req.body
+    const { id, group, reference, description, status, owner, priority, reperibile, deadline, number, position } = req.body
     if (!canWrite(req.boardCtx, group)) {
       return res.status(403).json({ error: `Write access denied for group: ${group}` })
     }
@@ -157,15 +159,19 @@ router.post('/', async (req, res) => {
     // number the board has not reached yet would collide with a future task.
     // Anything else → NULL, and the trigger assigns the board's next number.
     const restoredNumber = Number.isInteger(number) && number > 0 ? number : null
+    // `position` likewise comes only from the undo-restore, to put the task
+    // back where it was. NULL → trg_assign_task_position puts it on top.
+    const restoredPosition = Number.isInteger(position) ? position : null
     const { rows } = await pool.query(
       // COALESCE, not a bare $1: node-postgres sends `undefined` as an
       // explicit NULL, which OVERRIDES the column DEFAULT instead of falling
       // back to it — an id-less POST used to fail the NOT NULL constraint.
       // The client normally sends its own UUID, so this only bites API callers.
-      `INSERT INTO tasks (id, tenant_id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number)
+      `INSERT INTO tasks (id, tenant_id, group_name, reference, description, status, owner, priority, reperibile, deadline, recurring_template_id, updated_at, number, position)
        VALUES (COALESCE($1::uuid, gen_random_uuid()), $11, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(),
                CASE WHEN $12::int <= (SELECT last_task_number FROM tenants WHERE id = $11)
-                    THEN $12::int END)
+                    THEN $12::int END,
+               $13::int)
        RETURNING *`,
       [
         id || null,               // absent → DB generates via gen_random_uuid()
@@ -181,6 +187,7 @@ router.post('/', async (req, res) => {
         recurringTemplateId,      // set by undo-restore to keep the 🔄 badge
         req.tenant.id,
         restoredNumber,
+        restoredPosition,
       ]
     )
     res.status(201).json(mapTaskToClient(rows[0]))
@@ -255,10 +262,19 @@ router.patch('/:id', async (req, res) => {
     const column = FIELD_TO_COLUMN[field]
     const dbValue = field === 'deadline' && value === '' ? null : value
 
+    // A task moved to another section lands on top of it: its old position
+    // means nothing there.
     const { rows } = NO_TOUCH_FIELDS.has(field)
       ? await pool.query(
           `UPDATE tasks SET ${column} = $2 WHERE id = $1 AND tenant_id = $3 RETURNING *`,
           [id, dbValue, req.tenant.id],
+        )
+      : field === 'group' && value !== existing.group_name
+      ? await pool.query(
+          `UPDATE tasks SET group_name = $2, updated_at = $3,
+             position = (SELECT COALESCE(MIN(position), 0) - 1 FROM tasks WHERE tenant_id = $4 AND group_name = $2)
+           WHERE id = $1 AND tenant_id = $4 RETURNING *`,
+          [id, dbValue, new Date().toISOString(), req.tenant.id],
         )
       : await pool.query(
           `UPDATE tasks SET ${column} = $2, updated_at = $3 WHERE id = $1 AND tenant_id = $4 RETURNING *`,
@@ -281,6 +297,69 @@ router.patch('/:id', async (req, res) => {
   } catch (err) {
     console.error('PATCH /api/tasks error:', err.message)
     res.status(500).json({ error: 'Failed to update task' })
+  }
+})
+
+// POST /api/t/:slug/tasks/:id/move — body { beforeId }: put the task right
+// above `beforeId` (a task of the same section), or at the bottom of the
+// section when beforeId is null. The section is renumbered 0..n-1 in one
+// transaction, under the board row lock, so two people dragging at the same
+// time are serialized instead of interleaving their renumbering. Closed tasks
+// keep their place in the sequence; they are just not shown in the section.
+// Not an edit: updated_at is untouched. Write access on the section required.
+router.post('/:id/move', async (req, res) => {
+  const { beforeId = null } = req.body
+  if (beforeId !== null && typeof beforeId !== 'string') {
+    return res.status(400).json({ error: 'beforeId must be a task id or null' })
+  }
+  if (beforeId === req.params.id) return res.status(400).json({ error: 'A task cannot move before itself' })
+
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    await client.query('SELECT 1 FROM tenants WHERE id = $1 FOR UPDATE', [req.tenant.id])
+    const { rows: [task] } = await client.query(
+      'SELECT id, group_name FROM tasks WHERE id = $1 AND tenant_id = $2',
+      [req.params.id, req.tenant.id],
+    )
+    if (!task) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Task not found' })
+    }
+    if (!canWrite(req.boardCtx, task.group_name)) {
+      await client.query('ROLLBACK')
+      return res.status(403).json({ error: `Write access denied for group: ${task.group_name}` })
+    }
+
+    const { rows } = await client.query(
+      `SELECT id FROM tasks WHERE tenant_id = $1 AND group_name = $2
+       ORDER BY position, updated_at DESC, id`,
+      [req.tenant.id, task.group_name],
+    )
+    const order = rows.map(r => r.id).filter(id => id !== task.id)
+    const at = beforeId === null ? order.length : order.indexOf(beforeId)
+    if (at < 0) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'beforeId is not a task of the same section' })
+    }
+    order.splice(at, 0, task.id)
+
+    await client.query(
+      `UPDATE tasks t SET position = o.pos - 1
+       FROM unnest($1::uuid[]) WITH ORDINALITY AS o(id, pos)
+       WHERE t.id = o.id AND t.tenant_id = $2`,
+      [order, req.tenant.id],
+    )
+    await client.query('COMMIT')
+    res.json({ ok: true, order })
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {})
+    // A malformed uuid in beforeId
+    if (err.code === '22P02') return res.status(400).json({ error: 'Invalid task id' })
+    console.error('POST /api/tasks/:id/move error:', err.message)
+    res.status(500).json({ error: 'Failed to move task' })
+  } finally {
+    client.release()
   }
 })
 

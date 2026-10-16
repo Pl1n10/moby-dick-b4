@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import apiFetch from '../auth/apiFetch.js'
 import { DEFAULT_PRIORITY } from '../data.js'
-import { apiErrorReason, shortQuote } from '../utils.js'
+import { apiErrorReason, shortQuote, sectionOrder, topPosition, moveInSection } from '../utils.js'
 import { pushUndo, registerTasksAccessor, getCurrentTasks, emitSubtasksRefresh } from '../undo/undoStore.js'
 import { useBoard } from '../board/BoardProvider.jsx'
 
@@ -20,9 +20,9 @@ const FIELD_LABELS = {
 const taskLabel = (t) => shortQuote(t?.reference) ?? 'task senza reference'
 
 // Fields whose change must NOT bump updatedAt — mirrors NO_TOUCH_FIELDS in
-// backend/src/routes/tasks.js. Sorting is by updatedAt desc, so bumping it
-// here would make the row jump to the top and then snap back on the next
-// refetch (the server didn't bump it). Keep the two lists in sync.
+// backend/src/routes/tasks.js. Sections follow the manual order, but Storico
+// still sorts by updatedAt and the "Updated" column shows it: bumping it here
+// would show a change the server didn't make. Keep the two lists in sync.
 const NO_TOUCH_FIELDS = new Set(['reperibile'])
 
 // Loose equality for conflict checks: the server normalizes deadline '' → null,
@@ -84,12 +84,15 @@ export default function useTasks() {
 
     lastUpdateRef.current = Date.now()
     const touchesUpdatedAt = !NO_TOUCH_FIELDS.has(field)
+    // A task moved to another section lands on top of it (as on the server).
+    const movesSection = field === 'group' && before && before.group !== value
     setTasks(prev => prev.map(t => (
       t.id === taskId
         ? {
             ...t,
             [field]: value,
             ...(touchesUpdatedAt ? { updatedAt: new Date().toISOString() } : {}),
+            ...(movesSection ? { position: topPosition(prev, value) } : {}),
           }
         : t
     )))
@@ -151,8 +154,11 @@ export default function useTasks() {
       updatedAt: new Date().toISOString(),
     }
 
-    // Optimistic insert
-    setTasks(prev => [newTask, ...prev])
+    // Optimistic insert, on top of the section. The position is not sent:
+    // the server computes its own top (trg_assign_task_position) and the
+    // next fetch aligns it.
+    const position = topPosition(tasksRef.current, activeGroup)
+    setTasks(prev => [{ ...newTask, position }, ...prev])
 
     // Persist to server
     const request = apiFetch(`${API}/tasks`, {
@@ -229,6 +235,7 @@ export default function useTasks() {
       const payload = {
         id: task.id,
         number: task.number,     // same MDxxx as before the deletion
+        position: task.position, // same place in the section
         group: task.group,
         reference: task.reference,
         description: task.description,
@@ -283,6 +290,51 @@ export default function useTasks() {
     })
   }
 
+  // ── Move (drag & drop) ─────────────────────────────────
+  // Puts the task right above beforeId (null = bottom of its section).
+  // Optimistic like every other mutation; on failure the board resyncs from
+  // the server instead of trying to rebuild the previous order locally.
+  const moveTask = (taskId, beforeId) => {
+    const task = tasksRef.current.find(t => t.id === taskId)
+    if (!task) return
+    const order = sectionOrder(tasksRef.current, task.group)
+    const prevBeforeId = order[order.indexOf(taskId) + 1] ?? null
+    if (prevBeforeId === beforeId) return
+
+    lastUpdateRef.current = Date.now()
+    setTasks(prev => moveInSection(prev, taskId, beforeId))
+
+    const post = (target) => apiFetch(`${API}/tasks/${taskId}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ beforeId: target }),
+    })
+    const request = post(beforeId).then(rejectOnHttpError)
+
+    const discard = pushUndo(`spostamento di ${taskLabel(task)}`, async () => {
+      try {
+        await request
+      } catch {
+        return { ok: false, reason: 'lo spostamento non era stato salvato' }
+      }
+      const current = getCurrentTasks()
+      const now = current.find(t => t.id === taskId)
+      if (!now || now.group !== task.group) return { ok: false, reason: 'il task non è più in questa sezione' }
+      const currentOrder = sectionOrder(current, task.group)
+      if ((currentOrder[currentOrder.indexOf(taskId) + 1] ?? null) !== beforeId) {
+        return { ok: false, reason: "l'ordine è stato cambiato nel frattempo" }
+      }
+      const r = await post(prevBeforeId)
+      if (!r.ok) return { ok: false, reason: await apiErrorReason(r) }
+      return { ok: true }
+    })
+    request.catch(err => {
+      console.error('Failed to move task:', err)
+      discard()
+      refetchTasks(true)
+    })
+  }
+
   // Bumps the parent task's subtask counters after a checklist mutation.
   // Avoids a full /api/tasks refetch on every add/toggle/delete.
   const updateSubtaskCounters = (taskId, { totalDelta = 0, openDelta = 0, subtasksText } = {}) => {
@@ -297,5 +349,5 @@ export default function useTasks() {
     ))
   }
 
-  return { tasks, setTasks, updateTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks }
+  return { tasks, setTasks, updateTask, moveTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks }
 }

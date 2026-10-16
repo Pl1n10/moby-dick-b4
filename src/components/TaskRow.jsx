@@ -15,7 +15,7 @@ import Icon from './Icon.jsx'
 // Priority options for the inline select: numeric value, "Px" label.
 const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
 
-export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, showReperibile = true, highlightReperibile = true, expanded = false, onToggleExpand }) {
+export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = false, showDelete = false, showGroup = false, showReperibile = true, highlightReperibile = true, expanded = false, onToggleExpand, dragHandle = null }) {
   const owners = useOwners()
   const idPrefix = useIdPrefix()
   const label = useLabel()
@@ -36,8 +36,8 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   const tb = isP0 ? { borderTop: edge, borderBottom: edge } : null
   const leftEdge = isP0 ? { borderLeft: edge } : null
   const rightEdge = isP0 ? { borderRight: edge } : null
-  // The first cell carries the left edge: the "Rep." checkbox on boards with
-  // the reperibile feature, the ID otherwise. The last cell varies too
+  // The first cell carries the left edge: the drag grip when shown, else the
+  // "Rep." checkbox on boards with the reperibile feature, else the ID. The last cell varies too
   // (actions column only outside Storico).
   const lastCellEdge = showDelete ? null : rightEdge     // applied to Scadenza when no actions col
 
@@ -52,6 +52,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
   const repBar = showReperibileMark
     ? { boxShadow: `inset 3px 0 0 ${S.reperibileAmber}` }
     : null
+  const firstCell = dragHandle ? 'drag' : showReperibile ? 'rep' : 'id'
 
   return (
     <tr style={{
@@ -60,10 +61,29 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       onMouseEnter={e => e.currentTarget.style.background = 'var(--surface)'}
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
+      {/* Drag grip (manual order). Only the grip starts a drag: the rest of
+          the row stays clickable for inline editing. */}
+      {dragHandle && <td style={{ padding: '8px 0 8px 8px', width: '20px', ...tb, ...leftEdge, ...repBar }}>
+        <button
+          type="button"
+          ref={dragHandle.ref}
+          {...dragHandle.attributes}
+          {...(dragHandle.disabled ? {} : dragHandle.listeners)}
+          disabled={dragHandle.disabled}
+          title={dragHandle.hint}
+          aria-label={dragHandle.hint}
+          style={{
+            background: 'none', border: 'none', padding: '2px 0', lineHeight: 1,
+            color: 'var(--faint)', fontSize: '14px', touchAction: 'none',
+            cursor: dragHandle.disabled ? 'not-allowed' : dragHandle.isDragging ? 'grabbing' : 'grab',
+            opacity: dragHandle.disabled ? 0.35 : 1,
+          }}
+        ><Icon name="grip-vertical" /></button>
+      </td>}
       {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
           makes the task appear in the Info Reperibile tab, where it stays the
           same task — edits and closes there apply here too. */}
-      {showReperibile && <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...leftEdge, ...repBar }}>
+      {showReperibile && <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...(firstCell === 'rep' ? { ...leftEdge, ...repBar } : null) }}>
         <input
           type="checkbox"
           checked={task.reperibile === true}
@@ -83,7 +103,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           "…" for the instant between the optimistic insert and the POST reply. */}
       <td style={{
         padding: '8px 10px', fontFamily: S.mono, fontSize: '11px',
-        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb, ...(showReperibile ? null : leftEdge),
+        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb, ...(firstCell === 'id' ? leftEdge : null),
       }}>
         {task.number != null
           ? <Highlight text={formatTaskCode(task.number, idPrefix)} query={search} />
