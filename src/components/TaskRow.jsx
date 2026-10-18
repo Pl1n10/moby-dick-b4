@@ -62,23 +62,19 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
     >
       {/* Drag grip (manual order). Only the grip starts a drag: the rest of
-          the row stays clickable for inline editing. */}
-      {dragHandle && <td style={{ padding: '8px 0 8px 8px', width: '20px', ...tb, ...leftEdge, ...repBar }}>
-        <button
+          the row stays clickable for inline editing. Shown on hover (CSS
+          .task-grip); when reordering is off (filters, no write scope) the
+          cell stays, so columns don't shift, but the grip is not rendered. */}
+      {dragHandle && <td style={{ padding: '4px 0 4px 6px', width: '28px', ...tb, ...leftEdge, ...repBar }}>
+        {!dragHandle.disabled && <button
           type="button"
+          className="task-grip"
           ref={dragHandle.ref}
           {...dragHandle.attributes}
-          {...(dragHandle.disabled ? {} : dragHandle.listeners)}
-          disabled={dragHandle.disabled}
-          title={dragHandle.hint}
-          aria-label={dragHandle.hint}
-          style={{
-            background: 'none', border: 'none', padding: '2px 0', lineHeight: 1,
-            color: 'var(--faint)', fontSize: '14px', touchAction: 'none',
-            cursor: dragHandle.disabled ? 'not-allowed' : dragHandle.isDragging ? 'grabbing' : 'grab',
-            opacity: dragHandle.disabled ? 0.35 : 1,
-          }}
-        ><Icon name="grip-vertical" /></button>
+          {...dragHandle.listeners}
+          title="Trascina per riordinare"
+          aria-label="Trascina per riordinare"
+        ><Icon name="grip-vertical" /></button>}
       </td>}
       {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
           makes the task appear in the Info Reperibile tab, where it stays the

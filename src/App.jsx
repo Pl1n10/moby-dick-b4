@@ -150,7 +150,7 @@ export default function App() {
       : tasks.filter(t => t.group === activeGroup && t.status !== 'Closed').length
   const hasActiveFilters = search || filterStatus || filterOwner || (isCrossPillar && filterGroup)
   // Drag & drop only inside a section, for whoever can write it. With a
-  // filter on, the handle is shown but disabled: dropping between two
+  // filter on, the grips are hidden (column kept): dropping between two
   // visible rows would say nothing about the hidden ones in between.
   const showDragHandle = canAdd
   const canReorder = showDragHandle && !hasActiveFilters

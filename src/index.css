@@ -102,3 +102,49 @@ body {
 ::selection {
   background: var(--selection);
 }
+
+/* Drag grip (manual order). Lives here, not inline, because it is driven by
+   :hover: hidden while the row is at rest, shown when the pointer is on the
+   task (its <tbody>), highlighted when it is on the grip itself. Always shown
+   on touch screens (no hover) and while the grip has keyboard focus. */
+.task-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+tbody:hover .task-grip,
+.task-grip:focus-visible,
+.task-grip[aria-pressed="true"] {
+  opacity: 1;
+}
+.task-grip:hover,
+.task-grip[aria-pressed="true"] {
+  background: var(--surface-hover);
+  color: var(--accent);
+}
+.task-grip[aria-pressed="true"] {
+  cursor: grabbing;
+}
+.task-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+@media (hover: none) {
+  .task-grip { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-grip { transition: none; }
+}

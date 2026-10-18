@@ -69,7 +69,17 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
     ...(isStorico ? [] : [{ key: '_act', text: '' }]),
   ].map(h => (typeof h === 'string' ? { key: h, text: h } : h))
 
+  // With a filter or search on, the grips are hidden: say why once, here,
+  // instead of a tooltip on every row.
+  const reorderPaused = showDragHandle && !canReorder && filteredTasks.length > 1
+
   return (
+    <>
+    {reorderPaused && (
+      <p style={{ margin: '0 0 8px 2px', fontSize: '12px', color: 'var(--muted)', fontFamily: S.sans }}>
+        Per riordinare i task trascinandoli, togli filtri e ricerca.
+      </p>
+    )}
     <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', overflow: 'hidden' }}>
       <DndContext
         sensors={sensors}
@@ -86,7 +96,7 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
                   padding: h.key === '_drag' ? '10px 0 10px 8px' : '10px 14px', textAlign: 'left', fontWeight: 600,
                   fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em',
                   color: 'var(--muted)', borderBottom: '1px solid var(--border-subtle)',
-                  ...(h.key === '_drag' ? { width: '20px' } : null),
+                  ...(h.key === '_drag' ? { width: '28px' } : null),
                 }}>{h.text}</th>
               ))}
             </tr>
@@ -114,7 +124,6 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
                     id={task.id}
                     showDragHandle={showDragHandle}
                     dragDisabled={!canReorder || rowReadOnly}
-                    dragHint={canReorder ? 'Trascina per riordinare' : 'Togli i filtri per riordinare'}
                   >
                     {(dragHandle) => (
                       <>
@@ -154,12 +163,13 @@ export default function TaskTable({ filteredTasks, canWrite, isStorico, showGrou
         </table>
       </DndContext>
     </div>
+    </>
   )
 }
 
 // One task = one <tbody>, moved as a block. Hands the grip props to the row
 // (null when the grip column is not shown at all).
-function SortableTask({ id, showDragHandle, dragDisabled, dragHint, children }) {
+function SortableTask({ id, showDragHandle, dragDisabled, children }) {
   const {
     attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging,
   } = useSortable({ id, disabled: dragDisabled })
@@ -167,14 +177,17 @@ function SortableTask({ id, showDragHandle, dragDisabled, dragHint, children }) 
   const style = {
     transform: CSS.Translate.toString(transform),
     transition,
+    // The lifted task is opaque (the row underneath must not show through)
+    // and outlined in the accent color, so it reads as "in your hand".
     ...(isDragging ? {
       position: 'relative', zIndex: 2,
-      background: 'var(--surface)', boxShadow: '0 4px 16px var(--shadow)', opacity: 0.95,
+      background: 'var(--surface-hover)',
+      boxShadow: '0 0 0 1px var(--accent), 0 8px 24px var(--shadow)',
     } : null),
   }
 
   const dragHandle = showDragHandle
-    ? { ref: setActivatorNodeRef, attributes, listeners, disabled: dragDisabled, hint: dragHint, isDragging }
+    ? { ref: setActivatorNodeRef, attributes, listeners, disabled: dragDisabled }
     : null
 
   return <tbody ref={setNodeRef} style={style}>{children(dragHandle)}</tbody>
