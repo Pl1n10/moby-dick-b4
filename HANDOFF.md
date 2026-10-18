@@ -10,6 +10,8 @@ Stato al 2026-10-18.
 
 **Drag & drop dei task in produzione** (`7cdd572`, Roberto ha confermato il 2026-10-18 che è deployato e funziona). Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Il tag `mauden-prod-2026-10-18` previsto prima del deploy non c'è né in locale né su origin: se è stato creato sulla VM, va pushato da lì.
 
+**2026-10-19, in `main`, da deployare:** export **Excel** (`.xlsx`) al posto del CSV, richiesta del team (dettagli in `AGENTS.md`, Feature UX). Nuova dipendenza npm `write-excel-file`, nessuna migration: procedura standard; il `package.json` cambia, quindi il build rifà `npm install` (più lento, normale). Voce in cima al changelog datata 2026-10-19: se il deploy slitta, correggere la data.
+
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
 **Prossimo, in ordine:**
@@ -24,6 +26,10 @@ Stato al 2026-10-18.
 - **`npm audit`: 9 vulnerabilità (7 high)** nel frontend. Tutte negli strumenti di build (vite ≤6.4.2, rollup, postcss, babel, nanoid, picomatch, source-map-js, browserslist): girano solo nello stage di build dell'immagine nginx. `npm audit --omit=dev` = 0. Fix: `npm audit fix` in un commit a parte, poi build + prova E2E locale.
 - **"legacy builder is deprecated, install buildx"**: NON passare a BuildKit da solo. Con docker-compose v1.29.2 è legato al bug `KeyError: 'ContainerConfig'`. Si fa insieme al passaggio a `docker compose` v2 sulla VM, come lavoro a sé.
 - **Chunk JS > 500 kB** (558 kB, 155 kB gzip). Accettabile per un tool interno con cache del browser. Code-splitting solo se l'apertura diventa lenta.
+
+## Bug latente: date `DATE` del backend dipendono dal fuso del processo Node
+
+Trovato il 2026-10-19 provando l'export Excel sulla devbox. `formatDate()` in `backend/src/routes/tasks.js` (copiata anche in `routes/recurring.js`, `recurring-processor.js` e `notify.js`) fa `d.toISOString().slice(0, 10)` sul `Date` che `pg` costruisce a mezzanotte **locale**: con il processo in un fuso avanti rispetto a UTC (devbox in CEST) una scadenza del 31 esce come 30. **In prod oggi non succede** perché il container `node:20-alpine` gira in UTC; succederebbe impostando `TZ=Europe/Rome`. Fix proposto (non fatto): `pg.types.setTypeParser(1082, v => v)` in `db.js` così le `DATE` arrivano come stringa `YYYY-MM-DD`; verificare `recurring-processor.js` (usa anche `now.toISOString()` per "oggi") e far girare `npm test`. Finché non è fatto, le prove E2E locali con scadenze vanno lanciate con il backend in `TZ=UTC`.
 
 ## Idea futura: autodeploy
 
@@ -171,7 +177,7 @@ Nuova colonna **Priorità** sui task, a sinistra di Status. Scala P0..P5, dove *
 - `src/components/TaskRow.jsx` — cella Priority tra Description e Status. **Evidenza P0 = bordo rosso sul perimetro della riga, disegnato sui lati delle CELLE** (top/bottom su tutte, left sulla prima, right sull'ultima), niente background-fill.
 - `src/components/TaskTable.jsx` — header "Priorità" in entrambe le viste (board + Storico).
 - `src/hooks/useTasks.js` — nuovo task nasce P3 (`DEFAULT_PRIORITY`).
-- `src/utils.js` — colonna "Priorità" (`P0..P5`) nell'export CSV.
+- `src/utils.js` — colonna "Priorità" (`P0..P5`) nell'export CSV (sostituito dall'export Excel il 2026-10-19).
 
 **Decisioni confermate con l'utente**: P0 = solo bordo rosso (no sfondo, per leggibilità) · default P3 · **ordinamento invariato** (`updatedAt desc`, nessun sort per priorità). Filtro priorità in Toolbar NON aggiunto (non richiesto).
 
