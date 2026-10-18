@@ -13,11 +13,21 @@ Stato al 2026-10-18.
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
 **Prossimo, in ordine:**
-0. Far provare drag & drop e Novità a un collega admin e a un operatore. Debito non urgente: `npm audit fix` sul frontend (9 avvisi, tutti negli strumenti di build: 0 nel codice che arriva al browser).
+0. Far provare drag & drop e Novità a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
 3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
 4. VM, non urgente: `sudo apt install ubuntu-pro-client` (unattended-upgrades lo salta per un conffile prompt).
+
+## Avvisi del build in prod (log del deploy 2026-10-18), non urgenti
+
+- **`npm audit`: 9 vulnerabilità (7 high)** nel frontend. Tutte negli strumenti di build (vite ≤6.4.2, rollup, postcss, babel, nanoid, picomatch, source-map-js, browserslist): girano solo nello stage di build dell'immagine nginx. `npm audit --omit=dev` = 0. Fix: `npm audit fix` in un commit a parte, poi build + prova E2E locale.
+- **"legacy builder is deprecated, install buildx"**: NON passare a BuildKit da solo. Con docker-compose v1.29.2 è legato al bug `KeyError: 'ContainerConfig'`. Si fa insieme al passaggio a `docker compose` v2 sulla VM, come lavoro a sé.
+- **Chunk JS > 500 kB** (558 kB, 155 kB gzip). Accettabile per un tool interno con cache del browser. Code-splitting solo se l'apertura diventa lenta.
+
+## Idea futura: autodeploy
+
+Discusso il 2026-10-18, non deciso. Vincoli: la VM sta nella rete Mauden (GitHub non la raggiunge, lei raggiunge GitHub), il repo è pubblico, le migration girano al boot dell'API. Proposta: **pull dalla VM, innescato da un tag `mauden-prod-*`** (non da ogni push su `main`): timer systemd che fa `git fetch --tags`, se c'è un tag nuovo fa dump del DB → checkout del tag → procedura standard → controllo `/api/health` → in caso di errore torna al tag precedente. Scartati: runner GitHub self-hosted (su repo pubblico esegue codice di chiunque apra una PR), Actions via SSH (porta in ingresso dalla rete Mauden).
 
 Sul terminale della VM i comandi incollati arrivano a volte storpiati (`git -C` → `gito-Cn`): dare comandi brevi, uno per riga, senza testo attorno.
 
