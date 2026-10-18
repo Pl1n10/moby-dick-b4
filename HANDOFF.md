@@ -1,6 +1,6 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-10-16.
+Stato al 2026-10-18.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
@@ -8,10 +8,10 @@ Stato al 2026-10-16.
 
 **Multi-lavagna in produzione dal 2026-10-10** (step 5c/5d/5e chiusi: esito nella sezione "Multi-tenant"). Il 2026-10-10 è stato deployato anche `759647b` (004 senza l'admin fantasma `alessio.coletta@`, già cancellato da Roberto dalla console: non torna più). Prod = `main` = `759647b`; il tag `mauden-prod-2026-10-10` resta su `0fddd0a` (stesso schema, differenza solo nel seed della 004).
 
-**Drag & drop dei task (2026-10-16), in `main`, NON ancora in produzione.** Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Contiene la migration 015: prima del deploy, dump + tag `mauden-prod-YYYY-MM-DD` sullo stato attuale (prassi). Backfill provato sul dump del 2026-10-10: ordine identico.
+**Drag & drop dei task (2026-10-16), in `main` e pushato su GitHub il 2026-10-18 (`7cdd572`), NON ancora in produzione: deploy imminente (Roberto, 2026-10-18).** Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Contiene la migration 015: prima del deploy, dump + tag `mauden-prod-YYYY-MM-DD` sullo stato attuale (prassi). Backfill provato sul dump del 2026-10-10: ordine identico.
 
 **Prossimo, in ordine:**
-0. Deploy del drag & drop (dump → tag → procedura standard), poi far provare a un collega admin e a un operatore.
+0. Deploy del drag & drop: sulla VM dump (`~/moby-2026-10-18.sql.gz`) → tag `mauden-prod-2026-10-18` sull'HEAD attuale (`759647b`) **prima** del pull, poi push del tag → procedura standard. Dopo: aggiornare qui e in `AGENTS.md` ("Tag di produzione", prod = `7cdd572`), far provare a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
 3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
