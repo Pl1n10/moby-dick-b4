@@ -165,7 +165,7 @@ export default function Toolbar({
       <button
         onClick={onExport}
         disabled={filteredCount === 0}
-        title={filteredCount === 0 ? 'Nessun task da esportare' : `Esporta ${filteredCount} task in CSV`}
+        title={filteredCount === 0 ? 'Nessun task da esportare' : `Esporta ${filteredCount} task in Excel`}
         style={{
           padding: '7px 12px', background: 'none', border: '1px solid var(--border)',
           borderRadius: '6px',
@@ -184,7 +184,7 @@ export default function Toolbar({
           e.currentTarget.style.borderColor = 'var(--border)'
           e.currentTarget.style.color = 'var(--muted)'
         }}
-      ><Icon name="download" style={{ marginRight: '6px' }} />Export CSV</button>
+      ><Icon name="file-earmark-excel" style={{ marginRight: '6px' }} />Export Excel</button>
       {!isStorico && canAdd && (
         <button onClick={onAdd} style={{
           padding: '7px 16px', background: 'var(--success-strong)', border: '1px solid var(--success)',

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { exportTasksToCsv, formatTaskCode, compareByPosition } from './utils.js'
+import { formatTaskCode, compareByPosition } from './utils.js'
 import useTasks from './hooks/useTasks.js'
 import useRecurring from './hooks/useRecurring.js'
 import useOnCall from './hooks/useOnCall.js'
@@ -178,11 +178,12 @@ export default function App() {
           filteredCount={filteredTasks.length} totalCount={totalGroupTasks}
           recurring={recurring} onOpenRecurring={() => setShowRecurringModal(true)}
           onAdd={() => handleAdd(activeGroup, clearFilters, defaultOwner)}
-          onExport={() => exportTasksToCsv(
+          // Loaded on click: the xlsx writer stays out of the main bundle.
+          onExport={() => import('./exportXlsx.js').then(m => m.exportTasksToXlsx(
             filteredTasks,
-            isStorico ? 'storico' : isReperibile ? 'reperibile' : activeGroup,
+            isStorico ? 'Storico' : isReperibile ? 'Info Reperibile' : activeGroup,
             { prefix: idPrefix, referenceLabel: label('reference', 'Riferimento'), reperibile: hasReperibile, slug },
-          )}
+          )).catch(err => console.error('Excel export failed', err))}
           canAdd={canAdd}
           showUndo={canWriteAnything}
           canUndo={undoState.canUndo}

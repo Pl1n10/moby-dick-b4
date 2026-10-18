@@ -11,6 +11,12 @@
 // viewer opened, so a new entry must go on top with a later date.
 export const CHANGELOG = [
   {
+    date: '2026-10-19',
+    items: [
+      { type: 'improved', text: 'L\'export ora è un file Excel al posto del CSV: si apre direttamente, con le intestazioni fisse, i colori degli stati e le date vere, che puoi ordinare e filtrare.' },
+    ],
+  },
+  {
     date: '2026-10-18',
     items: [
       { type: 'new', text: 'Riordina i task trascinandoli: passa sul task e afferra la maniglia che compare a sinistra. L\'ordine è lo stesso per tutti e una modifica non sposta più la riga in cima.' },
