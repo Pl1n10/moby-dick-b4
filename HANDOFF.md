@@ -10,10 +10,10 @@ Stato al 2026-10-18.
 
 **Drag & drop dei task in produzione** (`7cdd572`, Roberto ha confermato il 2026-10-18 che è deployato e funziona). Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Il tag `mauden-prod-2026-10-18` previsto prima del deploy non c'è né in locale né su origin: se è stato creato sulla VM, va pushato da lì.
 
-**2026-10-18, in `main`, da deployare:** maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Nessuna migration: basta la procedura standard, niente dump. La prima voce del changelog è datata 2026-10-18: se il deploy slitta, correggere la data.
+**In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
 **Prossimo, in ordine:**
-0. Deploy di maniglia + Novità (procedura standard). Dopo: tag `mauden-prod-YYYY-MM-DD` sul commit deployato, aggiornare "Tag di produzione" in `AGENTS.md`.
+0. Far provare drag & drop e Novità a un collega admin e a un operatore. Debito non urgente: `npm audit fix` sul frontend (9 avvisi, tutti negli strumenti di build: 0 nel codice che arriva al browser).
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
 3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
@@ -24,9 +24,9 @@ Sul terminale della VM i comandi incollati arrivano a volte storpiati (`git -C` 
 ## Stato git
 
 - `main` = `feat/light-mode` (fast-forward del 2026-10-08) = produzione, multi-lavagna inclusa. Si lavora su `main` o su un branch nuovo.
-- Ultimo commit: questo aggiornamento; codice in prod = `7cdd572` (drag & drop)
+- Ultimo commit: questo aggiornamento; codice in prod = `a78a6ad` (tag `mauden-prod-2026-10-18`)
 - Working tree: clean
-- Tag annotato **`mauden-prod-2026-10-10` → `0fddd0a`** = stato in produzione dal 2026-10-10 (multi-lavagna + tema chiaro + Bootstrap Icons). Rollback: tag **`mauden-prod-2026-10-07` → `54ea5cd`** + restore del dump `~/backups/kanbanops/moby-2026-10-10.sql.gz` (devbox; copia anche in `~mauden/` sulla VM), fatto subito prima del deploy. Precedente ancora: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
+- Tag annotato **`mauden-prod-2026-10-18` → `a78a6ad`** = produzione attuale (drag & drop + Novità). Prima: **`mauden-prod-2026-10-10` → `0fddd0a`** = stato in produzione dal 2026-10-10 (multi-lavagna + tema chiaro + Bootstrap Icons). Rollback: tag **`mauden-prod-2026-10-07` → `54ea5cd`** + restore del dump `~/backups/kanbanops/moby-2026-10-10.sql.gz` (devbox; copia anche in `~mauden/` sulla VM), fatto subito prima del deploy. Precedente ancora: `mauden-prod-2026-06-04` → `81c68c3` ( priorità task P0–P5 + **notifiche di assegnazione ATTIVE**, webhook configurato sulla VM). Spinto su origin. Tag precedenti conservati come ancore di rollback: `mauden-prod-2026-06-03` → `e9c80d9` (notifiche con webhook OFF), `mauden-prod-2026-05-19` → `ade7da1` (pre-easter-egg). Vedi sezione "Strategia evoluzione" qui sotto per il piano completo.
 
 ## Step completati in questa sessione (cronologico)
 
