@@ -46,12 +46,14 @@ docker compose down         # Stop all services
 │   ├── main.jsx                  # ReactDOM.createRoot, StrictMode
 │   ├── App.jsx                   # Root component (~90 lines, orchestrates everything)
 │   ├── data.js                   # Constants: GROUPS, STATUSES, OWNERS, FREQUENCIES
+│   ├── changelog.js              # Voci della finestra "Novità" (vedi sezione "Changelog")
 │   ├── styles.js                 # Centralized style object S (palette, fonts, inputs)
 │   ├── utils.js                  # Shared utilities
 │   ├── index.css                 # Minimal global reset
 │   ├── components/
 │   │   ├── Header.jsx
-│   │   ├── Footer.jsx            # Version + easter egg trigger (7-tap on v1.0)
+│   │   ├── Footer.jsx            # Version + easter egg trigger (7-tap on v1.0) + link "Novità"
+│   │   ├── ChangelogModal.jsx    # Finestra "Novità di KanbanOps"
 │   │   ├── BitAdder.jsx          # Hidden clicker drawer (Bit Adder game)
 │   │   ├── TabNav.jsx
 │   │   ├── Toolbar.jsx
@@ -245,6 +247,15 @@ Header shows "Auth: OFF (Demo)" badge. Future Azure AD integration planned.
 - `src/components/BitAdder.jsx`
 - `src/components/Footer.jsx` (trigger + drawer host)
 
+## Changelog ("Novità")
+
+Link **Novità** nel footer, accanto a "KanbanOps v1.0", che apre la finestra con le novità per data (dal 2026-10-18).
+
+- **Regola: ogni `feat:` (o `fix:`) che un utente nota aggiunge una voce in `src/changelog.js` nello stesso commit.** Il changelog non si genera dai commit: le voci sono scritte in italiano dal punto di vista di chi usa la board ("Ora puoi…"), niente nomi tecnici, niente easter egg.
+- Una voce per deploy in prod, datata come il deploy (stessa data del tag `mauden-prod-YYYY-MM-DD`); se il deploy slitta, si corregge la data. Più recenti in cima. Tipi: `new` (Nuovo), `improved` (Migliorato), `fixed` (Corretto).
+- **Pallino "non lette"**: compare finché l'utente non apre la finestra dopo la voce più recente (`localStorage` `kanbanops:changelogSeen` = data della prima voce, per browser). Per questo una voce nuova va **in cima con una data più recente**, altrimenti il pallino non si riaccende.
+- "KanbanOps v1.0" resta uno `span` col trigger dei 7 tap del Bit Adder: il link sta accanto, mai sopra.
+
 ## Undo per-utente
 
 Annulla **l'ultima azione fatta dall'utente in questa tab**, non un rollback globale della board. Trigger: bottone "↶ Annulla" in Toolbar (tooltip = descrizione dell'azione, nascosto ai viewer puri) oppure Ctrl+Z / Cmd+Z (ignorato mentre si scrive in un campo di testo — lì resta l'undo nativo; checkbox/radio/button NON contano come campi di testo, così la spunta sbagliata si annulla anche col focus ancora sulla checkbox).
@@ -266,8 +277,8 @@ Richiesta del team (2026-10-16): riordinare i task trascinandoli, "stile Jira". 
 - **Task nuovi in cima**: trigger `trg_assign_task_position` (MIN della sezione − 1) su ogni INSERT senza `position`, quindi vale anche per i ricorrenti. Un task spostato in un'altra sezione (PATCH `group`) finisce in cima a quella.
 - **Spostamento**: `POST /tasks/:id/move {beforeId}` rinumera la sezione 0..n-1 in una transazione con lock sulla riga della lavagna (due drag contemporanei si serializzano). Include i task chiusi, che restano nella sequenza ma non si vedono. **Non** tocca `updated_at`. Specchio client: `moveInSection` in `src/utils.js` (stesso tie-break: `position`, `updatedAt desc`, `id`).
 - **Ordine condiviso**, uguale per tutti. Trascina chi ha scrittura sulla sezione (admin, operatori); per gli altri la maniglia non c'è.
-- **Dove**: solo nelle tab di sezione. Con un filtro o una ricerca attiva la maniglia resta ma è disabilitata (lasciare un task fra due righe visibili non dice dove va rispetto a quelle nascoste). Storico resta per `updatedAt desc`; Info Reperibile mostra le sezioni nell'ordine della lavagna, ciascuna col suo ordine manuale.
-- **UI**: `@dnd-kit` (core/sortable/modifiers, versioni esatte). Ogni task è un suo `<tbody>` (riga + checklist aperta), così la checklist si sposta col task. Maniglia `grip-vertical` come prima colonna; solo lei avvia il drag (il resto della riga resta editabile). Funziona anche da tastiera (spazio, frecce, spazio). Collisioni `closestCorners`: con `closestCenter` un task con la checklist aperta (più alto) trascinato in cima finiva secondo.
+- **Dove**: solo nelle tab di sezione. Con un filtro o una ricerca attiva la maniglia sparisce, perché lasciare un task fra due righe visibili non dice dove va rispetto a quelle nascoste; la colonna resta (niente salti) e una riga sopra la tabella spiega perché. Storico resta per `updatedAt desc`; Info Reperibile mostra le sezioni nell'ordine della lavagna, ciascuna col suo ordine manuale.
+- **UI**: `@dnd-kit` (core/sortable/modifiers, versioni esatte). Ogni task è un suo `<tbody>` (riga + checklist aperta), così la checklist si sposta col task. Maniglia `grip-vertical` come prima colonna, visibile solo al passaggio sul task (classe `.task-grip` in `index.css`, perché serve `:hover`; sempre visibile su touch e col focus da tastiera); solo lei avvia il drag (il resto della riga resta editabile). Funziona anche da tastiera (spazio, frecce, spazio). Collisioni `closestCorners`: con `closestCenter` un task con la checklist aperta (più alto) trascinato in cima finiva secondo.
 - **Undo**: Ctrl+Z riporta il task sopra il vicino di prima; saltato se nel frattempo l'ordine attorno è cambiato. Il restore di un task cancellato lo rimette alla sua `position`.
 
 ## Info Reperibile
