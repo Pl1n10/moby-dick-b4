@@ -10,6 +10,8 @@ Stato al 2026-10-18.
 
 **Drag & drop dei task in produzione** (`7cdd572`, Roberto ha confermato il 2026-10-18 che è deployato e funziona). Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Il tag `mauden-prod-2026-10-18` previsto prima del deploy non c'è né in locale né su origin: se è stato creato sulla VM, va pushato da lì.
 
+**Deploy con `engage` (2026-10-19):** `scripts/engage` fa pull + dump + build + riavvio + health check in un comando (dettagli in `AGENTS.md`, "Operations & deploy strategy"). Installazione sulla VM, una volta: pull a mano, poi `sudo ln -sf /opt/moby-dick-b4/scripts/engage /usr/local/bin/engage`. Al primo lancio non trova `~/.kanbanops-engaged` e deploya comunque.
+
 **2026-10-19, in `main`, da deployare:** export **Excel** (`.xlsx`) al posto del CSV, richiesta del team (dettagli in `AGENTS.md`, Feature UX). Nuova dipendenza npm `write-excel-file`, nessuna migration: procedura standard; il `package.json` cambia, quindi il build rifà `npm install` (più lento, normale). Voce in cima al changelog datata 2026-10-19: se il deploy slitta, correggere la data.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.

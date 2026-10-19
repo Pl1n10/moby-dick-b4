@@ -355,6 +355,7 @@ Payload inviato al webhook:
 
 ## Operations & deploy strategy
 
+- **Deploy in un comando: `engage`** (dal 2026-10-19). `scripts/engage`, linkato sulla VM in `/usr/local/bin/engage`: controlla che il checkout sia su `main` e pulito → `git pull --ff-only` → **dump del DB** in `~/backups/kanbanops/` (tiene gli ultimi 20) → procedura qui sotto → aspetta `/api/health` (90 s) → salva il commit deployato in `~/.kanbanops-engaged`. Se main non ha niente di nuovo non fa nulla (`engage --force` per ricostruire comunque). Non fa mai rollback da solo: se l'API non risponde stampa i comandi per tornare al commit precedente (più il restore del dump se c'era una migration), e finché il checkout resta fermo su quel commit `engage` si rifiuta di partire. Tutto il corpo sta in `main()` chiamata all'ultima riga, perché il `git pull` può riscrivere lo script mentre bash lo sta leggendo: non togliere questa struttura. La procedura manuale qui sotto resta valida ed è quella che lo script esegue.
 - **Deploy in produzione**: VM `mauden-ubuntu` con `docker-compose` v1.29.2 (con trattino, NON `docker compose`). `docker compose up -d --build` sulla VM fallisce con `unknown shorthand flag: 'd' in -d` perché il plugin Compose v2 non è installato. Procedura standard per applicare modifiche di codice o `.env`:
   ```bash
   cd /opt/moby-dick-b4

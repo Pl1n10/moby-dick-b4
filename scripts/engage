@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# engage — deploy KanbanOps on the production VM with one word.
+#
+#   engage           pull main, dump the DB, rebuild, restart, wait for health
+#   engage --force   same, even when main has nothing new since the last deploy
+#
+# Install once on the VM (the script then updates itself with every pull):
+#   sudo ln -sf /opt/moby-dick-b4/scripts/engage /usr/local/bin/engage
+#
+# It is the standard procedure from AGENTS.md ("Operations & deploy
+# strategy"), docker-compose v1 included, plus a DB dump before every deploy
+# and a health check at the end. It never rolls back on its own: with a
+# migration in between that needs a human (it prints the commands). Refuses
+# to run while the checkout is parked on a commit (after a rollback).
+#
+# Everything lives in main(), called on the last line: `git pull` may rewrite
+# this very file while bash is still reading it.
+
+set -euo pipefail
+
+main() {
+  local repo backups state health_url force=0
+  repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+  backups="${ENGAGE_BACKUP_DIR:-$HOME/backups/kanbanops}"
+  state="${ENGAGE_STATE_FILE:-$HOME/.kanbanops-engaged}"   # last deployed commit
+  health_url="${ENGAGE_HEALTH_URL:-http://localhost/api/health}"
+
+  case "${1:-}" in
+    --force) force=1 ;;
+    "") ;;
+    *) echo "Uso: engage [--force]" >&2; exit 2 ;;
+  esac
+
+  cd "$repo"
+
+  if ! git symbolic-ref -q HEAD > /dev/null; then
+    echo "✗ Il repo è fermo su un commit fisso (rollback?), non su main." >&2
+    echo "  Per riprendere i deploy normali: git -C $repo checkout main" >&2
+    exit 1
+  fi
+
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "✗ Ci sono modifiche locali in $repo: il pull le travolgerebbe." >&2
+    git status --short --untracked-files=no >&2
+    exit 1
+  fi
+
+  local deployed new
+  deployed="$(cat "$state" 2>/dev/null || true)"
+
+  say "Contatto GitHub…"
+  git pull --ff-only --quiet origin main
+  new="$(git rev-parse HEAD)"
+
+  if [ "$deployed" = "$new" ] && [ "$force" = 0 ]; then
+    say "Niente di nuovo: in produzione c'è già $(git log -1 --format='%h %s')."
+    say "Per ricostruire comunque: engage --force"
+    exit 0
+  fi
+
+  if [ -n "$deployed" ] && git cat-file -e "$deployed^{commit}" 2>/dev/null; then
+    say "Rotta impostata: ${deployed:0:7} → ${new:0:7}"
+    git log --oneline "$deployed..$new" | sed 's/^/    /'
+    if [ -n "$(git diff --name-only "$deployed" "$new" -- backend/migrations)" ]; then
+      say "⚠ Contiene migration: il dump qui sotto è l'ancora per tornare indietro."
+    fi
+  else
+    say "Rotta impostata: ${new:0:7} ($(git log -1 --format=%s))"
+  fi
+
+  # Dump first: if it fails, nothing has been touched yet.
+  local dump
+  mkdir -p "$backups"
+  dump="$backups/moby-$(date +%Y-%m-%d-%H%M)-${new:0:7}.sql.gz"
+  say "Dump del database → $dump"
+  docker exec moby-db pg_dump -U moby moby | gzip > "$dump"
+  if [ "$(gzip -dc "$dump" 2>/dev/null | head -c 1000 | wc -c)" -lt 1000 ]; then
+    echo "✗ Dump vuoto o troppo piccolo, mi fermo prima di toccare i container." >&2
+    exit 1
+  fi
+  # Keep the 20 most recent dumps (names are ours, ls is fine).
+  # shellcheck disable=SC2012
+  ls -1t "$backups"/moby-*.sql.gz 2>/dev/null | tail -n +21 | xargs -r rm -f
+
+  say "Build delle immagini…"
+  docker-compose build --quiet
+
+  say "Riavvio api e nginx…"
+  # Remove, then up: `up -d --build` hits KeyError 'ContainerConfig' on v1.29.2.
+  docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f > /dev/null
+  docker-compose up -d
+
+  say "Attendo che l'API risponda…"
+
+  for _ in $(seq 1 45); do
+    if curl -fsS --max-time 3 "$health_url" > /dev/null 2>&1; then
+      echo "$new" > "$state"
+      say "✓ Engage. KanbanOps è a $(git log -1 --format='%h %s')."
+      say "  Nel browser: Ctrl+F5. Se va tutto bene, tagga mauden-prod-$(date +%Y-%m-%d)."
+      exit 0
+    fi
+    sleep 2
+  done
+
+  echo "✗ Dopo 90 secondi l'API non risponde su $health_url." >&2
+  echo "  Log:       docker logs --tail 50 moby-api" >&2
+  if [ -n "$deployed" ]; then
+    echo "  Per tornare a ${deployed:0:7} (poi, a problema risolto: git checkout main):" >&2
+    echo "    cd $repo" >&2
+    echo "    git checkout ${deployed:0:7}" >&2
+    echo "    docker-compose build" >&2
+    echo "    docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f" >&2
+    echo "    docker-compose up -d" >&2
+    echo "  Con una migration di mezzo serve anche il restore di $dump" >&2
+  fi
+  exit 1
+}
+
+say() { printf '\033[1;36m»\033[0m %s\n' "$*"; }
+
+main "$@"
