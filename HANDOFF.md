@@ -10,16 +10,16 @@ Stato al 2026-10-30.
 
 **Drag & drop dei task in produzione** (`7cdd572`, Roberto ha confermato il 2026-10-18 che è deployato e funziona). Richiesta del team: riordinare i task trascinandoli, stile Jira. Una modifica non sposta più la riga (decisione di Roberto). Dettagli in `AGENTS.md`, "Ordine manuale". Il tag `mauden-prod-2026-10-18` previsto prima del deploy non c'è né in locale né su origin: se è stato creato sulla VM, va pushato da lì.
 
-**Deploy con `engage` (2026-10-19):** `scripts/engage` fa pull + dump + build + riavvio + health check in un comando (dettagli in `AGENTS.md`, "Operations & deploy strategy"). Installazione sulla VM, una volta: pull a mano, poi `sudo ln -sf /opt/moby-dick-b4/scripts/engage /usr/local/bin/engage`. Al primo lancio non trova `~/.kanbanops-engaged` e deploya comunque.
+**Deploy con `engage` (2026-10-19)** — ⚠️ al 2026-10-30 **non ancora installato sulla VM** (`engage: command not found`) e la VM non ha ancora fatto pull di `2f1a5aa`/Excel: `scripts/engage` fa pull + dump + build + riavvio + health check in un comando (dettagli in `AGENTS.md`, "Operations & deploy strategy"). Installazione sulla VM, una volta: pull a mano, poi `sudo ln -sf /opt/moby-dick-b4/scripts/engage /usr/local/bin/engage`. Al primo lancio non trova `~/.kanbanops-engaged` e deploya comunque.
 
 **2026-10-19, in `main`, da deployare:** export **Excel** (`.xlsx`) al posto del CSV, richiesta del team (dettagli in `AGENTS.md`, Feature UX). Nuova dipendenza npm `write-excel-file`, nessuna migration: procedura standard; il `package.json` cambia, quindi il build rifà `npm install` (più lento, normale). Voce in cima al changelog datata 2026-10-19: se il deploy slitta, correggere la data.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
-**⚠️ 2026-10-30 — cambio di tenant Entra (BLOCCANTE).** Mauden è passata a un tenant Entra nuovo: la registrazione dell'app va rifatta da zero dall'IT, e finché non è fatta e configurata sulla VM il login non funziona. Procedura da mandare all'IT e passi lato VM nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
+**⚠️ 2026-10-30 — cambio di tenant Entra, in corso.** Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), provata da Roberto il 2026-10-30. **Si aspetta dall'IT l'Application ID definitivo.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
 
 **Prossimo, in ordine:**
--1. **Migrazione tenant Entra** (sezione dedicata): richiesta all'IT → `.env` → `engage --force` → verifica UPN/email utenti → Flow notifiche.
+-1. **Migrazione tenant Entra** (sezione dedicata): arriva l'Application ID definitivo → un `sed` sul client ID nel `.env` → rebuild → verifica UPN/email utenti → Flow notifiche.
 0. Far provare drag & drop e Novità a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
@@ -27,6 +27,23 @@ Stato al 2026-10-30.
 4. VM, non urgente: `sudo apt install ubuntu-pro-client` (unattended-upgrades lo salta per un conffile prompt).
 
 ## Migrazione a un nuovo tenant Entra (aperta dal 2026-10-30)
+
+**Fatto il 2026-10-30** (VM `mauden-ubuntu`, a mano, **senza `git pull`**: il codice in prod è rimasto quello di prima, cambia solo l'auth):
+- backup del `.env` vecchio in `/opt/moby-dick-b4/.env.bak-2026-10-30` (tenant `3c187334-…`, client `7e8814ac-…`: è il rollback);
+- nel `.env`: `AZURE_TENANT_ID`/`VITE_AZURE_TENANT_ID` = `dd29478d-…`, `AZURE_CLIENT_ID`/`VITE_AZURE_CLIENT_ID` = `0176faf1-…` (TEST), `AZURE_API_AUDIENCE=api://0176faf1-…`, `VITE_AZURE_API_SCOPE=api://0176faf1-…/access_as_user`; redirect URI invariato;
+- dump `~/moby-2026-10-30.sql.gz` sulla VM, poi procedura manuale (build → rm api/nginx → up -d): tre container su, api healthy. Login provato da Roberto: ok.
+- Niente client secret: la SPA usa auth code + PKCE e il backend valida i token con le chiavi pubbliche JWKS. Servono solo tenant ID e client ID.
+
+**Quando arriva l'Application ID definitivo** (`<NEW>`), sulla VM in `/opt/moby-dick-b4`, un comando per riga (il terminale spezza le righe lunghe incollate insieme):
+```
+cp .env .env.bak-test-app
+sed -i "s|0176faf1-1569-4229-a3ed-0078fb5aa1d2|<NEW>|" .env && grep AZURE .env
+docker exec moby-db pg_dump -U moby moby | gzip > ~/moby-<data>.sql.gz
+docker-compose build
+docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
+docker-compose up -d
+```
+Il tenant non cambia più. Prima di farlo, chiedere all'IT che la registrazione definitiva abbia lo stesso setup della procedura qui sotto (SPA, `access_as_user`, admin consent, optional claims). Poi: aggiornare "Entra ID — Stato" in `AGENTS.md`, togliere il blocco ⚠️ in Ripresa, e chiedere all'IT di cancellare la registrazione di test.
 
 Il testo mandato all'IT a maggio non è stato conservato: questa è la versione ricostruita dal codice (`src/auth/authConfig.js`, `backend/src/auth.js`), cioè quello che l'app si aspetta davvero.
 
