@@ -1,6 +1,6 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-10-18.
+Stato al 2026-10-30.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
@@ -16,12 +16,39 @@ Stato al 2026-10-18.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
+**⚠️ 2026-10-30 — cambio di tenant Entra (BLOCCANTE).** Mauden è passata a un tenant Entra nuovo: la registrazione dell'app va rifatta da zero dall'IT, e finché non è fatta e configurata sulla VM il login non funziona. Procedura da mandare all'IT e passi lato VM nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
+
 **Prossimo, in ordine:**
+-1. **Migrazione tenant Entra** (sezione dedicata): richiesta all'IT → `.env` → `engage --force` → verifica UPN/email utenti → Flow notifiche.
 0. Far provare drag & drop e Novità a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
 3. **5g** — qualche settimana dopo, togliere le route legacy da `app.js`.
 4. VM, non urgente: `sudo apt install ubuntu-pro-client` (unattended-upgrades lo salta per un conffile prompt).
+
+## Migrazione a un nuovo tenant Entra (aperta dal 2026-10-30)
+
+Il testo mandato all'IT a maggio non è stato conservato: questa è la versione ricostruita dal codice (`src/auth/authConfig.js`, `backend/src/auth.js`), cioè quello che l'app si aspetta davvero.
+
+**Richiesta all'IT** (Entra ID → App registrations):
+1. *New registration*: nome `KanbanOps`, **single tenant**, redirect URI piattaforma **SPA** `https://kanbanops.mauden.com` (non *Web*: con Web MSAL fallisce).
+2. *Authentication*: implicit grant spento (si usa auth code + PKCE).
+3. *Expose an API*: Application ID URI = `api://<client-id>` (default); scope `access_as_user`, consenso *Admins and users*, Enabled. Consigliato: *Authorized client applications* = client ID della stessa app con lo scope spuntato (niente prompt di consenso).
+4. *API permissions*: Graph delegated `openid`, `profile`, `email`, `User.Read` + My APIs → `access_as_user`; **Grant admin consent**.
+5. *Token configuration*: optional claims `email` e `upn` su token **ID** e **Access**.
+6. Manifest invariato (il backend accetta issuer v1 e v2). Nessun client secret.
+7. Da farsi restituire: **Directory (tenant) ID** e **Application (client) ID**.
+
+**Lato VM** (`/opt/moby-dick-b4/.env`):
+- `AZURE_TENANT_ID` / `VITE_AZURE_TENANT_ID` = tenant; `AZURE_CLIENT_ID` / `VITE_AZURE_CLIENT_ID` = client; `AZURE_API_AUDIENCE=api://<client>`; `VITE_AZURE_API_SCOPE=api://<client>/access_as_user`.
+- Verificare **prima** il tenant ID con `https://login.microsoftonline.com/<dominio>/v2.0/.well-known/openid-configuration` (a maggio l'IT aveva passato un GUID sbagliato).
+- `engage --force`: le `VITE_*` sono build arg di nginx, serve il rebuild anche senza commit nuovi.
+
+**Rischi oltre al login:**
+- **Identità = email** (`preferred_username`/`upn`): se nel nuovo tenant le UPN restano `nome.cognome@mauden.com` membership, ruoli, super admin e Bit Adder restano validi. Se cambiano, tutti rientrano come viewer nuovi e `users`/`memberships`/`bit_adder` vanno rimappati (UPDATE delle email, dopo un dump). **Chiedere all'IT.**
+- **Notifiche**: il Flow Power Automate sta nel tenant vecchio. Se viene dismesso, il Flow va ricreato nel nuovo (procedura in `AGENTS.md`, "Notifiche di assegnazione": trigger Teams webhook, nessuna Premium, Condition `@mauden.com`) e aggiornato `NOTIFY_WEBHOOK_URL`. Se cambia il dominio mail, rivedere anche la Condition.
+- Hostname invariato → nessun lavoro sul reverse proxy.
+- Dopo: aggiornare in `AGENTS.md` la sezione "Entra ID — Stato" (tenant ID, client ID, data).
 
 ## Avvisi del build in prod (log del deploy 2026-10-18), non urgenti
 
