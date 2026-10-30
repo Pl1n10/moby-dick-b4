@@ -16,10 +16,10 @@ Stato al 2026-10-30.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
-**⚠️ 2026-10-30 — cambio di tenant Entra, in corso.** Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), provata da Roberto il 2026-10-30. **Si aspetta dall'IT l'Application ID definitivo.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
+**⚠️ 2026-10-30 — cambio di tenant Entra, in corso.** Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), **il login Microsoft funziona ma l'app è inutilizzabile (401 su tutte le API)**: la registrazione di test non ha *Expose an API*, quindi Entra rifiuta il token per l'API con `AADSTS500011`. Risposta dell'IT (2026-10-30): non sistemano quella di test, **creano un'app dedicata. Si aspetta il suo Application ID.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
 
 **Prossimo, in ordine:**
--1. **Migrazione tenant Entra** (sezione dedicata): arriva l'Application ID definitivo → un `sed` sul client ID nel `.env` → rebuild → verifica UPN/email utenti → Flow notifiche.
+-1. **Migrazione tenant Entra** (sezione dedicata, ⚠️ prod in 401 nel frattempo): arriva l'Application ID dell'app dedicata → un `sed` sul client ID nel `.env` → rebuild → verifica UPN/email utenti → Flow notifiche.
 0. Far provare drag & drop e Novità a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.
@@ -31,7 +31,14 @@ Stato al 2026-10-30.
 **Fatto il 2026-10-30** (VM `mauden-ubuntu`, a mano, **senza `git pull`**: il codice in prod è rimasto quello di prima, cambia solo l'auth):
 - backup del `.env` vecchio in `/opt/moby-dick-b4/.env.bak-2026-10-30` (tenant `3c187334-…`, client `7e8814ac-…`: è il rollback);
 - nel `.env`: `AZURE_TENANT_ID`/`VITE_AZURE_TENANT_ID` = `dd29478d-…`, `AZURE_CLIENT_ID`/`VITE_AZURE_CLIENT_ID` = `0176faf1-…` (TEST), `AZURE_API_AUDIENCE=api://0176faf1-…`, `VITE_AZURE_API_SCOPE=api://0176faf1-…/access_as_user`; redirect URI invariato;
-- dump `~/moby-2026-10-30.sql.gz` sulla VM, poi procedura manuale (build → rm api/nginx → up -d): tre container su, api healthy. Login provato da Roberto: ok.
+- dump `~/moby-2026-10-30.sql.gz` sulla VM, poi procedura manuale (build → rm api/nginx → up -d): tre container su, api healthy.
+- **Esito: login Microsoft ok, ma board in 401** ("Impossibile caricare le lavagne: HTTP 401", chooser vuoto). Diagnosi:
+  - log di `moby-api` senza errori JWT: il browser non mandava proprio il bearer (`apiFetch` in caso di errore manda la richiesta senza token, e il backend non logga "Missing bearer token");
+  - scope compilato nel bundle nginx corretto (`api://0176faf1-…/access_as_user`);
+  - in sessionStorage solo ID token + access token Graph, nessun token per l'API;
+  - console del browser: `AADSTS500011: The resource principal named api://0176faf1-… was not found in the tenant dd29478d-…` → sulla registrazione di test manca *Expose an API* (Application ID URI + scope). Problema lato Entra, non della VM.
+- Su richiesta dell'IT confermato che **l'app identifica gli utenti per mail** (`preferred_username` → `upn` → `email`, `backend/src/auth.js:73`), non per object ID: l'`oid` non è salvato da nessuna parte. Chiesto all'IT che `preferred_username` resti `nome.cognome@mauden.com`.
+- **La prod resta in 401 finché non arriva l'app dedicata.** Alternativa se l'attesa si allunga: tornare al `.env` vecchio (`cp .env.bak-2026-10-30 .env` + build/rm/up) funziona solo se il tenant vecchio accetta ancora login.
 - Niente client secret: la SPA usa auth code + PKCE e il backend valida i token con le chiavi pubbliche JWKS. Servono solo tenant ID e client ID.
 
 **Quando arriva l'Application ID definitivo** (`<NEW>`), sulla VM in `/opt/moby-dick-b4`, un comando per riga (il terminale spezza le righe lunghe incollate insieme):
@@ -43,7 +50,7 @@ docker-compose build
 docker ps -aq --filter name=moby-api --filter name=moby-nginx | xargs -r docker rm -f
 docker-compose up -d
 ```
-Il tenant non cambia più. Prima di farlo, chiedere all'IT che la registrazione definitiva abbia lo stesso setup della procedura qui sotto (SPA, `access_as_user`, admin consent, optional claims). Poi: aggiornare "Entra ID — Stato" in `AGENTS.md`, togliere il blocco ⚠️ in Ripresa, e chiedere all'IT di cancellare la registrazione di test.
+Il tenant non cambia più. Prima di farlo, chiedere all'IT che la registrazione definitiva abbia lo stesso setup della procedura qui sotto, **in particolare *Expose an API* con Application ID URI `api://<NEW>` e scope `access_as_user`** (la sua assenza è stata la causa del 401 con l'app di test), più SPA, admin consent, optional claims. Se l'IT sceglie un Application ID URI diverso dal default, il `sed` sul client ID non basta: vanno corretti a mano `AZURE_API_AUDIENCE` e `VITE_AZURE_API_SCOPE`. Verifica dopo il deploy: login in incognito; se torna il 401, F12 → Console → riga `apiFetch token acquisition failed` dà il codice `AADSTS`. Poi: aggiornare "Entra ID — Stato" in `AGENTS.md`, togliere il blocco ⚠️ in Ripresa, e chiedere all'IT di cancellare la registrazione di test.
 
 Il testo mandato all'IT a maggio non è stato conservato: questa è la versione ricostruita dal codice (`src/auth/authConfig.js`, `backend/src/auth.js`), cioè quello che l'app si aspetta davvero.
 
