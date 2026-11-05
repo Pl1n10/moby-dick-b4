@@ -191,8 +191,50 @@ export function recordGlobalFailure(now = Date.now()) {
   }
 }
 
+// Client IP that the proxies in front of us vouch for. X-Forwarded-For is a
+// list each proxy appends to, so its left end is whatever the client sent
+// (verified 2026-11-05: a forged "1.2.3.4" came through first). Only the
+// entries added by our own proxies are trustworthy, counted from the right:
+// TRUST_PROXY_HOPS = how many proxies append to it (default 2: the Mauden
+// reverse proxy adds the client, our nginx adds the reverse proxy).
+export function clientIp(req) {
+  const hops = Math.max(1, Number.parseInt(process.env.TRUST_PROXY_HOPS || '2', 10) || 2)
+  const chain = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean)
+  if (chain.length >= hops) return chain[chain.length - hops]
+  return chain[0] || req.socket?.remoteAddress || ''
+}
+
+// Per-IP failures: the fail2ban of this app. A ban on the VM firewall would
+// hit the reverse proxy, i.e. everyone; here the IP is the one the proxy saw.
+// 20 failed logins/claims from one IP in 15 minutes block that IP for the
+// rest of the window. Bounded: past IP_MAP_MAX addresses the oldest go.
+const IP_FAIL_MAX = 20
+const IP_MAP_MAX = 10000
+const ipFailures = new Map()
+
+export function ipLocked(ip, now = Date.now()) {
+  const f = ipFailures.get(ip)
+  if (!f) return false
+  if (now - f.first > FAIL_WINDOW_MS) { ipFailures.delete(ip); return false }
+  return f.count >= IP_FAIL_MAX
+}
+
+export function recordIpFailure(ip, now = Date.now()) {
+  if (!ip) return
+  const f = ipFailures.get(ip)
+  if (!f || now - f.first > FAIL_WINDOW_MS) {
+    ipFailures.delete(ip)
+    if (ipFailures.size >= IP_MAP_MAX) ipFailures.delete(ipFailures.keys().next().value)
+    ipFailures.set(ip, { count: 1, first: now })
+  } else {
+    f.count += 1
+    if (f.count === IP_FAIL_MAX) console.warn(`Local auth: ip=${ip} blocked for 15 minutes after ${IP_FAIL_MAX} failures`)
+  }
+}
+
 export function resetLockouts() {
   failures.clear()
+  ipFailures.clear()
   globalFailures = []
   globalTripLogged = false
 }

@@ -3,6 +3,7 @@ import pool from '../db.js'
 import {
   AUTH_MODE, PASSWORD_MIN, claimOpen, claimUntil, verifyPassword, hashPassword, validNewPassword,
   weakPasswordReason, signToken, isLockedOut, recordFailure, clearFailures, globalLocked, recordGlobalFailure,
+  clientIp, ipLocked, recordIpFailure,
 } from '../localAuth.js'
 
 // Mounted at /api/auth, PUBLIC (no requireAuth): it is how a token is obtained.
@@ -13,11 +14,23 @@ import {
 const router = Router()
 
 // One line per attempt in `docker logs moby-api`: the audit trail for
-// spotting an account used by someone else. nginx sets X-Forwarded-For; the
-// first hop is the client as seen by the corporate reverse proxy.
+// spotting an account used by someone else. `ip` is the trusted hop (see
+// clientIp); `xff` is the raw chain, kept so the hop count can be checked.
 function audit(req, event, email, detail = '') {
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim()
-  console.log(`Local auth: ${event} email=${JSON.stringify(email || '')} ip=${ip}${detail ? ` ${detail}` : ''}`)
+  const xff = String(req.headers['x-forwarded-for'] || '')
+  console.log(`Local auth: ${event} email=${JSON.stringify(email || '')} ip=${clientIp(req)} xff=${JSON.stringify(xff)}${detail ? ` ${detail}` : ''}`)
+}
+
+// Every failed attempt counts against the caller's IP and the site-wide cap.
+function failed(req) {
+  recordIpFailure(clientIp(req))
+  recordGlobalFailure()
+}
+
+function ipGate(req, res) {
+  if (!ipLocked(clientIp(req))) return false
+  res.status(429).json({ code: 'ip_locked', error: 'Troppi tentativi falliti da questa rete: riprova tra 15 minuti.' })
+  return true
 }
 
 function normEmail(v) {
@@ -68,6 +81,7 @@ router.post('/login', async (req, res) => {
   const password = typeof req.body.password === 'string' ? req.body.password : ''
   if (!email || !password) return res.status(400).json({ code: 'missing', error: 'Inserisci email e password.' })
 
+  if (ipGate(req, res)) return audit(req, 'login_refused', email, 'reason=ip_locked')
   if (globalLocked()) {
     audit(req, 'login_refused', email, 'reason=global_pause')
     return res.status(429).json({ code: 'paused', error: 'Troppi tentativi falliti sul sito: riprova tra qualche minuto.' })
@@ -76,7 +90,7 @@ router.post('/login', async (req, res) => {
   try {
     const user = await findUser(email)
     if (!user) {
-      recordGlobalFailure()
+      failed(req)
       audit(req, 'login_failed', email, 'reason=not_registered')
       return res.status(401).json(NOT_REGISTERED)
     }
@@ -96,7 +110,7 @@ router.post('/login', async (req, res) => {
     }
     if (!(await verifyPassword(password, user.password_hash))) {
       recordFailure(key)
-      recordGlobalFailure()
+      failed(req)
       audit(req, 'login_failed', user.email, 'reason=wrong_password')
       return res.status(401).json({ code: 'wrong_password', error: 'Password errata.' })
     }
@@ -116,6 +130,7 @@ router.post('/claim', async (req, res) => {
   if (!claimOpen()) {
     return res.status(403).json({ code: 'claim_closed', error: 'L\'attivazione libera è chiusa: chiedi a un amministratore una password.' })
   }
+  if (ipGate(req, res)) return audit(req, 'claim_refused', normEmail(req.body.email), 'reason=ip_locked')
   const email = normEmail(req.body.email)
   const password = req.body.password
   if (!email) return res.status(400).json({ code: 'missing', error: 'Inserisci la tua email.' })
@@ -128,6 +143,8 @@ router.post('/claim', async (req, res) => {
   try {
     const user = await findUser(email)
     if (!user) {
+      // Sweeping emails to find claimable accounts costs attempts too.
+      recordIpFailure(clientIp(req))
       audit(req, 'claim_failed', email, 'reason=not_registered')
       return res.status(404).json(NOT_REGISTERED)
     }

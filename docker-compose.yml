@@ -34,6 +34,8 @@ services:
       AUTH_MODE: ${AUTH_MODE:-entra}
       LOCAL_AUTH_SECRET: ${LOCAL_AUTH_SECRET:-}
       LOCAL_AUTH_CLAIM_UNTIL: ${LOCAL_AUTH_CLAIM_UNTIL:-}
+      # Proxies that append to X-Forwarded-For (Mauden reverse proxy + nginx).
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-2}
       # Assignment notifications — Power Automate webhook URL. Empty = disabled.
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://kanbanops.mauden.com}

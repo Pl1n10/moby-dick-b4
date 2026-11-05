@@ -19,10 +19,14 @@ async function adminQuery(sql) {
   try { await client.query(sql) } finally { await client.end() }
 }
 
-async function call(method, path, body, token) {
+async function call(method, path, body, token, xff) {
   const res = await fetch(base + path, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(xff ? { 'X-Forwarded-For': xff } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   const text = await res.text()
@@ -222,9 +226,31 @@ test('obvious passwords are refused at first access', async () => {
   await claimed('giulia.verdi@example.com', 'gatto sul tetto blu')
 })
 
+test('the client IP is the hop added by the proxies, not what the client sent', () => {
+  const ip = (xff) => localAuth.clientIp({ headers: { 'x-forwarded-for': xff }, socket: {} })
+  // forged, real client (added by the Mauden proxy), Mauden proxy (added by nginx)
+  assert.equal(ip('1.2.3.4, 203.0.113.7, 10.0.0.2'), '203.0.113.7')
+  assert.equal(ip('203.0.113.7, 10.0.0.2'), '203.0.113.7')
+  assert.equal(ip('10.0.0.2'), '10.0.0.2')
+})
+
+test('twenty failures from one IP block that IP, not the others', async () => {
+  const attacker = '6.6.6.6, 198.51.100.9, 10.0.0.2'
+  for (let i = 0; i < 20; i++) {
+    // Forging a different left-most value each time does not help.
+    await call('POST', '/auth/login', { email: `nobody${i}@example.com`, password: 'x' }, undefined, `${i}.1.1.1, 198.51.100.9, 10.0.0.2`)
+  }
+  const blocked = await call('POST', '/auth/login', { email: 'chief@example.com', password: 'correct horse battery' }, undefined, attacker)
+  assert.equal(blocked.status, 429)
+  assert.equal(blocked.body.code, 'ip_locked')
+  const colleague = await call('POST', '/auth/login', { email: 'chief@example.com', password: 'correct horse battery' }, undefined, '192.0.2.44, 10.0.0.2')
+  assert.equal(colleague.status, 200)
+})
+
 test('too many failed logins site-wide pause new logins', async () => {
   for (let i = 0; i < localAuth.GLOBAL_MAX; i++) {
-    await call('POST', '/auth/login', { email: `guess${i}@example.com`, password: 'Password123' })
+    // Spread over many IPs, so only the site-wide cap can catch it.
+    await call('POST', '/auth/login', { email: `guess${i}@example.com`, password: 'Password123' }, undefined, `203.0.113.${i}, 10.0.0.2`)
   }
   const r = await call('POST', '/auth/login', { email: 'chief@example.com', password: 'correct horse battery' })
   assert.equal(r.status, 429)
