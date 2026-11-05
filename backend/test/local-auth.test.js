@@ -110,7 +110,7 @@ test('a superadmin cannot self-activate: the password is set on the VM', async (
 })
 
 test('first access: the user picks a password, then it is locked', async () => {
-  const token = await claimed('member@example.com', 'member password 0')
+  const token = await claimed('member@example.com', 'tramonto sul lago 0')
 
   const me = await call('GET', '/me', undefined, token)
   assert.equal(me.status, 200)
@@ -126,14 +126,14 @@ test('first access: the user picks a password, then it is locked', async () => {
 })
 
 test('claim refuses unknown emails, short passwords and a closed window', async () => {
-  const unknown = await call('POST', '/auth/claim', { email: 'stranger@example.com', password: 'long enough pw' })
+  const unknown = await call('POST', '/auth/claim', { email: 'stranger@example.com', password: 'abbastanza lunga' })
   assert.equal(unknown.status, 404)
   assert.equal(unknown.body.code, 'not_registered')
   await addUser('late@example.com', 'La Te')
   const short = await call('POST', '/auth/claim', { email: 'late@example.com', password: 'short' })
   assert.equal(short.status, 400)
   closeWindow()
-  const closed = await call('POST', '/auth/claim', { email: 'late@example.com', password: 'long enough pw' })
+  const closed = await call('POST', '/auth/claim', { email: 'late@example.com', password: 'abbastanza lunga' })
   assert.equal(closed.status, 403)
   assert.equal(closed.body.code, 'claim_closed')
   const { rows: [row] } = await pool.query(`SELECT password_hash FROM users WHERE email = 'late@example.com'`)
@@ -149,7 +149,7 @@ test('login errors say what is wrong', async () => {
 })
 
 test('email is matched case-insensitively and the token keeps the stored one', async () => {
-  const token = await claimed('mixed.case@EXAMPLE.com', 'mixed case password')
+  const token = await claimed('mixed.case@EXAMPLE.com', 'nuvole di vetro')
   const me = await call('GET', '/me', undefined, token)
   assert.equal(me.body.email, 'Mixed.Case@example.com')
 })
@@ -164,7 +164,7 @@ test('ten wrong passwords lock the account for a while', async () => {
 
 test('a superadmin reset hands out a new password and revokes old sessions', async () => {
   const chief = (await call('POST', '/auth/login', { email: 'chief@example.com', password: 'correct horse battery' })).body.token
-  const memberToken = (await call('POST', '/auth/login', { email: 'member@example.com', password: 'member password 0' })).body.token
+  const memberToken = (await call('POST', '/auth/login', { email: 'member@example.com', password: 'tramonto sul lago 0' })).body.token
   const { rows: [member] } = await pool.query(`SELECT id FROM users WHERE email = 'member@example.com'`)
 
   // A board admin is not a superadmin: no resets.
@@ -176,7 +176,7 @@ test('a superadmin reset hands out a new password and revokes old sessions', asy
   assert.equal(reset.body.user.passwordSetBy, 'chief@example.com')
 
   assert.equal((await call('GET', '/me', undefined, memberToken)).status, 401)
-  assert.equal((await call('POST', '/auth/login', { email: 'member@example.com', password: 'member password 0' })).status, 401)
+  assert.equal((await call('POST', '/auth/login', { email: 'member@example.com', password: 'tramonto sul lago 0' })).status, 401)
   const fresh = await call('POST', '/auth/login', { email: 'member@example.com', password: reset.body.password })
   assert.equal(fresh.status, 200)
   assert.equal((await call('GET', '/me', undefined, fresh.body.token)).status, 200)
@@ -190,7 +190,7 @@ test('a superadmin reset hands out a new password and revokes old sessions', asy
   // Clearing goes back to "not activated": sessions die, the user claims again.
   assert.equal((await call('DELETE', `/users/${member.id}/password`, undefined, chief)).status, 200)
   assert.equal((await call('GET', '/me', undefined, fresh.body.token)).status, 401)
-  await claimed('member@example.com', 'member password 2')
+  await claimed('member@example.com', 'tramonto sul lago 2')
 })
 
 test('tokens signed with another secret or expired are refused', async () => {
@@ -207,7 +207,31 @@ test('tokens signed with another secret or expired are refused', async () => {
 
 test('deleting the account ends its sessions', async () => {
   await addUser('leaver@example.com', 'Lea Ver')
-  const token = await claimed('leaver@example.com', 'leaver password')
+  const token = await claimed('leaver@example.com', 'treno delle sette')
   await pool.query(`DELETE FROM users WHERE email = 'leaver@example.com'`)
   assert.equal((await call('GET', '/me', undefined, token)).status, 401)
+})
+
+test('obvious passwords are refused at first access', async () => {
+  await addUser('giulia.verdi@example.com', 'Giulia Verdi')
+  for (const pw of ['Mauden2026!', 'password1234', 'Novembre2026', '1234567890', 'Giulia.Verdi1']) {
+    const r = await call('POST', '/auth/claim', { email: 'giulia.verdi@example.com', password: pw })
+    assert.equal(r.status, 400, pw)
+    assert.equal(r.body.code, 'weak_password', pw)
+  }
+  await claimed('giulia.verdi@example.com', 'gatto sul tetto blu')
+})
+
+test('too many failed logins site-wide pause new logins', async () => {
+  for (let i = 0; i < localAuth.GLOBAL_MAX; i++) {
+    await call('POST', '/auth/login', { email: `guess${i}@example.com`, password: 'Password123' })
+  }
+  const r = await call('POST', '/auth/login', { email: 'chief@example.com', password: 'correct horse battery' })
+  assert.equal(r.status, 429)
+  assert.equal(r.body.code, 'paused')
+})
+
+test('the API sends no CORS headers', async () => {
+  const res = await fetch(base + '/auth/config', { headers: { Origin: 'https://evil.example' } })
+  assert.equal(res.headers.get('access-control-allow-origin'), null)
 })

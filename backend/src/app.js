@@ -1,5 +1,4 @@
 import express from 'express'
-import cors from 'cors'
 import { requireAuth, loadUserContext, loadBoard, loadFixedBoard } from './auth.js'
 import tasksRouter from './routes/tasks.js'
 import recurringRouter from './routes/recurring.js'
@@ -16,7 +15,9 @@ import authRouter from './routes/auth.js'
 export function createApp() {
   const app = express()
 
-  app.use(cors())
+  // No CORS middleware: the SPA and the API share the origin (nginx proxies
+  // /api, Vite does the same in dev). Without Access-Control-Allow-Origin
+  // headers, other sites cannot read API responses from a browser.
   app.use(express.json())
 
   // Health stays public — used by Docker healthcheck.

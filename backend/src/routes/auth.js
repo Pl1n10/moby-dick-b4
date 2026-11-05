@@ -2,7 +2,7 @@ import { Router } from 'express'
 import pool from '../db.js'
 import {
   AUTH_MODE, PASSWORD_MIN, claimOpen, claimUntil, verifyPassword, hashPassword, validNewPassword,
-  signToken, isLockedOut, recordFailure, clearFailures,
+  weakPasswordReason, signToken, isLockedOut, recordFailure, clearFailures, globalLocked, recordGlobalFailure,
 } from '../localAuth.js'
 
 // Mounted at /api/auth, PUBLIC (no requireAuth): it is how a token is obtained.
@@ -11,6 +11,14 @@ import {
 // Error bodies carry a `code` the login screen branches on, and an Italian
 // `error` it shows as is.
 const router = Router()
+
+// One line per attempt in `docker logs moby-api`: the audit trail for
+// spotting an account used by someone else. nginx sets X-Forwarded-For; the
+// first hop is the client as seen by the corporate reverse proxy.
+function audit(req, event, email, detail = '') {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim()
+  console.log(`Local auth: ${event} email=${JSON.stringify(email || '')} ip=${ip}${detail ? ` ${detail}` : ''}`)
+}
 
 function normEmail(v) {
   return typeof v === 'string' ? v.trim() : ''
@@ -60,14 +68,25 @@ router.post('/login', async (req, res) => {
   const password = typeof req.body.password === 'string' ? req.body.password : ''
   if (!email || !password) return res.status(400).json({ code: 'missing', error: 'Inserisci email e password.' })
 
+  if (globalLocked()) {
+    audit(req, 'login_refused', email, 'reason=global_pause')
+    return res.status(429).json({ code: 'paused', error: 'Troppi tentativi falliti sul sito: riprova tra qualche minuto.' })
+  }
+
   try {
     const user = await findUser(email)
-    if (!user) return res.status(401).json(NOT_REGISTERED)
+    if (!user) {
+      recordGlobalFailure()
+      audit(req, 'login_failed', email, 'reason=not_registered')
+      return res.status(401).json(NOT_REGISTERED)
+    }
     const key = user.email.toLowerCase()
     if (isLockedOut(key)) {
+      audit(req, 'login_refused', user.email, 'reason=locked')
       return res.status(429).json({ code: 'locked', error: 'Troppi tentativi sbagliati: riprova tra 15 minuti.' })
     }
     if (!user.password_hash) {
+      audit(req, 'login_failed', user.email, 'reason=not_activated')
       return res.status(401).json({
         code: 'not_activated',
         error: claimOpen()
@@ -77,9 +96,12 @@ router.post('/login', async (req, res) => {
     }
     if (!(await verifyPassword(password, user.password_hash))) {
       recordFailure(key)
+      recordGlobalFailure()
+      audit(req, 'login_failed', user.email, 'reason=wrong_password')
       return res.status(401).json({ code: 'wrong_password', error: 'Password errata.' })
     }
     clearFailures(key)
+    audit(req, 'login_ok', user.email)
     res.json(session(user))
   } catch (err) {
     console.error('POST /api/auth/login error:', err.message)
@@ -100,14 +122,20 @@ router.post('/claim', async (req, res) => {
   if (!validNewPassword(password)) {
     return res.status(400).json({ code: 'weak_password', error: `La password deve avere almeno ${PASSWORD_MIN} caratteri.` })
   }
+  const weak = weakPasswordReason(password, email)
+  if (weak) return res.status(400).json({ code: 'weak_password', error: weak })
 
   try {
     const user = await findUser(email)
-    if (!user) return res.status(404).json(NOT_REGISTERED)
+    if (!user) {
+      audit(req, 'claim_failed', email, 'reason=not_registered')
+      return res.status(404).json(NOT_REGISTERED)
+    }
     // Whoever claims first owns the account: for a superadmin that would be
     // the whole console. Their password is set on the VM only
     // (src/scripts/set-password.js).
     if (user.is_superadmin && !user.password_hash) {
+      audit(req, 'claim_refused', user.email, 'reason=superadmin')
       return res.status(403).json({
         code: 'superadmin_cli',
         error: 'Gli account super admin non si attivano da qui: la password si imposta dalla VM.',
@@ -123,12 +151,14 @@ router.post('/claim', async (req, res) => {
       [user.id, hash],
     )
     if (!row) {
+      // Worth a look: either a double click, or someone else got there first.
+      audit(req, 'claim_refused', user.email, 'reason=already_active')
       return res.status(409).json({
         code: 'already_active',
         error: 'Questo account ha già una password. Se non l\'hai scelta tu, avvisa subito un amministratore.',
       })
     }
-    console.log(`Local auth: ${row.email} activated their account`)
+    audit(req, 'claim_ok', row.email)
     res.json(session(row))
   } catch (err) {
     console.error('POST /api/auth/claim error:', err.message)

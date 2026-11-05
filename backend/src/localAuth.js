@@ -84,6 +84,35 @@ export function validNewPassword(password) {
   return typeof password === 'string' && password.length >= PASSWORD_MIN && password.length <= PASSWORD_MAX
 }
 
+// Passwords someone spraying the login would try first. Compared after
+// lowercasing and dropping digits and symbols, so "Mauden2026!" and
+// "password1234" are both caught.
+const OBVIOUS_WORDS = [
+  'password', 'passw', 'mauden', 'kanbanops', 'kanban', 'backup', 'qwerty', 'azerty',
+  'asdfgh', 'abcdef', 'letmein', 'welcome', 'benvenuto', 'admin', 'changeme', 'cambiami',
+  'ciao', 'estate', 'inverno', 'autunno', 'primavera', 'gennaio', 'febbraio', 'marzo', 'aprile',
+  'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
+  'commvault', 'cohesity', 'netbackup', 'service', 'manager',
+]
+
+/** Reason (Italian) why a chosen password is too guessable, or null if fine. */
+export function weakPasswordReason(password, email = '') {
+  const lower = password.toLowerCase()
+  const letters = lower.replace(/[^a-zà-ÿ]/g, '')
+  if (new Set(lower).size < 4) return 'La password ha troppi caratteri ripetuti.'
+  if (/^[0-9\W_]+$/.test(password)) return 'La password non può essere fatta solo di numeri e simboli.'
+  if (/(0123|1234|2345|3456|4567|5678|6789|abcd|qwer|asdf)/.test(lower) && letters.length < 6) {
+    return 'La password è una sequenza troppo prevedibile.'
+  }
+  const local = email.toLowerCase().split('@')[0] || ''
+  const nameParts = local.split(/[._-]+/).filter(p => p.length >= 3)
+  if (nameParts.some(p => lower.includes(p))) return 'La password non può contenere il tuo nome o cognome.'
+  if (OBVIOUS_WORDS.some(w => letters === w || (letters.length - w.length <= 2 && letters.includes(w)))) {
+    return 'La password è troppo facile da indovinare: evita parole come "password", "mauden" o il nome di un mese.'
+  }
+  return null
+}
+
 /**
  * `pwv` = password version (password_set_at in ms). The verifier compares it
  * with the database, so a reset, a cleared password or a deleted account
@@ -134,6 +163,36 @@ export function clearFailures(email) {
   failures.delete(email)
 }
 
+// Site-wide cap: the per-email lock does not stop one obvious password tried
+// on every account (password spraying) or a sweep of guessed emails. Past
+// GLOBAL_MAX failed logins of any kind in 15 minutes, every login is refused
+// until the oldest failures age out. Sessions already open keep working
+// (they last a week), so the worst an attacker gets is a pause on new logins.
+export const GLOBAL_MAX = 50
+let globalFailures = []
+let globalTripLogged = false
+
+function pruneGlobal(now) {
+  while (globalFailures.length && now - globalFailures[0] > FAIL_WINDOW_MS) globalFailures.shift()
+  if (globalFailures.length < GLOBAL_MAX) globalTripLogged = false
+}
+
+export function globalLocked(now = Date.now()) {
+  pruneGlobal(now)
+  return globalFailures.length >= GLOBAL_MAX
+}
+
+export function recordGlobalFailure(now = Date.now()) {
+  pruneGlobal(now)
+  if (globalFailures.length < GLOBAL_MAX) globalFailures.push(now)
+  if (globalFailures.length >= GLOBAL_MAX && !globalTripLogged) {
+    globalTripLogged = true
+    console.warn(`Local auth: ${GLOBAL_MAX} failed logins in 15 minutes, new logins paused (possible attack)`)
+  }
+}
+
 export function resetLockouts() {
   failures.clear()
+  globalFailures = []
+  globalTripLogged = false
 }

@@ -101,7 +101,7 @@ export default function LocalLogin() {
             <input id="login-confirm" type="password" required autoComplete="new-password"
               value={confirm} onChange={e => setConfirm(e.target.value)} style={input} />
             <p style={{ fontSize: '12px', color: 'var(--muted)', fontFamily: S.sans, lineHeight: 1.5, margin: '10px 0 0' }}>
-              Almeno {min} caratteri. Una volta scelta non potrai cambiarla da solo: se la dimentichi, chiedi a un amministratore.
+              Almeno {min} caratteri, senza il tuo nome, «mauden» o il nome di un mese: una frase di tre o quattro parole va benissimo. Una volta scelta non potrai cambiarla da solo: se la dimentichi, chiedi a un amministratore.
             </p>
           </>
         )}
