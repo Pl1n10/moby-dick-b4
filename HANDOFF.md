@@ -1,6 +1,6 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-10-30.
+Stato al 2026-11-05.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
@@ -16,7 +16,7 @@ Stato al 2026-10-30.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
-**⚠️ 2026-10-30 — cambio di tenant Entra, in corso.** Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), **il login Microsoft funziona ma l'app è inutilizzabile (401 su tutte le API)**: la registrazione di test non ha *Expose an API*, quindi Entra rifiuta il token per l'API con `AADSTS500011`. Risposta dell'IT (2026-10-30): non sistemano quella di test, **creano un'app dedicata. Si aspetta il suo Application ID.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
+**⚠️ 2026-10-30 — cambio di tenant Entra, in corso** (dal 2026-11-05 in `main` c'è un ripiego con l'ID token, da attivare sulla VM: vedi la sezione dedicata). Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), **il login Microsoft funziona ma l'app è inutilizzabile (401 su tutte le API)**: la registrazione di test non ha *Expose an API*, quindi Entra rifiuta il token per l'API con `AADSTS500011`. Risposta dell'IT (2026-10-30): non sistemano quella di test, **creano un'app dedicata. Si aspetta il suo Application ID.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
 
 **Prossimo, in ordine:**
 -1. **Migrazione tenant Entra** (sezione dedicata, ⚠️ prod in 401 nel frattempo): arriva l'Application ID dell'app dedicata → un `sed` sul client ID nel `.env` → rebuild → verifica UPN/email utenti → Flow notifiche.
@@ -41,7 +41,18 @@ Stato al 2026-10-30.
 - **La prod resta in 401 finché non arriva l'app dedicata.** Alternativa se l'attesa si allunga: tornare al `.env` vecchio (`cp .env.bak-2026-10-30 .env` + build/rm/up) funziona solo se il tenant vecchio accetta ancora login.
 - Niente client secret: la SPA usa auth code + PKCE e il backend valida i token con le chiavi pubbliche JWKS. Servono solo tenant ID e client ID.
 
-**Quando arriva l'Application ID definitivo** (`<NEW>`), sulla VM in `/opt/moby-dick-b4`, un comando per riga (il terminale spezza le righe lunghe incollate insieme):
+**Ripiego 2026-11-05 — ID token al posto dell'access token** (in `main`, spento di default). Con l'app di test il login funziona e il browser ha già un ID token, con audience = client ID. Con `VITE_AUTH_USE_ID_TOKEN=true` il frontend manda al backend quello (`src/auth/backendToken.js`, che lo rinnova da sé: MSAL guarda solo la scadenza dell'access token). Il backend non cambia codice: basta `AZURE_API_AUDIENCE=<client-id>`, il GUID **senza** `api://`. Identità sempre da `preferred_username`. Microsoft sconsiglia gli ID token come bearer di un'API, ma qui l'API è della stessa app: va bene per tenere in piedi la prod, non come soluzione definitiva. Attivazione sulla VM, in `/opt/moby-dick-b4`, un comando per riga:
+```
+cp .env .env.bak-pre-idtoken
+git pull origin main
+sudo ln -sf /opt/moby-dick-b4/scripts/engage /usr/local/bin/engage
+echo 'VITE_AUTH_USE_ID_TOKEN=true' >> .env
+sed -i 's|^AZURE_API_AUDIENCE=.*|AZURE_API_AUDIENCE=0176faf1-1569-4229-a3ed-0078fb5aa1d2|' .env && grep -E 'AUDIENCE|ID_TOKEN' .env
+engage --force
+```
+Il pull si porta dietro anche export Excel ed `engage`: niente migration. Verifica: login in incognito → lavagne visibili; se torna il 401, guardare `docker logs moby-api` (`JWT verification failed: jwt audience invalid` = audience sbagliata). Rollback: `cp .env.bak-pre-idtoken .env && engage --force`.
+
+**Quando arriva l'Application ID definitivo** (`<NEW>`), se il ripiego è attivo prima va spento: togliere la riga `VITE_AUTH_USE_ID_TOKEN=true` dal `.env` e rimettere `AZURE_API_AUDIENCE=api://<NEW>` (il `sed` qui sotto la porterebbe al GUID nudo, che con l'access token non va). Poi, sulla VM in `/opt/moby-dick-b4`, un comando per riga (il terminale spezza le righe lunghe incollate insieme):
 ```
 cp .env .env.bak-test-app
 sed -i "s|0176faf1-1569-4229-a3ed-0078fb5aa1d2|<NEW>|" .env && grep AZURE .env

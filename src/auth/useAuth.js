@@ -1,6 +1,7 @@
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
-import { AUTH_ENABLED, loginRequest, apiTokenRequest } from './authConfig.js'
+import { AUTH_ENABLED, loginRequest } from './authConfig.js'
+import { acquireBackendToken, backendTokenRequest } from './backendToken.js'
 
 /**
  * Unified auth hook used everywhere in the app.
@@ -11,7 +12,7 @@ import { AUTH_ENABLED, loginRequest, apiTokenRequest } from './authConfig.js'
  *
  * Returns: { isAuthenticated, account, login, logout, getToken }
  *  - account: { name, username, ... } | null
- *  - getToken(): Promise<string | null> — access token for the backend, or null in demo
+ *  - getToken(): Promise<string | null> — bearer for the backend (access token, or ID token in stopgap mode), or null in demo
  */
 export default function useAuth() {
   if (!AUTH_ENABLED) {
@@ -36,12 +37,11 @@ export default function useAuth() {
   const getToken = async () => {
     if (!account) return null
     try {
-      const result = await instance.acquireTokenSilent({ ...apiTokenRequest, account })
-      return result.accessToken
+      return await acquireBackendToken(instance, account)
     } catch (err) {
       if (err instanceof InteractionRequiredAuthError) {
         // Falls back to interactive — user will be redirected.
-        await instance.acquireTokenRedirect(apiTokenRequest)
+        await instance.acquireTokenRedirect(backendTokenRequest)
         return null
       }
       console.error('Token acquisition failed:', err)

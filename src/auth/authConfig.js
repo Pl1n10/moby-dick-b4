@@ -12,6 +12,11 @@ const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.o
 // Format: api://<client-id>/access_as_user
 export const API_SCOPE = import.meta.env.VITE_AZURE_API_SCOPE || ''
 
+// Stopgap: send the ID token to the backend instead of an access token for
+// API_SCOPE. Only for an app registration without "Expose an API"; the backend
+// then needs AZURE_API_AUDIENCE=<client-id>. See backendToken.js.
+export const USE_ID_TOKEN = import.meta.env.VITE_AUTH_USE_ID_TOKEN === 'true'
+
 export const msalConfig = {
   auth: {
     clientId,

@@ -1,5 +1,6 @@
 import { PublicClientApplication } from '@azure/msal-browser'
-import { AUTH_ENABLED, msalConfig, apiTokenRequest } from './authConfig.js'
+import { AUTH_ENABLED, msalConfig } from './authConfig.js'
+import { acquireBackendToken } from './backendToken.js'
 
 /**
  * Wrapper around fetch() that automatically attaches a Microsoft access token
@@ -29,8 +30,7 @@ async function getAccessToken() {
     const pca = await getPca()
     const accounts = pca.getAllAccounts()
     if (accounts.length === 0) return null
-    const result = await pca.acquireTokenSilent({ ...apiTokenRequest, account: accounts[0] })
-    return result.accessToken
+    return await acquireBackendToken(pca, accounts[0])
   } catch (err) {
     console.error('apiFetch token acquisition failed:', err)
     return null
