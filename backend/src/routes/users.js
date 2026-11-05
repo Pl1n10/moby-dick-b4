@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { requireSuperadmin } from '../auth.js'
+import { generatePassword, hashPassword } from '../localAuth.js'
 
 // Mounted at /api/users (requireAuth + loadUserContext applied in app.js).
 // Global user administration for the superadmin console: every account with
@@ -14,6 +15,7 @@ router.use(requireSuperadmin)
 
 const USERS_WITH_MEMBERSHIPS = `
   SELECT u.id, u.email, u.display_owner, u.is_superadmin, u.created_at,
+         u.password_set_at, u.password_set_by,
          ht.slug AS home_slug,
          COALESCE(
            json_agg(json_build_object(
@@ -36,6 +38,9 @@ function mapUserToClient(row) {
     homeBoard: row.home_slug,
     memberships: row.memberships || [],
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    // Local login (AUTH_MODE=local): null = not activated yet. Never the hash.
+    passwordSetAt: row.password_set_at instanceof Date ? row.password_set_at.toISOString() : row.password_set_at,
+    passwordSetBy: row.password_set_by,
   }
 }
 
@@ -125,6 +130,45 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('DELETE /api/users error:', err.message)
     res.status(500).json({ error: 'Failed to delete user' })
+  }
+})
+
+// POST /api/users/:id/password — local login: generate a new password for a
+// user who forgot theirs (or whose account someone else activated). Returned
+// once, never stored in clear. Every session of that user is revoked, because
+// the token's password version no longer matches.
+router.post('/:id/password', async (req, res) => {
+  try {
+    const password = generatePassword()
+    const { rows: [row] } = await pool.query(
+      `UPDATE users SET password_hash = $2, password_set_at = NOW(), password_set_by = $3
+       WHERE id = $1 RETURNING email`,
+      [req.params.id, await hashPassword(password), req.userCtx.email || 'superadmin'],
+    )
+    if (!row) return res.status(404).json({ error: 'User not found' })
+    console.log(`Local auth: password of ${row.email} reset by ${req.userCtx.email}`)
+    res.json({ password, user: await loadUser(req.params.id) })
+  } catch (err) {
+    console.error('POST /api/users/:id/password error:', err.message)
+    res.status(500).json({ error: 'Failed to reset password' })
+  }
+})
+
+// DELETE /api/users/:id/password — back to "not activated": sessions revoked,
+// and while the claim window is open the user picks a new password themselves.
+router.delete('/:id/password', async (req, res) => {
+  try {
+    const { rows: [row] } = await pool.query(
+      `UPDATE users SET password_hash = NULL, password_set_at = NULL, password_set_by = NULL
+       WHERE id = $1 RETURNING email`,
+      [req.params.id],
+    )
+    if (!row) return res.status(404).json({ error: 'User not found' })
+    console.log(`Local auth: password of ${row.email} cleared by ${req.userCtx.email}`)
+    res.json(await loadUser(req.params.id))
+  } catch (err) {
+    console.error('DELETE /api/users/:id/password error:', err.message)
+    res.status(500).json({ error: 'Failed to clear password' })
   }
 })
 

@@ -9,6 +9,7 @@
 import jwt from 'jsonwebtoken'
 import jwksClient from 'jwks-rsa'
 import pool from './db.js'
+import { AUTH_MODE, localVerifyToken } from './localAuth.js'
 
 // `let` + setter for the same reason as setTokenVerifier: tests flip it.
 export let AUTH_ENABLED = process.env.AUTH_ENABLED === 'true'
@@ -29,7 +30,7 @@ const ISSUERS = TENANT_ID ? [
 ] : []
 const JWKS_URI = TENANT_ID ? `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys` : ''
 
-const client = AUTH_ENABLED && JWKS_URI
+const client = AUTH_ENABLED && AUTH_MODE === 'entra' && JWKS_URI
   ? jwksClient({ jwksUri: JWKS_URI, cache: true, rateLimit: true })
   : null
 
@@ -51,10 +52,14 @@ function entraVerifyToken(token) {
   })
 }
 
+// AUTH_MODE=local: tokens signed by this backend after an email + password
+// login (localAuth.js, routes/auth.js). Same claims shape as Entra.
+const defaultVerifier = AUTH_MODE === 'local' ? localVerifyToken : entraVerifyToken
+
 // Swappable only so the test suite can authenticate fake users without
 // Entra. Production never calls setTokenVerifier.
-let verifyToken = entraVerifyToken
-export function setTokenVerifier(fn) { verifyToken = fn || entraVerifyToken }
+let verifyToken = defaultVerifier
+export function setTokenVerifier(fn) { verifyToken = fn || defaultVerifier }
 
 /**
  * Express middleware. When auth is enabled, requires a valid Bearer token

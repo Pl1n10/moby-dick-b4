@@ -11,6 +11,12 @@
 // viewer opened, so a new entry must go on top with a later date.
 export const CHANGELOG = [
   {
+    date: '2026-11-05',
+    items: [
+      { type: 'new', text: 'Si entra con la tua email aziendale e una password, al posto dell\'account Microsoft. Al primo accesso scegli tu la password; se la dimentichi, un amministratore te ne dà una nuova.' },
+    ],
+  },
+  {
     date: '2026-10-19',
     items: [
       { type: 'improved', text: 'L\'export ora è un file Excel al posto del CSV: si apre direttamente, con le intestazioni fisse, i colori degli stati e le date vere, che puoi ordinare e filtrare.' },

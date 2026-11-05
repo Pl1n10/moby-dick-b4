@@ -1,7 +1,18 @@
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
-import { AUTH_ENABLED, loginRequest } from './authConfig.js'
+import { AUTH_ENABLED, LOCAL_AUTH, loginRequest } from './authConfig.js'
 import { acquireBackendToken, backendTokenRequest } from './backendToken.js'
+import { useLocalSession, clearSession } from './localSession.js'
+
+/** True when someone is logged in, whatever the auth mode (demo: always). */
+export function useIsLoggedIn() {
+  if (!AUTH_ENABLED) return true
+  // The branch is on a build-time constant: hook order never changes.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  if (LOCAL_AUTH) return Boolean(useLocalSession())
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useIsAuthenticated()
+}
 
 /**
  * Unified auth hook used everywhere in the app.
@@ -22,6 +33,18 @@ export default function useAuth() {
       login: () => {},
       logout: () => {},
       getToken: async () => null,
+    }
+  }
+
+  if (LOCAL_AUTH) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const session = useLocalSession()
+    return {
+      isAuthenticated: Boolean(session),
+      account: session ? { name: session.name, username: session.email } : null,
+      login: () => {},
+      logout: clearSession,
+      getToken: async () => session?.token || null,
     }
   }
 

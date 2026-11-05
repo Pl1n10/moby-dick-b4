@@ -2,10 +2,19 @@ import { waitForDb, runMigrations } from './db.js'
 import { processRecurring } from './recurring-processor.js'
 import { AUTH_ENABLED } from './auth.js'
 import { createApp } from './app.js'
+import { AUTH_MODE, checkLocalConfig, claimUntil } from './localAuth.js'
 
 const PORT = process.env.PORT || 3000
 
-console.log(`Auth: ${AUTH_ENABLED ? 'ENABLED (Entra ID)' : 'DISABLED (demo mode)'}`)
+const authLabel = !AUTH_ENABLED ? 'DISABLED (demo mode)'
+  : AUTH_MODE === 'local' ? 'ENABLED (local email + password)' : 'ENABLED (Entra ID)'
+console.log(`Auth: ${authLabel}`)
+if (AUTH_ENABLED && AUTH_MODE === 'local') {
+  // Refuse to start rather than sign tokens with a weak or missing secret.
+  checkLocalConfig()
+  const until = claimUntil()
+  console.log(`Local auth: self-activation ${until ? `open until ${until.toISOString()}` : 'closed'}`)
+}
 
 async function start() {
   await waitForDb()

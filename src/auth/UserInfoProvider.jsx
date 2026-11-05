@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { useIsAuthenticated } from '@azure/msal-react'
+import { useIsLoggedIn } from './useAuth.js'
 import { AUTH_ENABLED } from './authConfig.js'
 import apiFetch from './apiFetch.js'
 import { syncThemeFromServer } from '../theme/theme.js'
@@ -22,7 +22,7 @@ export function UserInfoProvider({ children }) {
   }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const isAuthenticated = useIsAuthenticated()
+  const isAuthenticated = useIsLoggedIn()
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [info, setInfo] = useState(DEFAULT_INFO)
 

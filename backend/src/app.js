@@ -9,6 +9,7 @@ import bitadderRouter from './routes/bitadder.js'
 import settingsRouter from './routes/settings.js'
 import tenantsRouter from './routes/tenants.js'
 import membersRouter from './routes/members.js'
+import authRouter from './routes/auth.js'
 
 // Built separately from index.js so the test suite can mount the app without
 // starting the recurring scheduler or binding a port.
@@ -20,6 +21,9 @@ export function createApp() {
 
   // Health stays public — used by Docker healthcheck.
   app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
+
+  // Local login (AUTH_MODE=local): public, it is how a token is obtained.
+  app.use('/api/auth', authRouter)
 
   // Every other /api route requires auth when AUTH_ENABLED=true (no-op
   // otherwise). loadUserContext hydrates the global identity (superadmin,

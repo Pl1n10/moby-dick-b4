@@ -1,6 +1,7 @@
 import { PublicClientApplication } from '@azure/msal-browser'
-import { AUTH_ENABLED, msalConfig } from './authConfig.js'
+import { AUTH_ENABLED, LOCAL_AUTH, msalConfig } from './authConfig.js'
 import { acquireBackendToken } from './backendToken.js'
+import { getSession, clearSession } from './localSession.js'
 
 /**
  * Wrapper around fetch() that automatically attaches a Microsoft access token
@@ -38,8 +39,13 @@ async function getAccessToken() {
 }
 
 export default async function apiFetch(url, options = {}) {
-  const token = await getAccessToken()
+  const token = LOCAL_AUTH ? (getSession()?.token || null) : await getAccessToken()
   const headers = { ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
-  return fetch(url, { ...options, headers })
+  const res = await fetch(url, { ...options, headers })
+  // Local login: a 401 on a request that carried our token means the session
+  // is over (password reset by an admin, account deleted, expired). Back to
+  // the login screen instead of a board full of errors.
+  if (LOCAL_AUTH && token && res.status === 401 && getSession()?.token === token) clearSession()
+  return res
 }

@@ -16,10 +16,25 @@ Stato al 2026-11-05.
 
 **In produzione dal 2026-10-18: `a78a6ad`, tag `mauden-prod-2026-10-18`.** Maniglia di trascinamento rifatta (compare al passaggio sul task, nascosta con filtri attivi, riga trascinata opaca) e link **Novità** nel footer col changelog per gli utenti (`src/changelog.js`, regola in `AGENTS.md`, "Changelog"). Il drag & drop (`7cdd572`, migration 015) era andato in prod poco prima, senza un tag suo: l'ancora di rollback per lo schema pre-015 resta `mauden-prod-2026-10-10`.
 
+**⚠️ 2026-11-05 — login locale al posto di Entra (in `main`, DA ATTIVARE sulla VM).** Il ripiego con l'ID token è stato attivato e ha fallito: l'IT ha tolto il redirect URI all'app di test (`AADSTS500113: No reply address is registered`). Il tenant vecchio è morto. Roberto ha deciso di non dipendere più da Entra né dall'IT: email + password sulla tabella `users`, finestra di attivazione in cui ognuno sceglie la sua, super admin solo da script. Tutto in `AGENTS.md`, "Login locale". Attivazione sulla VM, in `/opt/moby-dick-b4`, un comando per riga:
+```
+cp .env .env.bak-pre-local
+git pull origin main
+echo "LOCAL_AUTH_SECRET=$(openssl rand -hex 32)" >> .env
+echo 'AUTH_MODE=local' >> .env
+echo 'VITE_AUTH_MODE=local' >> .env
+echo 'LOCAL_AUTH_CLAIM_UNTIL=2026-11-13T18:00:00+01:00' >> .env
+grep -E 'AUTH_(ENABLED|MODE|CLAIM)' .env
+engage --force
+docker exec moby-api node src/scripts/set-password.js roberto.novara@mauden.com
+```
+Il `grep` deve dare `AUTH_ENABLED=true`, `VITE_AUTH_ENABLED=true`, i due `*AUTH_MODE=local` e la data. `engage` fa il dump prima (c'è la migration 016, solo colonne nuove). Verifica: `docker logs moby-api | grep -i auth` → `ENABLED (local email + password)` e la finestra; login in incognito con la password dello script. Poi: annunciare al team la finestra (ognuno fa "Primo accesso" con la sua email aziendale); dare la password via script/console agli altri super admin, se ce ne sono; dopo la data, chi manca la riceve dalla console. Rollback: `cp .env.bak-pre-local .env && engage --force` (la 016 resta, è innocua). Le **notifiche di assegnazione** sono presumibilmente morte col tenant vecchio (il Flow stava lì): falliscono in silenzio, nessun impatto sulla board.
+
 **⚠️ 2026-10-30 — cambio di tenant Entra, in corso** (dal 2026-11-05 in `main` c'è un ripiego con l'ID token, da attivare sulla VM: vedi la sezione dedicata). Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), **il login Microsoft funziona ma l'app è inutilizzabile (401 su tutte le API)**: la registrazione di test non ha *Expose an API*, quindi Entra rifiuta il token per l'API con `AADSTS500011`. Risposta dell'IT (2026-10-30): non sistemano quella di test, **creano un'app dedicata. Si aspetta il suo Application ID.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
 
 **Prossimo, in ordine:**
--1. **Migrazione tenant Entra** (sezione dedicata, ⚠️ prod in 401 nel frattempo): arriva l'Application ID dell'app dedicata → un `sed` sul client ID nel `.env` → rebuild → verifica UPN/email utenti → Flow notifiche.
+-2. **Attivare il login locale sulla VM** (blocco ⚠️ 2026-11-05 qui sopra), annunciare la finestra al team, controllare dalla console Utenti chi manca all'appello.
+-1. **Migrazione tenant Entra** — sospesa per scelta (2026-11-05): non si dipende più dall'IT. Se un giorno arriva l'app dedicata, la procedura qui sotto resta valida, più `AUTH_MODE=entra`.
 0. Far provare drag & drop e Novità a un collega admin e a un operatore.
 1. **Lunedì 2026-10-12** — un collega non super admin conferma che vede la lavagna come prima (nessun selettore, tema scuro, stessi permessi). Se un admin/operatore vede "Read-only" → Ctrl+F5 (vedi 5e).
 2. **5f — lavagna Service Manager**, ✅ **creata da Roberto il 2026-10-11** dalla console, live su `/t/service-manager`; resta il collaudo. Configurazione: nome *Service Manager*, indirizzo `service-manager`, prefisso `SM` (confermato da Roberto il 2026-10-11: poi non va più toccato), colonna reference *Attività*, Info Reperibile **spenta**, sezioni = quattro, una per persona del team SM (nomi solo da console, mai nel repo). Admin SM per ora è solo Roberto (decisione 2026-10-11: come super admin lo è già senza membership; si mette comunque membro admin se deve comparire nel picker owner). Un secondo admin si nomina dopo, da Membri o da Utenti, anche prima del suo primo login. Collaudo: primo login di un collega SM mai entrato → chooser → entra come viewer; mail di notifica col link `/t/service-manager`; backup invariata.

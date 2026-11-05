@@ -422,9 +422,32 @@ Il prodotto si chiama **KanbanOps** ma diverse cose tecniche mantengono lo slug 
 - [ ] **Application ID URI** (oggi: `api://7e8814ac-…`) — **Sconsigliato**. È solo nei JWT, nessuno lo legge mai. Cambiarlo significa update `AZURE_API_AUDIENCE` + `VITE_AZURE_API_SCOPE` nel `.env` + rebuild + tutti gli utenti ri-loggano (token in cache hanno l'audience vecchia). Costo > beneficio.
 - ❌ **Client ID** (`7e8814ac-…`) — **Non si tocca**. È l'identità immutabile dell'app. Per averne uno nuovo serve creare una nuova app registration da zero e abbandonare la vecchia. Mai farlo se non per emergenza (token leak).
 
+## Login locale (ripiego senza Entra)
+
+Dal 2026-11-05. Il tenant Entra vecchio è morto e sul nuovo l'app non è sotto il nostro controllo (l'IT ha anche tolto il redirect URI all'app di test: `AADSTS500113`). Decisione di Roberto: **login indipendente**, niente Entra, niente Power Automate, niente IT. Si accende con `AUTH_ENABLED=true` + `AUTH_MODE=local` (backend) e `VITE_AUTH_ENABLED=true` + `VITE_AUTH_MODE=local` (build nginx). Default `entra`: tornare a Microsoft = togliere le due righe `*AUTH_MODE` + `engage --force`.
+
+- **Identità invariata**: il token locale ha lo stesso claim `preferred_username` (= email) di quello Entra, quindi ruoli, membership, owner, super admin e Bit Adder restano quelli. Entra **solo chi è già in `users`** (niente auto-registrazione): un collega nuovo va pre-registrato dalla console Utenti.
+- **Attivazione**: finché è aperta la finestra `LOCAL_AUTH_CLAIM_UNTIL` (ISO 8601), chi non ha password se la sceglie al primo accesso ("Primo accesso", minimo 10 caratteri). Poi è **bloccata**: da solo non la cambia più. Dopo la finestra, senza password si entra solo con una password data da un super admin.
+- **Super admin esclusi dall'attivazione libera**: chi attiva per primo un account se lo prende, e per un super admin vorrebbe dire tutta la console. La loro password si imposta solo sulla VM: `docker exec moby-api node src/scripts/set-password.js <email>` (stampa una password casuale, una volta). Lo stesso script è il ripiego se un super admin resta chiuso fuori.
+- **Password dimenticata / account preso da altri**: console → Utenti → colonna **Accesso** → "Nuova password" (generata, mostrata una volta sola, da mandare su Teams) oppure "Azzera" (torna "da attivare": nella finestra il collega se la risceglie). Solo super admin.
+- **Sessioni**: token HS256 firmato con `LOCAL_AUTH_SECRET` (≥32 caratteri, l'API non parte senza; cambiarlo slogga tutti), validità 7 giorni, in `localStorage` (`kanbanops:session`). Il token porta `pwv` = `password_set_at` in ms e il verificatore lo confronta col DB a ogni richiesta: **reset, azzeramento o cancellazione dell'account chiudono subito tutte le sessioni** di quell'utente. Il frontend, a un 401 con il proprio token, torna alla schermata di login.
+- **Tentativi**: 10 password sbagliate in 15 minuti bloccano quell'email per il resto della finestra. In memoria e per email, non per IP: dietro nginx e il proxy Mauden l'IP è sempre lo stesso.
+- **Hash**: scrypt di `node:crypto` (N=2^14, r=8, p=1), formato `scrypt$N$r$p$salt$hash`. Nessuna dipendenza nuova. Migration `016_local_auth.sql` (`password_hash`, `password_set_at`, `password_set_by` = `self` / email dell'admin / `cli`).
+- **Rischio accettato**: durante la finestra chiunque raggiunga la board e conosca l'email di un collega non ancora attivato può attivarlo al posto suo. Il collega se ne accorge ("Questo account ha già una password") e un super admin resetta. Per questo la finestra è breve e va annunciata al team.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/auth/config` | Pubblico: `mode`, `claimOpen`, `claimUntil`, `passwordMin` |
+| POST | `/api/auth/login` | Pubblico: `{email, password}` → `{token, user}`. Errori con `code`: `not_registered`, `not_activated`, `wrong_password`, `locked` |
+| POST | `/api/auth/claim` | Pubblico, solo nella finestra: `{email, password}` → `{token, user}`. `already_active` (409), `claim_closed`, `superadmin_cli` (403) |
+| POST | `/api/users/:id/password` | Super admin: genera una password nuova, restituita una volta |
+| DELETE | `/api/users/:id/password` | Super admin: azzera (account di nuovo "da attivare") |
+
+**File**: `backend/src/localAuth.js`, `backend/src/routes/auth.js`, `backend/src/scripts/set-password.js`, `backend/test/local-auth.test.js`, `src/auth/localSession.js`, `src/auth/LocalLogin.jsx`, più i rami `LOCAL_AUTH` in `src/auth/*` e la colonna Accesso in `src/components/admin/UsersPanel.jsx`.
+
 ## Entra ID — Stato
 
-✅ **Live in produzione** dal 2026-05-17.
+⚠️ **Spento in produzione dal 2026-11-05**: si entra col login locale (sezione sopra). Era live dal 2026-05-17 sul tenant vecchio, che non esiste più. Il codice Entra resta intatto e torna attivo con `AUTH_MODE=entra`.
 
 - Tenant Mauden: `3c187334-ba7e-4a38-985e-b9bcf958cb27`
 - Client ID: `7e8814ac-13e9-4133-84dc-4673e4773977`

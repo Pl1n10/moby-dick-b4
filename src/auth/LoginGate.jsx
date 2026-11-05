@@ -1,6 +1,7 @@
 import S from '../styles.js'
 import useAuth from './useAuth.js'
-import { AUTH_ENABLED } from './authConfig.js'
+import { AUTH_ENABLED, LOCAL_AUTH } from './authConfig.js'
+import LocalLogin from './LocalLogin.jsx'
 
 /**
  * Renders children only if the user is authenticated. Otherwise shows a
@@ -11,6 +12,7 @@ export default function LoginGate({ children }) {
 
   const { isAuthenticated, login } = useAuth()
   if (isAuthenticated) return children
+  if (LOCAL_AUTH) return <LocalLogin />
 
   return (
     <div style={{

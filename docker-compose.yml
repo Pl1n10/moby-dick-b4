@@ -30,6 +30,10 @@ services:
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
       AZURE_API_AUDIENCE: ${AZURE_API_AUDIENCE:-}
+      # Local login (email + password) instead of Entra: AUTH_MODE=local.
+      AUTH_MODE: ${AUTH_MODE:-entra}
+      LOCAL_AUTH_SECRET: ${LOCAL_AUTH_SECRET:-}
+      LOCAL_AUTH_CLAIM_UNTIL: ${LOCAL_AUTH_CLAIM_UNTIL:-}
       # Assignment notifications — Power Automate webhook URL. Empty = disabled.
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://kanbanops.mauden.com}
@@ -59,6 +63,7 @@ services:
         VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI:-http://localhost:5173}
         VITE_AZURE_API_SCOPE: ${VITE_AZURE_API_SCOPE:-}
         VITE_AUTH_USE_ID_TOKEN: ${VITE_AUTH_USE_ID_TOKEN:-false}
+        VITE_AUTH_MODE: ${VITE_AUTH_MODE:-entra}
     container_name: moby-nginx
     ports:
       - "80:80"

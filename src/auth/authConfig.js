@@ -4,6 +4,11 @@
 
 export const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
 
+// 'entra' (Microsoft login, default) or 'local' (email + password against the
+// users table, stopgap while Entra is unavailable; backend AUTH_MODE=local).
+export const AUTH_MODE = import.meta.env.VITE_AUTH_MODE === 'local' ? 'local' : 'entra'
+export const LOCAL_AUTH = AUTH_ENABLED && AUTH_MODE === 'local'
+
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID || ''
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || ''
 const redirectUri = import.meta.env.VITE_AZURE_REDIRECT_URI || window.location.origin
