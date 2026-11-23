@@ -11,6 +11,12 @@
 // viewer opened, so a new entry must go on top with a later date.
 export const CHANGELOG = [
   {
+    date: '2026-11-23',
+    items: [
+      { type: 'new', text: 'I case aperti sul portale di supporto Cohesity compaiono da soli come task nella sezione scelta, con una linguetta che mostra numero e stato del case e lo apre sul portale. Lo stato del task segue il case; la linguetta diventa gialla quando Cohesity aspetta una risposta da noi.' },
+    ],
+  },
+  {
     date: '2026-11-05',
     items: [
       { type: 'new', text: 'Si entra con la tua email aziendale e una password, al posto dell\'account Microsoft. Al primo accesso scegli tu la password; se la dimentichi, un amministratore te ne dà una nuova.' },

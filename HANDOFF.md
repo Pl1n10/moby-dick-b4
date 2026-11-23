@@ -1,10 +1,16 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-11-05.
+Stato al 2026-11-23.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## ▶ Ripresa
+
+**2026-11-23 — case dei fornitori come task (in `main`, NON in prod).** Specifica e regole in `AGENTS.md`, "Case vendor sulla lavagna (integrazioni)". Migration 017 (solo tabelle nuove), già pensata per più lavagne, più account per lavagna e più fornitori: gestite dall'admin di ogni lavagna sulla propria. Fatto: backend + sincronizzazione + linguetta + console Integrazioni, 50 test verdi (isolamento fra lavagne compreso), prova nel browser con dati finti su due lavagne. **Non ancora provato contro il portale vero dalla board**: la sessione della devbox è impegnata nella prova di durata, e usarla dalla board la brucerebbe. Da fare, in ordine:
+1. Leggere l'esito della prova di durata (devbox, `~/.config/cohesity-probe/probe.log`, servizio utente transient `cohesity-probe`, job Atlante `cohesity-sessione`): se la sessione muore verso le 8 h serve un login a mano a ogni turno, altrimenti dura finché la si rinnova.
+2. **Verificare che la VM raggiunga `https://support.cohesity.com`** (`curl -sI` dalla VM): è nella rete Mauden, un proxy in uscita bloccherebbe tutto.
+3. Deploy con `engage` (c'è la 017: il dump lo fa lui). La voce del changelog è datata 2026-11-23: correggerla alla data del deploy.
+4. Fermare la prova sulla devbox (`systemctl --user stop cohesity-probe`), login nuovo sul portale, poi console → Integrazioni · Backup → "Nuova integrazione" Cohesity, sezione Cohesity, sessione, Attiva. Al primo giro arrivano tutti i case aperti (34 al 2026-11-23). Per la lavagna SM: lo fa il suo admin, con il suo account.
 
 **Multi-lavagna in produzione dal 2026-10-10** (step 5c/5d/5e chiusi: esito nella sezione "Multi-tenant"). Il 2026-10-10 è stato deployato anche `759647b` (004 senza l'admin fantasma `alessio.coletta@`, già cancellato da Roberto dalla console: non torna più). Prod = `main` = `759647b`; il tag `mauden-prod-2026-10-10` resta su `0fddd0a` (stesso schema, differenza solo nel seed della 004).
 

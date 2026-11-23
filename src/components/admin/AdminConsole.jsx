@@ -4,6 +4,7 @@ import { useBoard } from '../../board/BoardProvider.jsx'
 import MembersPanel from './MembersPanel.jsx'
 import BoardsPanel from './BoardsPanel.jsx'
 import UsersPanel from './UsersPanel.jsx'
+import IntegrationsPanel from './IntegrationsPanel.jsx'
 import Icon from '../Icon.jsx'
 
 // Permissions console. A board admin sees only the members of the current
@@ -12,6 +13,7 @@ export default function AdminConsole({ onClose }) {
   const { board, isSuperadmin } = useBoard()
   const tabs = [
     { id: 'members', label: `Membri · ${board.name}` },
+    { id: 'integrations', label: `Integrazioni · ${board.name}` },
     ...(isSuperadmin ? [{ id: 'boards', label: 'Lavagne' }, { id: 'users', label: 'Utenti' }] : []),
   ]
   const [tab, setTab] = useState('members')
@@ -60,6 +62,7 @@ export default function AdminConsole({ onClose }) {
         {tab === 'members' && <MembersPanel onError={onError} />}
         {tab === 'boards' && <BoardsPanel onError={onError} />}
         {tab === 'users' && <UsersPanel onError={onError} />}
+        {tab === 'integrations' && <IntegrationsPanel onError={onError} />}
       </div>
     </div>
   )

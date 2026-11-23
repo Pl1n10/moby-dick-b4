@@ -353,6 +353,37 @@ Payload inviato al webhook:
 
 `assignedBy` è `null` in demo mode (nessun JWT). **File**: `backend/src/notify.js`, hook in `backend/src/routes/tasks.js`. Env: `NOTIFY_WEBHOOK_URL`, `APP_PUBLIC_URL` — vedi `backend/.env.example`.
 
+## Case vendor sulla lavagna (integrazioni)
+
+Dal 2026-11-23 (in `main`, **non ancora in prod**). I case aperti sui portali di supporto dei fornitori diventano task, con una **linguetta a cartellina** sopra la riga (numero e stato del case, link al case). Primo fornitore: **Cohesity** (`support.cohesity.com`, che dopo la fusione con Veritas copre anche NetBackup). Decisioni di Roberto: tutti i case aperti, stato del task che segue il case, linguetta sul bordo della riga, e (2026-11-23) **pensato per più lavagne e più fornitori fin dalla prima migration**.
+
+- **Modello:** un'**integrazione** = un account su un portale, collegato a **una lavagna** e a **una sezione** di quella lavagna. Una lavagna può averne quante vuole, anche dello stesso fornitore (es. "Cohesity · Cliente A" e "Cohesity · Cliente B" sulla lavagna SM), ognuna con la sua sessione. Nome unico per lavagna.
+- **Chi le gestisce:** l'**admin della lavagna** (e il super admin, admin ovunque), dalla console → **Integrazioni · <lavagna>**. Un admin non vede né tocca quelle di altre lavagne: ogni query filtra per `tenant_id`, e un id di un'altra lavagna risponde 404 come un task.
+- **Isolamento nello schema:** `integrations(tenant_id, group_name)` → FK su `pillars` della stessa lavagna (segue le rinomine; se la sezione viene eliminata l'integrazione resta senza destinazione e la sync lo dice). `vendor_cases(tenant_id, integration_id)` → FK composta su `integrations(tenant_id, id)`: un case non può dichiarare una lavagna diversa da quella della sua integrazione.
+- **Fornitori = moduli**, non migration: `backend/src/integrations/providers/` (interfaccia descritta in `index.js`: credenziale da incollare con le istruzioni, `fetchCases`, mappa stati/priorità, `waitingOnUs`, link al case, descrizione del task). `integrations.provider` è testo validato dal registro. La sessione sta in `integrations.credentials` (JSONB, forma decisa dal fornitore). Console e linguetta prendono nome e istruzioni dal registro: un fornitore nuovo non tocca il frontend.
+- **Sincronizzazione** (`backend/src/integrations/sync.js`, ogni `INTEGRATIONS_SYNC_MINUTES`, default 15, `0` = spenta): tutte le integrazioni attive di tutte le lavagne, una dopo l'altra; ogni chiamata a un portale ha un **timeout di 30 s** (`providers/http.js`), quindi un portale bloccato ritarda le altre al massimo di quello e un errore resta sulla sua integrazione. Una sync alla volta per integrazione.
+- **Regole sui task:** ogni case aperto diventa un task, una volta sola, nella sezione dell'integrazione (owner vuoto, nessuna notifica, numerato con il contatore della sua lavagna). Stato e priorità seguono il case **solo quando cambia il case**: uno stato messo a mano resta finché il fornitore non muove il case. Reference, descrizione, owner, scadenza e checklist sono del team, scritti solo alla creazione. Un task specchio cancellato **non viene ricreato** (`vendor_cases.task_id` senza FK, di proposito: l'undo della cancellazione rimette lo stesso UUID e la linguetta torna da sola). Un case chiuso non chiude un task con la checklist aperta: va in Resolved. Eliminare un'integrazione cancella i suoi case: i task restano, senza linguetta.
+- **Solo lettura, di proposito:** niente commenti e niente apertura di case da KanbanOps su API che nessuno ha documentato.
+- **Dati:** di un case si tengono numero, oggetto, stato, priorità, prodotto, cluster, origine, date. Niente nomi o mail dei contatti. Le sessioni sono **write-only** (l'API non le restituisce mai) ma stanno in chiaro nel DB, quindi anche nei dump di `engage`.
+- **Un login per integrazione.** Se la stessa sessione è usata in due posti (due integrazioni, browser e board, devbox e VM), il primo che la rinnova butta fuori l'altro.
+- **Test:** `backend/test/integrations.test.js`, con un portale finto multi-account che rifiuta i refresh token già usati: isolamento fra lavagne, due account sulla stessa lavagna, portale bloccato, sessione scaduta, regole sui task. Nessun test chiama un portale vero.
+
+**Cohesity, cosa sappiamo del portale** (verificato a mano il 2026-11-23, nessuna API ufficiale):
+- `GET /api/cases` → `{response: [Case Salesforce…]}`, tutti i case dell'account (anche chiusi) in una chiamata. Link a un case: `/cases/c/{Id}` (Id Salesforce, non `CaseNumber`).
+- Login solo da browser (OAuth PKCE su `my.cohesity.com`, Salesforce). Poi due cookie HttpOnly: `access_token` (JWE, ~58 min, path `/`) e `refresh_token` (8 h, **path `/auth/refresh`**, per questo DevTools non lo mostra dalla pagina principale). `POST /auth/refresh` con il solo `refresh_token` dà una coppia nuova: **il token ruota**, il nuovo va salvato prima di tutto. `sid`, `sid_Client`, `inst`, `oid` sono cookie Salesforce e non servono.
+- Stati: Customer pending e Dispatch/RMA pending → Waiting; Work in progress e Customer Updated → In Progress; Solution provided/monitoring, Close Pending, Resolved - Customer Updated → Resolved; Closed e Duplicate → Closed; sconosciuto → In Progress. Priorità P1–P4 → P1–P4 (P0 resta una scelta umana). Linguetta **ambra** quando il case è in *Customer pending*, cioè quando Cohesity aspetta noi.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/t/:slug/integrations/providers` | Admin di lavagna: fornitori collegabili, con le istruzioni per la sessione |
+| GET | `/api/t/:slug/integrations` | Admin di lavagna: integrazioni della lavagna e loro salute (mai le sessioni) |
+| POST | `/api/t/:slug/integrations` | `{provider, name, group?}`: nasce spenta e senza sessione |
+| PATCH | `/api/t/:slug/integrations/:id` | `{name?, enabled?, group?, credential?}`; una sessione nuova azzera l'errore |
+| DELETE | `/api/t/:slug/integrations/:id` | Elimina; i task restano senza linguetta |
+| POST | `/api/t/:slug/integrations/:id/sync` | Sincronizza adesso e restituisce l'esito |
+
+**File**: `backend/migrations/017_vendor_cases.sql`, `backend/src/integrations/sync.js`, `backend/src/integrations/providers/{index,http,cohesity}.js`, `backend/src/routes/integrations.js`, `src/components/admin/IntegrationsPanel.jsx`, `CaseTab` in `src/components/TaskRow.jsx`.
+
 ## Operations & deploy strategy
 
 - **Deploy in un comando: `engage`** (dal 2026-10-19). `scripts/engage`, linkato sulla VM in `/usr/local/bin/engage`: controlla che il checkout sia su `main` e pulito → `git pull --ff-only` → **dump del DB** in `~/backups/kanbanops/` (tiene gli ultimi 20) → procedura qui sotto → aspetta `/api/health` (90 s) → salva il commit deployato in `~/.kanbanops-engaged`. Se main non ha niente di nuovo non fa nulla (`engage --force` per ricostruire comunque). Non fa mai rollback da solo: se l'API non risponde stampa i comandi per tornare al commit precedente (più il restore del dump se c'era una migration), e finché il checkout resta fermo su quel commit `engage` si rifiuta di partire. Tutto il corpo sta in `main()` chiamata all'ultima riga, perché il `git pull` può riscrivere lo script mentre bash lo sta leggendo: non togliere questa struttura. La procedura manuale qui sotto resta valida ed è quella che lo script esegue.

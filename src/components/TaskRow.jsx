@@ -12,6 +12,9 @@ import EditableSelect from './editable/EditableSelect.jsx'
 import EditableDate from './editable/EditableDate.jsx'
 import Icon from './Icon.jsx'
 
+// Height of the band above a row that carries a vendor case tab.
+const CASE_BAND = 30
+
 // Priority options for the inline select: numeric value, "Px" label.
 const PRIORITY_OPTIONS = PRIORITIES.map(n => ({ value: n, label: `P${n}` }))
 
@@ -54,6 +57,23 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
     : null
   const firstCell = dragHandle ? 'drag' : showReperibile ? 'rep' : 'id'
 
+  // Mirrored vendor support case (integrations): a folder tab on top of the row.
+  // Every cell gets a band on top; a 1px line drawn at the bottom of the band
+  // (background gradient, so it runs across the whole row without touching the
+  // borders P0 uses) is the folder edge, and the tab sits on it in the
+  // reference cell. Amber when the provider says the case waits for us
+  // (Cohesity: "Customer pending").
+  const vc = task.vendorCase || null
+  const caseWaitsForUs = vc?.waitingOnUs === true
+  const caseLine = caseWaitsForUs ? 'var(--amber)' : 'var(--accent-border)'
+  const cell = {
+    ...tb,
+    ...(vc ? {
+      paddingTop: `${CASE_BAND}px`,
+      backgroundImage: `linear-gradient(to bottom, transparent ${CASE_BAND - 7}px, ${caseLine} ${CASE_BAND - 7}px, ${caseLine} ${CASE_BAND - 6}px, transparent ${CASE_BAND - 6}px)`,
+    } : null),
+  }
+
   return (
     <tr style={{
       borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.1s',
@@ -65,7 +85,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           the row stays clickable for inline editing. Shown on hover (CSS
           .task-grip); when reordering is off (filters, no write scope) the
           cell stays, so columns don't shift, but the grip is not rendered. */}
-      {dragHandle && <td style={{ padding: '4px 0 4px 6px', width: '28px', ...tb, ...leftEdge, ...repBar }}>
+      {dragHandle && <td style={{ padding: '4px 0 4px 6px', width: '28px', ...cell, ...leftEdge, ...repBar }}>
         {!dragHandle.disabled && <button
           type="button"
           className="task-grip"
@@ -79,7 +99,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       {/* "Info reperibile": a flag on this very task, not a copy. Ticking it
           makes the task appear in the Info Reperibile tab, where it stays the
           same task — edits and closes there apply here too. */}
-      {showReperibile && <td style={{ padding: '8px 10px', textAlign: 'center', ...tb, ...(firstCell === 'rep' ? { ...leftEdge, ...repBar } : null) }}>
+      {showReperibile && <td style={{ padding: '8px 10px', textAlign: 'center', ...cell, ...(firstCell === 'rep' ? { ...leftEdge, ...repBar } : null) }}>
         <input
           type="checkbox"
           checked={task.reperibile === true}
@@ -99,18 +119,19 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           "…" for the instant between the optimistic insert and the POST reply. */}
       <td style={{
         padding: '8px 10px', fontFamily: S.mono, fontSize: '11px',
-        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb, ...(firstCell === 'id' ? leftEdge : null),
+        color: 'var(--muted)', whiteSpace: 'nowrap', ...cell, ...(firstCell === 'id' ? leftEdge : null),
       }}>
         {task.number != null
           ? <Highlight text={formatTaskCode(task.number, idPrefix)} query={search} />
           : '…'}
       </td>
       {showGroup && (
-        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', ...tb }}>
+        <td style={{ padding: '8px 14px', fontFamily: S.sans, fontSize: '12px', color: 'var(--muted)', whiteSpace: 'nowrap', ...cell }}>
           {task.group}
         </td>
       )}
-      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb }}>
+      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', position: vc ? 'relative' : undefined, ...cell }}>
+        {vc && <CaseTab vc={vc} line={caseLine} waitsForUs={caseWaitsForUs} search={search} />}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             onClick={onToggleExpand}
@@ -154,7 +175,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           )}
         </div>
       </td>
-      <td style={{ padding: '8px 14px', maxWidth: '400px', ...tb }}>
+      <td style={{ padding: '8px 14px', maxWidth: '400px', ...cell }}>
         {readOnly ? (
           <span style={{ color: 'var(--text-2)', padding: '2px 4px', display: 'block' }}>
             {task.description ? <Linkify text={task.description} query={search} /> : '—'}
@@ -170,7 +191,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...tb }}>
+      <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', ...cell }}>
         {readOnly ? (
           <PriorityBadge priority={task.priority} />
         ) : (
@@ -182,7 +203,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      <td style={{ padding: '8px 14px', ...tb }}>
+      <td style={{ padding: '8px 14px', ...cell }}>
         {readOnly ? (
           <StatusBadge status={task.status} />
         ) : (
@@ -194,7 +215,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
           />
         )}
       </td>
-      <td style={{ padding: '8px 14px', ...tb }}>
+      <td style={{ padding: '8px 14px', ...cell }}>
         {readOnly ? (
           <span style={{ padding: '2px 4px' }}>{task.owner}</span>
         ) : (
@@ -207,7 +228,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
       </td>
       <td style={{
         padding: '8px 14px', fontFamily: S.mono, fontSize: '11px',
-        color: 'var(--muted)', whiteSpace: 'nowrap', ...tb,
+        color: 'var(--muted)', whiteSpace: 'nowrap', ...cell,
       }}>
         {formatDate(task.updatedAt)}
       </td>
@@ -215,7 +236,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         padding: '8px 14px', whiteSpace: 'nowrap',
         ...(isOverdue(task.deadline) && task.status !== 'Closed' && task.status !== 'Resolved'
           ? { background: 'var(--danger-faint)' } : {}),
-        ...tb, ...lastCellEdge,
+        ...cell, ...lastCellEdge,
       }}>
         {readOnly ? (
           <span style={{
@@ -233,7 +254,7 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         )}
       </td>
       {showDelete && (
-        <td style={{ padding: '8px 8px', textAlign: 'center', ...tb, ...rightEdge }}>
+        <td style={{ padding: '8px 8px', textAlign: 'center', ...cell, ...rightEdge }}>
           {!readOnly && (
             <button onClick={onDelete} title="Delete task" style={{
               background: 'none', border: 'none', color: 'var(--faint)',
@@ -247,5 +268,32 @@ export default function TaskRow({ task, search, onUpdate, onDelete, readOnly = f
         </td>
       )}
     </tr>
+  )
+}
+
+// The folder tab: case number + vendor status, opens the case on the portal.
+function CaseTab({ vc, line, waitsForUs, search }) {
+  const color = waitsForUs ? 'var(--amber)' : 'var(--accent)'
+  return (
+    <a
+      href={vc.url || undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`${vc.integration || vc.providerLabel}: ${waitsForUs
+        ? `${vc.providerLabel} aspetta una risposta da noi. Apri il case sul portale`
+        : `apri il case sul portale ${vc.providerLabel}`}`}
+      style={{
+        position: 'absolute', left: '10px', top: `${CASE_BAND - 25}px`, height: '18px',
+        display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '0 9px',
+        border: `1px solid ${line}`, borderBottom: 'none', borderRadius: '6px 6px 0 0',
+        background: waitsForUs ? 'var(--amber-bg)' : 'var(--accent-bg-faint)',
+        color, fontFamily: S.mono, fontSize: '10px', lineHeight: 1, whiteSpace: 'nowrap',
+        textDecoration: 'none',
+      }}
+    >
+      <Icon name="folder2-open" />
+      <span style={{ fontWeight: 600 }}>CASE <Highlight text={vc.number} query={search} /></span>
+      <span style={{ opacity: 0.8 }}>· {vc.status}</span>
+    </a>
   )
 }

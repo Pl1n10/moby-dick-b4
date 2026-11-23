@@ -3,6 +3,7 @@ import pool from '../db.js'
 import { requireBoardAdmin, canWrite, isPillar, boardFeature } from '../auth.js'
 import { notifyAssignment } from '../notify.js'
 import subtasksRouter from './subtasks.js'
+import { getProvider } from '../integrations/providers/index.js'
 
 const router = Router()
 
@@ -39,6 +40,22 @@ function mapTaskToClient(row) {
     // so the client search can match text inside the checklist. Omitted on
     // single-row POST/PATCH responses (which the client doesn't merge back).
     subtasksText: row.subtasks_text != null ? String(row.subtasks_text) : '',
+    // Mirrored vendor support case (folder tab on the row), list query only.
+    vendorCase: row.vc_number ? vendorCaseToClient(row) : null,
+  }
+}
+
+function vendorCaseToClient(row) {
+  const provider = getProvider(row.vc_provider)
+  return {
+    provider: row.vc_provider,
+    providerLabel: provider?.label || row.vc_provider,
+    integration: row.vc_integration_name,
+    number: row.vc_number,
+    status: row.vc_status,
+    priority: row.vc_priority,
+    waitingOnUs: provider ? provider.waitingOnUs(row.vc_status) : false,
+    url: provider ? provider.caseUrl(row.vc_ext_id) : null,
   }
 }
 
@@ -90,7 +107,9 @@ router.get('/', async (req, res) => {
       SELECT t.*,
              COALESCE(s.total, 0) AS subtasks_total,
              COALESCE(s.open,  0) AS subtasks_open,
-             COALESCE(s.text, '') AS subtasks_text
+             COALESCE(s.text, '') AS subtasks_text,
+             i.provider AS vc_provider, i.name AS vc_integration_name, vc.ext_id AS vc_ext_id,
+             vc.case_number AS vc_number, vc.status AS vc_status, vc.priority AS vc_priority
       FROM tasks t
       LEFT JOIN (
         SELECT task_id,
@@ -100,6 +119,14 @@ router.get('/', async (req, res) => {
         FROM subtasks
         GROUP BY task_id
       ) s ON s.task_id = t.id
+      -- A task is mirrored from at most one case; if two integrations of the
+      -- board ever point at it, the oldest link wins (LIMIT 1 below).
+      LEFT JOIN LATERAL (
+        SELECT vc.* FROM vendor_cases vc
+        WHERE vc.task_id = t.id AND vc.tenant_id = t.tenant_id
+        ORDER BY vc.synced_at LIMIT 1
+      ) vc ON true
+      LEFT JOIN integrations i ON i.id = vc.integration_id AND i.tenant_id = t.tenant_id
       WHERE t.tenant_id = $1
       ORDER BY t.group_name, t.position, t.updated_at DESC
     `, [req.tenant.id])

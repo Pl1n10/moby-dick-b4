@@ -1,5 +1,6 @@
 import { waitForDb, runMigrations } from './db.js'
 import { processRecurring } from './recurring-processor.js'
+import { syncAll } from './integrations/sync.js'
 import { AUTH_ENABLED } from './auth.js'
 import { createApp } from './app.js'
 import { AUTH_MODE, checkLocalConfig, claimUntil } from './localAuth.js'
@@ -23,6 +24,15 @@ async function start() {
   // Recurring task processor — runs every 60 seconds
   processRecurring()
   setInterval(processRecurring, 60_000)
+
+  // Vendor support cases (Cohesity) → tasks. Only integrations switched on
+  // from the console do anything. 0 disables the timer (dev, demo).
+  const syncMinutes = Number(process.env.INTEGRATIONS_SYNC_MINUTES ?? 15)
+  if (syncMinutes > 0) {
+    setTimeout(syncAll, 30_000)
+    setInterval(syncAll, syncMinutes * 60_000)
+    console.log(`Integrations: sync every ${syncMinutes} min`)
+  }
 
   createApp().listen(PORT, '0.0.0.0', () => {
     console.log(`KanbanOps API listening on port ${PORT}`)

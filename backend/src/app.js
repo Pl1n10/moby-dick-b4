@@ -9,6 +9,7 @@ import settingsRouter from './routes/settings.js'
 import tenantsRouter from './routes/tenants.js'
 import membersRouter from './routes/members.js'
 import authRouter from './routes/auth.js'
+import integrationsRouter from './routes/integrations.js'
 
 // Built separately from index.js so the test suite can mount the app without
 // starting the recurring scheduler or binding a port.
@@ -51,6 +52,7 @@ export function createApp() {
   board.use('/recurring', recurringRouter)
   board.use('/settings', settingsRouter)
   board.use('/members', membersRouter)
+  board.use('/integrations', integrationsRouter)
   app.use('/api/t/:slug', auth, loadBoard, board)
 
   // Legacy single-board routes, for the transition only: a tab opened before
