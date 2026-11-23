@@ -29,7 +29,7 @@ import { PortalError } from './providers/http.js'
 const running = new Set()
 
 function sessionExpiredMsg(provider) {
-  return `Sessione del portale ${provider.label} scaduta: rifai il login sul portale e incolla una nuova sessione nella console (Integrazioni).`
+  return `Sessione del portale ${provider.label} scaduta: un admin della lavagna deve premere Riconnetti in Gestione permessi → Integrazioni e rifare il login.`
 }
 
 async function saveOutcome(integ, { error = null, ok = false }) {
@@ -137,7 +137,7 @@ export async function syncIntegration(integ) {
       return { error: 'no section' }
     }
     if (!provider.hasSession(integ.credentials)) {
-      await saveOutcome(integ, { error: 'Nessuna sessione: incollala nella console.' })
+      await saveOutcome(integ, { error: 'Nessuna sessione: premi Connetti in Gestione permessi → Integrazioni.' })
       return { error: 'no session' }
     }
 

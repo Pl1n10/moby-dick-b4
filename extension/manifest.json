@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "KanbanOps Connector",
+  "version": "1.0.0",
+  "description": "Passa a KanbanOps la sessione di un portale di supporto dopo un login fatto da te. Non legge né salva password.",
+  "permissions": ["cookies"],
+  "host_permissions": ["https://support.cohesity.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://kanbanops.mauden.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

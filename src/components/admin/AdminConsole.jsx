@@ -9,14 +9,14 @@ import Icon from '../Icon.jsx'
 
 // Permissions console. A board admin sees only the members of the current
 // board; the superadmin also manages boards/sections and every account.
-export default function AdminConsole({ onClose }) {
+export default function AdminConsole({ onClose, initialTab = 'members' }) {
   const { board, isSuperadmin } = useBoard()
   const tabs = [
     { id: 'members', label: `Membri · ${board.name}` },
     { id: 'integrations', label: `Integrazioni · ${board.name}` },
     ...(isSuperadmin ? [{ id: 'boards', label: 'Lavagne' }, { id: 'users', label: 'Utenti' }] : []),
   ]
-  const [tab, setTab] = useState('members')
+  const [tab, setTab] = useState(initialTab)
   const [error, setError] = useState(null)
   const onError = useCallback((msg) => setError(msg), [])
 

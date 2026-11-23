@@ -9,6 +9,7 @@ import { useBoard, useCanWrite, useFeature, useIdPrefix, useLabel } from './boar
 import { useOwners } from './auth/OwnersProvider.jsx'
 import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
+import IntegrationsAlert from './components/IntegrationsAlert.jsx'
 import TabNav from './components/TabNav.jsx'
 import Toolbar from './components/Toolbar.jsx'
 import TaskTable from './components/TaskTable.jsx'
@@ -159,6 +160,7 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       <Header />
+      <IntegrationsAlert />
 
       <TabNav tasks={tasks} activeGroup={activeGroup} onChangeGroup={setActiveGroup} pillars={pillars} showReperibile={hasReperibile} />
 

@@ -4,6 +4,7 @@ import { useBoard } from '../../board/BoardProvider.jsx'
 import { adminCall } from './adminApi.js'
 import { actionButtonStyle, dangerButtonStyle, smallSelect, PrimaryButton, Hint } from './ui.jsx'
 import Icon from '../Icon.jsx'
+import { connectorProviders, connectProvider } from '../../connector.js'
 
 // Board admin: the vendor support portals connected to THIS board. Each
 // integration is one portal account, mirrored into one section. Sessions are
@@ -100,8 +101,14 @@ function IntegrationCard({ integ, base, pillars, provider, onChange, onDeleted, 
         </span>
       </Row>
 
+      <ConnectRow integ={integ} busy={busy} onToken={async (token) => {
+        const row = await patch({ credential: token })
+        if (row) syncNow()
+        return Boolean(row)
+      }} onError={onError} />
+
       <details>
-        <summary style={{ cursor: 'pointer', color: 'var(--accent)' }}>{integ.hasSession ? 'Rinnova la sessione' : 'Imposta la sessione'}</summary>
+        <summary style={{ cursor: 'pointer', color: 'var(--muted)' }}>Oppure incolla la sessione a mano</summary>
         {provider && (
           <ol style={{ margin: '8px 0 10px 18px', padding: 0, color: 'var(--muted)', lineHeight: 1.6 }}>
             {provider.credential.help.map((h, i) => <li key={i}>{h}</li>)}
@@ -126,6 +133,46 @@ function IntegrationCard({ integ, base, pillars, provider, onChange, onDeleted, 
           <Icon name="arrow-repeat" /> {busy ? 'In corso…' : 'Sincronizza ora'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// "Connetti": the extension opens the portal login in a popup; after the
+// login the user makes there, the session comes back here and is saved.
+function ConnectRow({ integ, busy, onToken, onError }) {
+  const [state, setState] = useState('idle')   // idle | waiting | saving
+  const supported = connectorProviders()
+  const available = supported?.includes(integ.provider)
+
+  const connect = async () => {
+    setState('waiting')
+    let link = null
+    try {
+      link = await connectProvider(integ.provider)
+      setState('saving')
+      const saved = await onToken(link.token)
+      link.finish(saved)
+    } catch (e) {
+      if (!e.cancelled) onError(e.message)
+      link?.finish(false)
+    } finally {
+      setState('idle')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <PrimaryButton disabled={busy || !available || state !== 'idle'} onClick={connect}>
+        <Icon name="box-arrow-in-right" style={{ marginRight: '6px' }} />
+        {state === 'waiting' ? 'Fai il login nella finestra…' : state === 'saving' ? 'Salvataggio…' : integ.hasSession ? 'Riconnetti' : 'Connetti'}
+      </PrimaryButton>
+      <span style={{ color: 'var(--muted)' }}>
+        {!supported
+          ? 'Per il pulsante serve l\'estensione KanbanOps Connector (cartella extension/ del repo). Senza, incolla la sessione a mano qui sotto.'
+          : !available
+            ? `L'estensione installata non conosce ${integ.providerLabel}: aggiornala.`
+            : `Si apre il login di ${integ.providerLabel}: entra col tuo account, al resto pensa KanbanOps.`}
+      </span>
     </div>
   )
 }
