@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import S from '../../styles.js'
 import Icon from '../Icon.jsx'
+import Highlight from '../Highlight.jsx'
 import { useBoard } from '../../board/BoardProvider.jsx'
 import { useUserInfo } from '../../auth/UserInfoProvider.jsx'
 import { useRefreshOwners } from '../../auth/OwnersProvider.jsx'
@@ -9,6 +10,20 @@ import { LOCAL_AUTH } from '../../auth/authConfig.js'
 import {
   thStyle, tdStyle, smallSelect, actionButtonStyle, dangerButtonStyle, PrimaryButton, Hint, YouBadge, InlineText,
 } from './ui.jsx'
+
+// Quick filters above the table. `pending` only exists with a password login:
+// accounts that still need a password (not the Microsoft ones).
+const FILTERS = [
+  { id: 'all', label: 'Tutti', test: () => true },
+  { id: 'pending', label: 'Da attivare', test: u => !u.microsoft && !u.passwordSetAt, localOnly: true },
+  { id: 'noboard', label: 'Senza lavagna', test: u => u.memberships.length === 0 },
+  { id: 'superadmin', label: 'Super admin', test: u => u.isSuperadmin },
+].filter(f => !f.localOnly || LOCAL_AUTH)
+
+function matches(u, q) {
+  if (!q) return true
+  return u.email.toLowerCase().includes(q) || (u.displayOwner || '').toLowerCase().includes(q)
+}
 
 // Superadmin: every account × every board. One select per board sets the
 // membership (— / viewer / admin); operator scope on sections is edited in
@@ -20,6 +35,14 @@ export default function UsersPanel({ onError }) {
   const [users, setUsers] = useState(null)
   // Local login: password just generated, shown once.
   const [issued, setIssued] = useState(null)
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
+  const q = query.trim().toLowerCase()
+  const filterTest = (FILTERS.find(f => f.id === filter) || FILTERS[0]).test
+  const shown = useMemo(
+    () => (users || []).filter(u => filterTest(u) && matches(u, q)),
+    [users, filterTest, q],
+  )
 
   const load = useCallback(() => {
     adminCall('GET', '/api/users').then(setUsers).catch(e => onError(e.message))
@@ -62,6 +85,10 @@ export default function UsersPanel({ onError }) {
         Tutti gli account, su tutte le lavagne. Chi accede per la prima volta sceglie da solo la sua lavagna ed entra
         come <code>viewer</code>. Il super admin è admin ovunque e gestisce lavagne e utenti.
       </Hint>
+      {users !== null && (
+        <SearchBar query={query} onQuery={setQuery} filter={filter} onFilter={setFilter}
+          users={users} shown={shown.length} />
+      )}
       {users === null ? (
         <div style={{ color: 'var(--faint)', padding: '20px', textAlign: 'center' }}>Loading…</div>
       ) : (
@@ -78,12 +105,17 @@ export default function UsersPanel({ onError }) {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => {
+              {shown.length === 0 && (
+                <tr><td colSpan={99} style={{ ...tdStyle, color: 'var(--faint)', textAlign: 'center', padding: '20px' }}>
+                  Nessun account corrisponde alla ricerca.
+                </td></tr>
+              )}
+              {shown.map(u => {
                 const isSelf = me.email && u.email === me.email
                 return (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <td style={tdStyle}>
-                      <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--text-2)', wordBreak: 'break-all' }}>{u.email}</span>
+                      <span style={{ fontFamily: S.mono, fontSize: '12px', color: 'var(--text-2)', wordBreak: 'break-all' }}><Highlight text={u.email} query={q} /></span>
                       {isSelf && <YouBadge />}
                     </td>
                     <td style={tdStyle}>
@@ -125,7 +157,39 @@ export default function UsersPanel({ onError }) {
           </table>
         </div>
       )}
-      <AddUserForm onCreate={(email, displayOwner) => run(adminCall('POST', '/api/users', { email, displayOwner }), email)} />
+      <AddUserForm onCreate={(email, displayOwner) => run(adminCall('POST', '/api/users', { email, displayOwner }), email)
+        // The new account is the one to work on next (boards, password): show just it.
+        .then(ok => { if (ok) { setQuery(email); setFilter('all') } return ok })} />
+    </div>
+  )
+}
+
+function SearchBar({ query, onQuery, filter, onFilter, users, shown }) {
+  return (
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 12px' }}>
+      <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '340px' }}>
+        <Icon name="search" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: 'var(--faint)', fontSize: '12px' }} />
+        <input type="search" value={query} onChange={e => onQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') onQuery('') }}
+          placeholder="Cerca per email o nome" aria-label="Cerca account"
+          style={{ ...S.inputBase, width: '100%', boxSizing: 'border-box', paddingLeft: '28px' }} />
+      </div>
+      {FILTERS.map(f => {
+        const active = filter === f.id
+        const count = users.filter(f.test).length
+        return (
+          <button key={f.id} onClick={() => onFilter(f.id)} aria-pressed={active} style={{
+            ...actionButtonStyle,
+            borderColor: active ? 'var(--accent)' : undefined,
+            color: active ? 'var(--accent)' : undefined,
+          }}>
+            {f.label} <span style={{ color: 'var(--faint)', marginLeft: '2px' }}>{count}</span>
+          </button>
+        )
+      })}
+      {(query || filter !== 'all') && (
+        <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{shown} di {users.length}</span>
+      )}
     </div>
   )
 }
