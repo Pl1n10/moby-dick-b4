@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { requireBoardAdmin } from '../auth.js'
+import { LOCAL_LOGIN, generatePassword, hashPassword, mustUseMicrosoft } from '../localAuth.js'
 
 // Mounted at /api/t/:slug/members, after loadBoard. Who belongs to this
 // board and with which role. GET /owners is open to any authenticated user
@@ -15,7 +16,42 @@ function mapMemberToClient(row) {
     role: row.role,
     operatorGroups: Array.isArray(row.operator_groups) ? row.operator_groups : [],
     isHome: row.is_home === true,
+    isSuperadmin: row.is_superadmin === true,
+    // Password login: null = not activated yet. Never the hash.
+    passwordSetAt: row.password_set_at instanceof Date ? row.password_set_at.toISOString() : row.password_set_at,
+    microsoft: mustUseMicrosoft(row.email),
+    // Whether the caller may hand this member a password (see below).
+    canIssuePassword: row.can_issue === true && LOCAL_LOGIN && !mustUseMicrosoft(row.email),
   }
+}
+
+// A password is a way to act as that person, so a board admin may issue one
+// only when it gives them nothing they do not already have (decision
+// 2026-11-25): the member is not a superadmin, and every board the member
+// belongs to is a board the caller administers. Otherwise an admin of board
+// A could reset a colleague who is also admin of board B and sign in as
+// them. The superadmin may always. $1 = board, $2 = caller email,
+// $3 = caller is superadmin. Microsoft accounts are excluded in JS
+// (mustUseMicrosoft), since the domain list lives in the environment.
+const CAN_ISSUE = `
+  ($3::boolean OR (
+    NOT u.is_superadmin
+    AND NOT EXISTS (
+      SELECT 1 FROM memberships o
+      WHERE o.email = u.email
+        AND NOT EXISTS (
+          SELECT 1 FROM memberships c
+          WHERE c.tenant_id = o.tenant_id AND c.email = $2 AND c.role = 'admin'
+        )
+    )
+  )) AS can_issue`
+
+const MEMBER_COLUMNS = `u.email, u.display_owner, m.role, m.operator_groups,
+            (u.home_tenant_id = m.tenant_id) AS is_home,
+            u.is_superadmin, u.password_set_at, ${CAN_ISSUE}`
+
+function callerParams(req) {
+  return [req.userCtx.email || '', req.userCtx.isSuperadmin === true]
 }
 
 // Validates operatorGroups against the board's sections. Returns the cleaned
@@ -34,13 +70,12 @@ async function normalizeOperatorGroups(tenantId, input) {
   return cleaned
 }
 
-async function loadMember(tenantId, email) {
+async function loadMember(req, email) {
   const { rows: [row] } = await pool.query(
-    `SELECT u.email, u.display_owner, m.role, m.operator_groups,
-            (u.home_tenant_id = m.tenant_id) AS is_home
+    `SELECT ${MEMBER_COLUMNS}
      FROM memberships m JOIN users u ON u.email = m.email
-     WHERE m.tenant_id = $1 AND m.email = $2`,
-    [tenantId, email],
+     WHERE m.tenant_id = $1 AND m.email = $4`,
+    [req.tenant.id, ...callerParams(req), email],
   )
   return row ? mapMemberToClient(row) : null
 }
@@ -75,12 +110,11 @@ router.get('/owners', async (req, res) => {
 router.get('/', requireBoardAdmin, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT u.email, u.display_owner, m.role, m.operator_groups,
-              (u.home_tenant_id = m.tenant_id) AS is_home
+      `SELECT ${MEMBER_COLUMNS}
        FROM memberships m JOIN users u ON u.email = m.email
        WHERE m.tenant_id = $1
        ORDER BY (m.role = 'admin') DESC, u.display_owner NULLS LAST, u.email`,
-      [req.tenant.id],
+      [req.tenant.id, ...callerParams(req)],
     )
     res.json(rows.map(mapMemberToClient))
   } catch (err) {
@@ -135,7 +169,7 @@ router.put('/:email', requireBoardAdmin, async (req, res) => {
       [req.tenant.id, email, role ?? null, groups ?? null],
     )
     await client.query('COMMIT')
-    res.json(await loadMember(req.tenant.id, email))
+    res.json(await loadMember(req, email))
   } catch (err) {
     await client.query('ROLLBACK')
     console.error('PUT member error:', err.message)
@@ -161,6 +195,40 @@ router.delete('/:email', requireBoardAdmin, async (req, res) => {
   } catch (err) {
     console.error('DELETE member error:', err.message)
     res.status(500).json({ error: 'Failed to remove member' })
+  }
+})
+
+// POST /api/t/:slug/members/:email/password — password login: a board admin
+// generates a password for a member (activation of an external colleague, or
+// a forgotten one). Returned once, never stored in clear; every session of
+// that member is revoked. Limits in CAN_ISSUE above.
+router.post('/:email/password', requireBoardAdmin, async (req, res) => {
+  if (!LOCAL_LOGIN) return res.status(404).json({ error: 'Password login is not enabled' })
+  const email = req.params.email.trim()
+  try {
+    const member = await loadMember(req, email)
+    if (!member) return res.status(404).json({ error: 'Member not found' })
+    if (member.microsoft) {
+      return res.status(400).json({ error: 'Questo account entra con Microsoft: non ha una password di KanbanOps.' })
+    }
+    if (!member.canIssuePassword) {
+      console.log(`Local auth: password_refused email=${JSON.stringify(member.email)} by=${req.userCtx.email} board=${req.tenant.slug}`)
+      return res.status(403).json({
+        error: member.isSuperadmin
+          ? 'È un super admin: la password gliela può dare solo un altro super admin.'
+          : 'Fa parte anche di lavagne di cui non sei admin: la password gliela può dare un super admin.',
+      })
+    }
+    const password = generatePassword()
+    await pool.query(
+      `UPDATE users SET password_hash = $2, password_set_at = NOW(), password_set_by = $3 WHERE email = $1`,
+      [member.email, await hashPassword(password), req.userCtx.email || 'superadmin'],
+    )
+    console.log(`Local auth: password of ${member.email} reset by ${req.userCtx.email} (board ${req.tenant.slug})`)
+    res.json({ password, member: await loadMember(req, member.email) })
+  } catch (err) {
+    console.error('POST member password error:', err.message)
+    res.status(500).json({ error: 'Failed to reset password' })
   }
 })
 

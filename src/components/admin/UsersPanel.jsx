@@ -194,7 +194,9 @@ function SearchBar({ query, onQuery, filter, onFilter, users, shown }) {
   )
 }
 
-function AccessCell({ user, onReset, onClear }) {
+// Shared with MembersPanel. onReset null = the caller may not issue a
+// password to this account (`lockedReason` explains why); onClear optional.
+export function AccessCell({ user, onReset, onClear, lockedReason }) {
   // Hybrid: tenant account, no password of ours to manage.
   if (user.microsoft) {
     return (
@@ -213,16 +215,22 @@ function AccessCell({ user, onReset, onClear }) {
         title={when ? `Password ${how} il ${new Date(user.passwordSetAt).toLocaleString('it-IT')}` : 'Non ha ancora una password'}>
         {when ? `attivo · ${when}` : 'da attivare'}
       </span>
-      <button onClick={onReset} style={actionButtonStyle} title="Genera una password da mandargli">
-        <Icon name="key" style={{ marginRight: '4px' }} />Nuova password
-      </button>
-      {when && <button onClick={onClear} style={actionButtonStyle} title="Torna a 'da attivare'">Azzera</button>}
+      {onReset ? (
+        <button onClick={onReset} style={actionButtonStyle} title="Genera una password da mandargli">
+          <Icon name="key" style={{ marginRight: '4px' }} />Nuova password
+        </button>
+      ) : (
+        <span title={lockedReason} style={{ fontSize: '11px', color: 'var(--faint)', whiteSpace: 'nowrap', cursor: 'help' }}>
+          <Icon name="lock" style={{ marginRight: '3px' }} />super admin
+        </span>
+      )}
+      {when && onClear && <button onClick={onClear} style={actionButtonStyle} title="Torna a 'da attivare'">Azzera</button>}
     </div>
   )
 }
 
 // The generated password is shown here once: the server keeps only its hash.
-function IssuedPassword({ email, password, onClose }) {
+export function IssuedPassword({ email, password, onClose }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     navigator.clipboard?.writeText(password).then(() => setCopied(true)).catch(() => {})

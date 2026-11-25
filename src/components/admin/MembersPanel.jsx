@@ -5,6 +5,8 @@ import { useBoard } from '../../board/BoardProvider.jsx'
 import { useUserInfo } from '../../auth/UserInfoProvider.jsx'
 import { useRefreshOwners } from '../../auth/OwnersProvider.jsx'
 import { adminCall } from './adminApi.js'
+import { LOCAL_AUTH } from '../../auth/authConfig.js'
+import { AccessCell, IssuedPassword } from './UsersPanel.jsx'
 import {
   thStyle, tdStyle, smallSelect, dangerButtonStyle, PrimaryButton, Hint, YouBadge, InlineText,
 } from './ui.jsx'
@@ -16,6 +18,8 @@ export default function MembersPanel({ onError }) {
   const me = useUserInfo()
   const refreshOwners = useRefreshOwners()
   const [members, setMembers] = useState(null)
+  // Password just generated, shown once.
+  const [issued, setIssued] = useState(null)
 
   const load = useCallback(() => {
     adminCall('GET', `${apiBase}/members`).then(setMembers).catch(e => onError(e.message))
@@ -49,8 +53,19 @@ export default function MembersPanel({ onError }) {
       .catch(e => onError(e.message))
   }
 
+  const issuePassword = (m) => {
+    const msg = m.passwordSetAt
+      ? `Generare una nuova password per ${m.email}? Quella attuale smette di funzionare e le sue sessioni aperte vengono chiuse.`
+      : `Generare una password per ${m.email}?`
+    if (!window.confirm(msg)) return
+    adminCall('POST', `${apiBase}/members/${encodeURIComponent(m.email)}/password`)
+      .then(r => { setIssued({ email: m.email, password: r.password }); load() })
+      .catch(e => onError(e.message))
+  }
+
   return (
     <div>
+      {issued && <IssuedPassword {...issued} onClose={() => setIssued(null)} />}
       <Hint>
         Chi fa parte di <b>{board.name}</b>: compare fra gli owner assegnabili. Gli <code>admin</code> modificano
         tutto sulla lavagna e ne gestiscono i membri; i <code>viewer</code> leggono e scrivono solo nelle sezioni
@@ -67,6 +82,7 @@ export default function MembersPanel({ onError }) {
               <th style={thStyle}>Nome owner</th>
               <th style={thStyle}>Ruolo</th>
               <th style={thStyle} title="Sezioni in cui un viewer può scrivere. Gli admin scrivono ovunque.">Sezioni</th>
+              {LOCAL_AUTH && <th style={thStyle} title="Login con email e password">Accesso</th>}
               <th style={{ ...thStyle, textAlign: 'right' }} />
             </tr>
           </thead>
@@ -97,6 +113,15 @@ export default function MembersPanel({ onError }) {
                     <ScopeChecks pillars={pillars} role={m.role} value={m.operatorGroups}
                       onChange={groups => save(m.email, { operatorGroups: groups })} />
                   </td>
+                  {LOCAL_AUTH && (
+                    <td style={tdStyle}>
+                      <AccessCell user={m}
+                        onReset={m.canIssuePassword ? () => issuePassword(m) : null}
+                        lockedReason={m.isSuperadmin
+                          ? 'È un super admin: la password gliela dà un altro super admin.'
+                          : 'Fa parte anche di lavagne di cui non sei admin: la password gliela dà un super admin.'} />
+                    </td>
+                  )}
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
                     {!locked && <button onClick={() => remove(m)} style={dangerButtonStyle}>Togli</button>}
                   </td>

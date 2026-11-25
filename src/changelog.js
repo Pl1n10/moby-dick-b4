@@ -14,6 +14,7 @@ export const CHANGELOG = [
     date: '2026-11-25',
     items: [
       { type: 'improved', text: 'Torna l\'accesso con l\'account Microsoft per i colleghi Mauden: basta il pulsante «Accedi con Microsoft», la password di KanbanOps non serve più. Chi non ha un account Mauden entra con email e password, che gli dà un amministratore.' },
+      { type: 'improved', text: 'Gli admin di una lavagna possono dare la password ai colleghi della propria lavagna dalla gestione dei membri, senza passare dal super admin. Nella gestione utenti c\'è una ricerca per email o nome, con i filtri «Da attivare» e «Senza lavagna».' },
       { type: 'new', text: 'I case aperti sul portale di supporto Cohesity compaiono da soli come task nella sezione scelta, con una linguetta che mostra numero e stato del case e lo apre sul portale. Lo stato del task segue il case; la linguetta diventa gialla quando Cohesity aspetta una risposta da noi.' },
     ],
   },

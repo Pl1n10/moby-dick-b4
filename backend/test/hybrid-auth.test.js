@@ -164,3 +164,54 @@ test('hybrid without ENTRA_DOMAINS refuses to start', () => {
     process.env.ENTRA_DOMAINS = saved
   }
 })
+
+// Board admins hand out passwords to the members of their board, but only
+// when that gives them nothing they do not already have.
+test('a board admin issues passwords only to members entirely within their boards', async () => {
+  await pool.query(`INSERT INTO tenants (slug, name) VALUES ('other', 'Other board') ON CONFLICT DO NOTHING`)
+  await addUser('boardadmin@external.example', 'Board Admin')
+  await addUser('onlyhere@external.example', 'Only Here', { password: null })
+  await addUser('twoboards@external.example', 'Two Boards', { password: null })
+  await addUser('elsewhere@external.example', 'Else Where', { password: null })
+  await addUser('bigboss@external.example', 'Big Boss', { superadmin: true, password: null })
+  await pool.query(`
+    INSERT INTO memberships (tenant_id, email, role)
+    SELECT t.id, v.email, v.role::user_role FROM tenants t, (VALUES
+      ('backup', 'boardadmin@external.example', 'admin'),
+      ('backup', 'onlyhere@external.example',   'viewer'),
+      ('backup', 'twoboards@external.example',  'viewer'),
+      ('other',  'twoboards@external.example',  'admin'),
+      ('other',  'elsewhere@external.example',  'viewer'),
+      ('backup', 'bigboss@external.example',    'viewer'),
+      ('backup', 'colleague@tenant.example',    'viewer'),
+      ('backup', 'manager@external.example',    'viewer')
+    ) AS v(slug, email, role) WHERE t.slug = v.slug`)
+
+  const admin = (await call('POST', '/auth/login', { email: 'boardadmin@external.example', password: PASSWORD })).body.token
+  const viewer = (await call('POST', '/auth/login', { email: 'manager@external.example', password: PASSWORD })).body.token
+  const pw = (email, token = admin) => call('POST', `/t/backup/members/${encodeURIComponent(email)}/password`, {}, token)
+
+  const list = (await call('GET', '/t/backup/members', undefined, admin)).body
+  const flag = (email) => list.find(m => m.email === email).canIssuePassword
+  assert.equal(flag('onlyhere@external.example'), true)
+  assert.equal(flag('twoboards@external.example'), false)
+  assert.equal(flag('bigboss@external.example'), false)
+  assert.equal(flag('colleague@tenant.example'), false)
+  assert.equal(list.find(m => m.email === 'colleague@tenant.example').microsoft, true)
+
+  const ok = await pw('onlyhere@external.example')
+  assert.equal(ok.status, 200, JSON.stringify(ok.body))
+  assert.equal(ok.body.member.passwordSetAt !== null, true)
+  const login = await call('POST', '/auth/login', { email: 'onlyhere@external.example', password: ok.body.password })
+  assert.equal(login.status, 200)
+
+  assert.equal((await pw('twoboards@external.example')).status, 403)   // also admin elsewhere
+  assert.equal((await pw('bigboss@external.example')).status, 403)     // superadmin
+  assert.equal((await pw('colleague@tenant.example')).status, 400)     // Microsoft account
+  assert.equal((await pw('elsewhere@external.example')).status, 404)   // not on this board
+  assert.equal((await pw('onlyhere@external.example', viewer)).status, 403) // viewer caller
+
+  // The superadmin may always (here: Microsoft-signed chief).
+  const chief = entraToken('chief@tenant.example')
+  assert.equal((await pw('twoboards@external.example', chief)).status, 200)
+})
