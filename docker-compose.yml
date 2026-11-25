@@ -30,8 +30,10 @@ services:
       AZURE_TENANT_ID: ${AZURE_TENANT_ID:-}
       AZURE_CLIENT_ID: ${AZURE_CLIENT_ID:-}
       AZURE_API_AUDIENCE: ${AZURE_API_AUDIENCE:-}
-      # Local login (email + password) instead of Entra: AUTH_MODE=local.
+      # entra | local (email + password) | hybrid (Microsoft for ENTRA_DOMAINS,
+      # email + password for everyone else).
       AUTH_MODE: ${AUTH_MODE:-entra}
+      ENTRA_DOMAINS: ${ENTRA_DOMAINS:-}
       LOCAL_AUTH_SECRET: ${LOCAL_AUTH_SECRET:-}
       LOCAL_AUTH_CLAIM_UNTIL: ${LOCAL_AUTH_CLAIM_UNTIL:-}
       # Proxies that append to X-Forwarded-For (Mauden reverse proxy + nginx).

@@ -131,6 +131,14 @@ export default function UsersPanel({ onError }) {
 }
 
 function AccessCell({ user, onReset, onClear }) {
+  // Hybrid: tenant account, no password of ours to manage.
+  if (user.microsoft) {
+    return (
+      <span style={{ fontSize: '12px', color: 'var(--text-2)', whiteSpace: 'nowrap' }} title="Entra con il suo account Microsoft">
+        <Icon name="microsoft" style={{ marginRight: '4px' }} />Microsoft
+      </span>
+    )
+  }
   const when = user.passwordSetAt
     ? new Date(user.passwordSetAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })
     : null

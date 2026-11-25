@@ -7,12 +7,18 @@
 // Revokes every session of that user, like a reset from the console.
 
 import pool from '../db.js'
-import { generatePassword, hashPassword } from '../localAuth.js'
+import { generatePassword, hashPassword, mustUseMicrosoft } from '../localAuth.js'
 
 const email = (process.argv[2] || '').trim()
 if (!email) {
   console.error('Usage: node src/scripts/set-password.js <email>')
   process.exit(2)
+}
+
+if (mustUseMicrosoft(email)) {
+  console.error(`${email} signs in with Microsoft (AUTH_MODE=hybrid, ENTRA_DOMAINS): a password would be refused.`)
+  console.error('If Microsoft login is broken, switch AUTH_MODE back to local (HANDOFF) and run this again.')
+  process.exit(1)
 }
 
 try {

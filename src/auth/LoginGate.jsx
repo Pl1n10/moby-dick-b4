@@ -1,6 +1,6 @@
 import S from '../styles.js'
 import useAuth from './useAuth.js'
-import { AUTH_ENABLED, LOCAL_AUTH } from './authConfig.js'
+import { AUTH_ENABLED, LOCAL_AUTH, MSAL_AUTH } from './authConfig.js'
 import LocalLogin from './LocalLogin.jsx'
 
 /**
@@ -12,7 +12,8 @@ export default function LoginGate({ children }) {
 
   const { isAuthenticated, login } = useAuth()
   if (isAuthenticated) return children
-  if (LOCAL_AUTH) return <LocalLogin />
+  // Hybrid: one screen, Microsoft on top, the password form for external accounts.
+  if (LOCAL_AUTH) return <LocalLogin onMicrosoft={MSAL_AUTH ? login : null} />
 
   return (
     <div style={{

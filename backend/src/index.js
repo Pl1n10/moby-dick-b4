@@ -3,14 +3,16 @@ import { processRecurring } from './recurring-processor.js'
 import { syncAll } from './integrations/sync.js'
 import { AUTH_ENABLED } from './auth.js'
 import { createApp } from './app.js'
-import { AUTH_MODE, checkLocalConfig, claimUntil } from './localAuth.js'
+import { AUTH_MODE, LOCAL_LOGIN, checkLocalConfig, claimUntil, entraDomains } from './localAuth.js'
 
 const PORT = process.env.PORT || 3000
 
 const authLabel = !AUTH_ENABLED ? 'DISABLED (demo mode)'
-  : AUTH_MODE === 'local' ? 'ENABLED (local email + password)' : 'ENABLED (Entra ID)'
+  : AUTH_MODE === 'local' ? 'ENABLED (local email + password)'
+  : AUTH_MODE === 'hybrid' ? `ENABLED (Entra ID for ${entraDomains().join(', ') || '?'}, email + password for the rest)`
+  : 'ENABLED (Entra ID)'
 console.log(`Auth: ${authLabel}`)
-if (AUTH_ENABLED && AUTH_MODE === 'local') {
+if (AUTH_ENABLED && LOCAL_LOGIN) {
   // Refuse to start rather than sign tokens with a weak or missing secret.
   checkLocalConfig()
   const until = claimUntil()

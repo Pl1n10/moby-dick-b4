@@ -1,13 +1,15 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import {
-  AUTH_MODE, PASSWORD_MIN, claimOpen, claimUntil, verifyPassword, hashPassword, validNewPassword,
+  AUTH_MODE, LOCAL_LOGIN, PASSWORD_MIN, entraDomains, mustUseMicrosoft, claimOpen, claimUntil, verifyPassword, hashPassword, validNewPassword,
   weakPasswordReason, signToken, isLockedOut, recordFailure, clearFailures, globalLocked, recordGlobalFailure,
   clientIp, ipLocked, recordIpFailure,
 } from '../localAuth.js'
 
 // Mounted at /api/auth, PUBLIC (no requireAuth): it is how a token is obtained.
-// Only meaningful with AUTH_MODE=local; in Entra mode login/claim answer 404.
+// Only meaningful with AUTH_MODE=local or hybrid; in Entra mode login/claim
+// answer 404. In hybrid mode the tenant's domains are refused here: they sign
+// in with Microsoft.
 //
 // Error bodies carry a `code` the login screen branches on, and an Italian
 // `error` it shows as is.
@@ -59,16 +61,23 @@ router.get('/config', (req, res) => {
   const until = claimUntil()
   res.json({
     mode: AUTH_MODE,
-    claimOpen: AUTH_MODE === 'local' && claimOpen(),
+    claimOpen: LOCAL_LOGIN && claimOpen(),
     claimUntil: until ? until.toISOString() : null,
+    // Hybrid: the login screen sends these straight to Microsoft.
+    entraDomains: entraDomains(),
     passwordMin: PASSWORD_MIN,
   })
 })
 
 router.use((req, res, next) => {
-  if (AUTH_MODE !== 'local') return res.status(404).json({ error: 'Local login is not enabled' })
+  if (!LOCAL_LOGIN) return res.status(404).json({ error: 'Local login is not enabled' })
   next()
 })
+
+const USE_MICROSOFT = {
+  code: 'use_microsoft',
+  error: 'Questo account entra con Microsoft: usa «Accedi con Microsoft».',
+}
 
 const NOT_REGISTERED = {
   code: 'not_registered',
@@ -80,6 +89,12 @@ router.post('/login', async (req, res) => {
   const email = normEmail(req.body.email)
   const password = typeof req.body.password === 'string' ? req.body.password : ''
   if (!email || !password) return res.status(400).json({ code: 'missing', error: 'Inserisci email e password.' })
+  // Before any lookup or password check: answered the same whether the
+  // account exists or not, and never a guess worth counting.
+  if (mustUseMicrosoft(email)) {
+    audit(req, 'login_refused', email, 'reason=use_microsoft')
+    return res.status(403).json(USE_MICROSOFT)
+  }
 
   if (ipGate(req, res)) return audit(req, 'login_refused', email, 'reason=ip_locked')
   if (globalLocked()) {
@@ -134,6 +149,10 @@ router.post('/claim', async (req, res) => {
   const email = normEmail(req.body.email)
   const password = req.body.password
   if (!email) return res.status(400).json({ code: 'missing', error: 'Inserisci la tua email.' })
+  if (mustUseMicrosoft(email)) {
+    audit(req, 'claim_refused', email, 'reason=use_microsoft')
+    return res.status(403).json(USE_MICROSOFT)
+  }
   if (!validNewPassword(password)) {
     return res.status(400).json({ code: 'weak_password', error: `La password deve avere almeno ${PASSWORD_MIN} caratteri.` })
   }

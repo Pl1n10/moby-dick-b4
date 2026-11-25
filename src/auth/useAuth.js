@@ -1,56 +1,23 @@
 import { useMsal, useIsAuthenticated } from '@azure/msal-react'
 import { InteractionRequiredAuthError } from '@azure/msal-browser'
-import { AUTH_ENABLED, LOCAL_AUTH, loginRequest } from './authConfig.js'
+import { AUTH_ENABLED, LOCAL_AUTH, MSAL_AUTH, loginRequest } from './authConfig.js'
 import { acquireBackendToken, backendTokenRequest } from './backendToken.js'
 import { useLocalSession, clearSession } from './localSession.js'
+
+// LOCAL_AUTH and MSAL_AUTH are build-time constants: the hooks below are
+// called or skipped the same way on every render, so their order never changes.
+/* eslint-disable react-hooks/rules-of-hooks */
 
 /** True when someone is logged in, whatever the auth mode (demo: always). */
 export function useIsLoggedIn() {
   if (!AUTH_ENABLED) return true
-  // The branch is on a build-time constant: hook order never changes.
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  if (LOCAL_AUTH) return Boolean(useLocalSession())
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  return useIsAuthenticated()
+  const local = LOCAL_AUTH ? Boolean(useLocalSession()) : false
+  const msal = MSAL_AUTH ? useIsAuthenticated() : false
+  return local || msal
 }
 
-/**
- * Unified auth hook used everywhere in the app.
- *
- * In demo mode (AUTH_ENABLED=false) returns a stub that pretends the user is
- * authenticated and does nothing on login/logout, so callers don't need to
- * branch on the flag.
- *
- * Returns: { isAuthenticated, account, login, logout, getToken }
- *  - account: { name, username, ... } | null
- *  - getToken(): Promise<string | null> — bearer for the backend (access token, or ID token in stopgap mode), or null in demo
- */
-export default function useAuth() {
-  if (!AUTH_ENABLED) {
-    return {
-      isAuthenticated: true,
-      account: null,
-      login: () => {},
-      logout: () => {},
-      getToken: async () => null,
-    }
-  }
-
-  if (LOCAL_AUTH) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const session = useLocalSession()
-    return {
-      isAuthenticated: Boolean(session),
-      account: session ? { name: session.name, username: session.email } : null,
-      login: () => {},
-      logout: clearSession,
-      getToken: async () => session?.token || null,
-    }
-  }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+function useMsalAuth() {
   const { instance, accounts } = useMsal()
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const isAuthenticated = useIsAuthenticated()
   const account = accounts[0] || null
 
@@ -73,4 +40,52 @@ export default function useAuth() {
   }
 
   return { isAuthenticated, account, login, logout, getToken }
+}
+
+/**
+ * Unified auth hook used everywhere in the app.
+ *
+ * In demo mode (AUTH_ENABLED=false) returns a stub that pretends the user is
+ * authenticated and does nothing on login/logout, so callers don't need to
+ * branch on the flag.
+ *
+ * Hybrid mode: a password session wins if there is one, else Microsoft.
+ * `login` always means "sign in with Microsoft" (the password form posts by
+ * itself, see LocalLogin).
+ *
+ * Returns: { isAuthenticated, account, login, logout, getToken }
+ *  - account: { name, username, ... } | null
+ *  - getToken(): Promise<string | null> — bearer for the backend, or null in demo
+ */
+export default function useAuth() {
+  if (!AUTH_ENABLED) {
+    return {
+      isAuthenticated: true,
+      account: null,
+      login: () => {},
+      logout: () => {},
+      getToken: async () => null,
+    }
+  }
+
+  const session = LOCAL_AUTH ? useLocalSession() : null
+  const msal = MSAL_AUTH ? useMsalAuth() : null
+
+  if (session) {
+    return {
+      isAuthenticated: true,
+      account: { name: session.name, username: session.email },
+      login: msal ? msal.login : () => {},
+      logout: clearSession,
+      getToken: async () => session.token,
+    }
+  }
+  if (msal) return msal
+  return {
+    isAuthenticated: false,
+    account: null,
+    login: () => {},
+    logout: clearSession,
+    getToken: async () => null,
+  }
 }

@@ -1,10 +1,32 @@
 # HANDOFF.md — KanbanOps (repo: moby-dick-b4)
 
-Stato al 2026-11-23.
+Stato al 2026-11-25.
 
 ⚠️ **Nome UI ufficiale: KanbanOps**. Repo, path di deploy (`/opt/moby-dick-b4`), container Docker (`moby-db`/`moby-api`/`moby-nginx`) e package npm mantengono lo slug `moby-dick-b4` per non rompere remote/deploy.
 
 ## ▶ Ripresa
+
+**⚠️ 2026-11-25 — login misto: Microsoft per `@mauden.com`, password per gli esterni (in `main`, DA ATTIVARE sulla VM).** L'IT ha creato l'app dedicata `EU-Mauden-KanbanOps` sul tenant nuovo; i colleghi Accenture (nuovo management, account fuori dal tenant) entrano con email + password. Regole in `AGENTS.md`, "Login misto". Va in prod **insieme ai case Cohesity** (stesso `main`): `engage` fa il dump per la 017. Attivazione sulla VM, in `/opt/moby-dick-b4`, un comando per riga:
+```
+cp .env .env.bak-pre-hybrid
+sed -i -E '/^(VITE_)?(AZURE_(TENANT_ID|CLIENT_ID|API_AUDIENCE|API_SCOPE|REDIRECT_URI)|AUTH_MODE|AUTH_USE_ID_TOKEN)=/d; /^ENTRA_DOMAINS=/d' .env
+cat >> .env <<'FINE'
+AZURE_TENANT_ID=dd29478d-624e-429e-b453-fffc969ac768
+AZURE_CLIENT_ID=907bd465-dce5-45df-b0a6-df5151266bc4
+AZURE_API_AUDIENCE=api://907bd465-dce5-45df-b0a6-df5151266bc4
+VITE_AZURE_TENANT_ID=dd29478d-624e-429e-b453-fffc969ac768
+VITE_AZURE_CLIENT_ID=907bd465-dce5-45df-b0a6-df5151266bc4
+VITE_AZURE_API_SCOPE=api://907bd465-dce5-45df-b0a6-df5151266bc4/access_as_user
+VITE_AZURE_REDIRECT_URI=https://kanbanops.mauden.com
+VITE_AUTH_USE_ID_TOKEN=false
+AUTH_MODE=hybrid
+VITE_AUTH_MODE=hybrid
+ENTRA_DOMAINS=mauden.com
+FINE
+grep -E '^(VITE_)?(AUTH_|AZURE_|ENTRA_|LOCAL_AUTH_CLAIM)' .env
+engage --force
+```
+Il `grep` deve mostrare ogni chiave **una volta sola**, `AUTH_ENABLED=true` e `VITE_AUTH_ENABLED=true` (restano), `LOCAL_AUTH_CLAIM_UNTIL` passata o assente; `LOCAL_AUTH_SECRET` deve restare nel `.env` (serve agli esterni; il `grep` non lo stampa apposta). Verifica: `docker logs moby-api 2>&1 | grep "^Auth"` → `ENABLED (Entra ID for mauden.com, email + password for the rest)`; login in incognito con "Accedi con Microsoft" → la board con i propri permessi di prima (identità = email: le UPN del tenant nuovo devono essere `nome.cognome@mauden.com`). Se torna un 401: `docker logs moby-api 2>&1 | grep "JWT verification"` (`jwt audience invalid` → l'Application ID URI non è `api://907bd465-…`: correggere `AZURE_API_AUDIENCE` con quello vero; la mail dell'IT lo scrive insieme allo scope) e F12 → Console → `apiFetch token acquisition failed` per il codice `AADSTS`. Poi: console → Utenti → pre-registrare i colleghi Accenture → "Nuova password" → mandarla su Teams; la colonna Accesso dei `@mauden.com` deve dire "Microsoft". Rollback: `cp .env.bak-pre-hybrid .env && engage --force` (si torna al login locale, il codice nuovo lo supporta).
 
 **2026-11-23 — case dei fornitori come task (in `main`, NON in prod).** Specifica e regole in `AGENTS.md`, "Case vendor sulla lavagna (integrazioni)". Migration 017 (solo tabelle nuove), già pensata per più lavagne, più account per lavagna e più fornitori: gestite dall'admin di ogni lavagna sulla propria. Fatto: backend + sincronizzazione + linguetta + console Integrazioni, 50 test verdi (isolamento fra lavagne compreso), prova nel browser con dati finti su due lavagne. **Non ancora provato contro il portale vero dalla board**: la sessione della devbox è impegnata nella prova di durata, e usarla dalla board la brucerebbe. Da fare, in ordine:
 1. Leggere l'esito della prova di durata (devbox, `~/.config/cohesity-probe/probe.log`, servizio utente transient `cohesity-probe`, job Atlante `cohesity-sessione`): se la sessione muore verso le 8 h serve un login a mano a ogni turno, altrimenti dura finché la si rinnova.
@@ -39,6 +61,7 @@ Il `grep` deve dare `AUTH_ENABLED=true`, `VITE_AUTH_ENABLED=true`, i due `*AUTH_
 **⚠️ 2026-10-30 — cambio di tenant Entra, in corso** (dal 2026-11-05 in `main` c'è un ripiego con l'ID token, da attivare sulla VM: vedi la sezione dedicata). Mauden è passata a un tenant Entra nuovo. **Tenant ID definitivo: `dd29478d-624e-429e-b453-fffc969ac768`** (verificato via well-known). La VM gira **già sul tenant nuovo con una registrazione app di TEST** (client ID `0176faf1-1569-4229-a3ed-0078fb5aa1d2`), **il login Microsoft funziona ma l'app è inutilizzabile (401 su tutte le API)**: la registrazione di test non ha *Expose an API*, quindi Entra rifiuta il token per l'API con `AADSTS500011`. Risposta dell'IT (2026-10-30): non sistemano quella di test, **creano un'app dedicata. Si aspetta il suo Application ID.** Dettagli e passi nella sezione "Migrazione a un nuovo tenant Entra" qui sotto.
 
 **Prossimo, in ordine:**
+-3. **Attivare il login misto sulla VM** (blocco ⚠️ 2026-11-25 in cima): supera i punti -2 e -1 qui sotto.
 -2. **Attivare il login locale sulla VM** (blocco ⚠️ 2026-11-05 qui sopra), annunciare la finestra al team, controllare dalla console Utenti chi manca all'appello.
 -1. **Migrazione tenant Entra** — sospesa per scelta (2026-11-05): non si dipende più dall'IT. Se un giorno arriva l'app dedicata, la procedura qui sotto resta valida, più `AUTH_MODE=entra`.
 0. Far provare drag & drop e Novità a un collega admin e a un operatore.

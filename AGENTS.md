@@ -455,6 +455,18 @@ Il prodotto si chiama **KanbanOps** ma diverse cose tecniche mantengono lo slug 
 - [ ] **Application ID URI** (oggi: `api://7e8814ac-…`) — **Sconsigliato**. È solo nei JWT, nessuno lo legge mai. Cambiarlo significa update `AZURE_API_AUDIENCE` + `VITE_AZURE_API_SCOPE` nel `.env` + rebuild + tutti gli utenti ri-loggano (token in cache hanno l'audience vecchia). Costo > beneficio.
 - ❌ **Client ID** (`7e8814ac-…`) — **Non si tocca**. È l'identità immutabile dell'app. Per averne uno nuovo serve creare una nuova app registration da zero e abbandonare la vecchia. Mai farlo se non per emergenza (token leak).
 
+## Login misto: Microsoft + password per gli esterni
+
+Dal 2026-11-25 (in `main`, **da attivare sulla VM**: procedura in `HANDOFF.md`). L'IT ha creato l'app dedicata sul tenant nuovo (`EU-Mauden-KanbanOps`, client ID `907bd465-dce5-45df-b0a6-df5151266bc4`, tenant `dd29478d-…`). Intanto il management del team passa ad Accenture (operativo fra due mesi, ma i colleghi Accenture lavorano già sulla board) e i loro account `@accenture.com` stanno in un altro tenant. Decisione di Roberto: tornare a Microsoft per chi è nel tenant **e tenere la password per chi non c'è**.
+
+- **`AUTH_MODE=hybrid`** (backend) + **`VITE_AUTH_MODE=hybrid`** (build nginx) + **`ENTRA_DOMAINS=mauden.com`** (obbligatoria: senza, l'API non parte). Servono sia le variabili Entra sia `LOCAL_AUTH_SECRET`.
+- **Chi entra come**: un account di un dominio in `ENTRA_DOMAINS` entra **solo** con Microsoft. Login e "Primo accesso" a password gli rispondono `403 use_microsoft` prima ancora di cercare l'account; le sessioni a password aperte prima del passaggio smettono di valere (`localVerifyToken`); la console non gli genera password e nella colonna **Accesso** mostra "Microsoft". Le password scelte dal 2026-11-05 restano nel DB ma sono inerti. Motivo: una password accanto a Microsoft sarebbe una seconda porta, più debole. Tutti gli altri entrano con email + password, **solo se pre-registrati** dalla console Utenti, con la password generata da un super admin (niente finestra di auto-attivazione: `LOCAL_AUTH_CLAIM_UNTIL` vuota o passata).
+- **Token**: il backend li smista dall'header, HS256 = nostri (`LOCAL_AUTH_SECRET`), il resto va alla verifica Entra. Ogni verificatore fissa il suo algoritmo, quindi lo smistamento non permette di farne passare uno per l'altro. Identità = email in entrambi i casi: ruoli, membership e super admin non cambiano.
+- **Schermata di login**: "Accedi con Microsoft" in cima, sotto il form email/password per gli altri account. Una mail di un dominio del tenant viene fermata già nel browser (`/api/auth/config` restituisce `entraDomains`). Nel browser vince una sessione a password se c'è, altrimenti MSAL.
+- **Se un giorno gli Accenture diventano ospiti B2B del tenant** (o cambia il tenant): si aggiunge il dominio a `ENTRA_DOMAINS` e passano a Microsoft senza toccare il codice.
+- **Se il login Microsoft si rompe**: i super admin sono `@mauden.com` e quindi non hanno password utilizzabile. Ripiego: `AUTH_MODE=local` + `VITE_AUTH_MODE=local` nel `.env` e `engage --force` (le password locali tornano valide), oppure il backup del `.env` della procedura.
+- **Test**: `backend/test/hybrid-auth.test.js` (verificatore Entra finto via `setEntraVerifier`, il resto vero).
+
 ## Login locale (ripiego senza Entra)
 
 Dal 2026-11-05. Il tenant Entra vecchio è morto e sul nuovo l'app non è sotto il nostro controllo (l'IT ha anche tolto il redirect URI all'app di test: `AADSTS500113`). Decisione di Roberto: **login indipendente**, niente Entra, niente Power Automate, niente IT. Si accende con `AUTH_ENABLED=true` + `AUTH_MODE=local` (backend) e `VITE_AUTH_ENABLED=true` + `VITE_AUTH_MODE=local` (build nginx). Default `entra`: tornare a Microsoft = togliere le due righe `*AUTH_MODE` + `engage --force`.
@@ -483,7 +495,7 @@ Dal 2026-11-05. Il tenant Entra vecchio è morto e sul nuovo l'app non è sotto 
 
 ## Entra ID — Stato
 
-⚠️ **Spento in produzione dal 2026-11-05**: si entra col login locale (sezione sopra). Era live dal 2026-05-17 sul tenant vecchio, che non esiste più. Il codice Entra resta intatto e torna attivo con `AUTH_MODE=entra`.
+⚠️ **Spento in produzione dal 2026-11-05**: si entra col login locale (sezione sopra). Era live dal 2026-05-17 sul tenant vecchio, che non esiste più. Torna con il **login misto** (sezione sopra) sull'app dedicata del tenant nuovo: tenant `dd29478d-624e-429e-b453-fffc969ac768`, client ID `907bd465-dce5-45df-b0a6-df5151266bc4`, scope `api://907bd465-dce5-45df-b0a6-df5151266bc4/access_as_user`, redirect SPA `https://kanbanops.mauden.com` (mail dell'IT del 2026-11-25). I due ID qui sotto sono quelli del tenant vecchio.
 
 - Tenant Mauden: `3c187334-ba7e-4a38-985e-b9bcf958cb27`
 - Client ID: `7e8814ac-13e9-4133-84dc-4673e4773977`

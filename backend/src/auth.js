@@ -30,7 +30,7 @@ const ISSUERS = TENANT_ID ? [
 ] : []
 const JWKS_URI = TENANT_ID ? `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys` : ''
 
-const client = AUTH_ENABLED && AUTH_MODE === 'entra' && JWKS_URI
+const client = AUTH_ENABLED && AUTH_MODE !== 'local' && JWKS_URI
   ? jwksClient({ jwksUri: JWKS_URI, cache: true, rateLimit: true })
   : null
 
@@ -52,9 +52,25 @@ function entraVerifyToken(token) {
   })
 }
 
+// Hybrid: the token says who issued it. Ours are HS256 (signed with
+// LOCAL_AUTH_SECRET), Microsoft's RS256; each verifier pins its own
+// algorithm, so routing on the header cannot be used to downgrade one into
+// the other.
+function hybridVerifyToken(token) {
+  const header = jwt.decode(token, { complete: true })?.header
+  if (header?.alg === 'HS256') return localVerifyToken(token)
+  return entraVerifier(token)
+}
+
+// Tests cannot reach Microsoft's keys: they swap only the Entra half of the
+// hybrid verifier, so the routing and the local half stay the real ones.
+let entraVerifier = entraVerifyToken
+export function setEntraVerifier(fn) { entraVerifier = fn || entraVerifyToken }
+
 // AUTH_MODE=local: tokens signed by this backend after an email + password
 // login (localAuth.js, routes/auth.js). Same claims shape as Entra.
-const defaultVerifier = AUTH_MODE === 'local' ? localVerifyToken : entraVerifyToken
+const defaultVerifier = AUTH_MODE === 'local' ? localVerifyToken
+  : AUTH_MODE === 'hybrid' ? hybridVerifyToken : entraVerifyToken
 
 // Swappable only so the test suite can authenticate fake users without
 // Entra. Production never calls setTokenVerifier.

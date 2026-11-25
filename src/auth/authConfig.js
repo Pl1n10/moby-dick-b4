@@ -4,10 +4,15 @@
 
 export const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
 
-// 'entra' (Microsoft login, default) or 'local' (email + password against the
-// users table, stopgap while Entra is unavailable; backend AUTH_MODE=local).
-export const AUTH_MODE = import.meta.env.VITE_AUTH_MODE === 'local' ? 'local' : 'entra'
-export const LOCAL_AUTH = AUTH_ENABLED && AUTH_MODE === 'local'
+// 'entra' (Microsoft login, default), 'local' (email + password against the
+// users table) or 'hybrid' (both: Microsoft for the tenant's domains, a
+// password for external accounts). Must match AUTH_MODE on the backend.
+const RAW_MODE = import.meta.env.VITE_AUTH_MODE
+export const AUTH_MODE = ['local', 'hybrid'].includes(RAW_MODE) ? RAW_MODE : 'entra'
+/** Email + password login offered (local or hybrid). */
+export const LOCAL_AUTH = AUTH_ENABLED && AUTH_MODE !== 'entra'
+/** Microsoft login offered (entra or hybrid). */
+export const MSAL_AUTH = AUTH_ENABLED && AUTH_MODE !== 'local'
 
 const tenantId = import.meta.env.VITE_AZURE_TENANT_ID || ''
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || ''

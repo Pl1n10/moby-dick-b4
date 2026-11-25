@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import pool from '../db.js'
 import { requireSuperadmin } from '../auth.js'
-import { generatePassword, hashPassword } from '../localAuth.js'
+import { generatePassword, hashPassword, mustUseMicrosoft } from '../localAuth.js'
 
 // Mounted at /api/users (requireAuth + loadUserContext applied in app.js).
 // Global user administration for the superadmin console: every account with
@@ -41,6 +41,8 @@ function mapUserToClient(row) {
     // Local login (AUTH_MODE=local): null = not activated yet. Never the hash.
     passwordSetAt: row.password_set_at instanceof Date ? row.password_set_at.toISOString() : row.password_set_at,
     passwordSetBy: row.password_set_by,
+    // Hybrid: tenant account, signs in with Microsoft (no password to manage).
+    microsoft: mustUseMicrosoft(row.email),
   }
 }
 
@@ -139,6 +141,12 @@ router.delete('/:id', async (req, res) => {
 // the token's password version no longer matches.
 router.post('/:id/password', async (req, res) => {
   try {
+    const { rows: [target] } = await pool.query('SELECT email FROM users WHERE id = $1', [req.params.id])
+    if (!target) return res.status(404).json({ error: 'User not found' })
+    // Hybrid: the login would refuse it anyway, don't hand out a dead password.
+    if (mustUseMicrosoft(target.email)) {
+      return res.status(400).json({ error: 'Questo account entra con Microsoft: non ha una password di KanbanOps.' })
+    }
     const password = generatePassword()
     const { rows: [row] } = await pool.query(
       `UPDATE users SET password_hash = $2, password_set_at = NOW(), password_set_by = $3

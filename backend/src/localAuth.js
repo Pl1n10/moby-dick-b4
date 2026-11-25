@@ -1,7 +1,7 @@
 // Local login: email + password against the users table, with tokens signed
-// by the backend itself. Stopgap for when Entra is not available (2026-11-05:
-// old tenant gone, new one not under our control). Enabled with
-// AUTH_ENABLED=true + AUTH_MODE=local; the rest of the app does not know the
+// by the backend itself. Born as a stopgap for when Entra was not available
+// (2026-11-05: old tenant gone, new one not under our control). Enabled with
+// AUTH_ENABLED=true + AUTH_MODE=local, or AUTH_MODE=hybrid next to Entra; the rest of the app does not know the
 // difference, because the token carries the same `preferred_username` claim
 // an Entra token does, and identity is the email everywhere.
 //
@@ -15,7 +15,31 @@ import pool from './db.js'
 
 const scrypt = promisify(scryptCb)
 
-export const AUTH_MODE = process.env.AUTH_MODE === 'local' ? 'local' : 'entra'
+// 'entra' (Microsoft only), 'local' (email + password only) or 'hybrid'
+// (2026-11-25): Microsoft for the accounts of the tenant's domains
+// (ENTRA_DOMAINS), email + password for everyone else (external colleagues,
+// e.g. the incoming management with addresses outside the tenant).
+export const AUTH_MODE = ['local', 'hybrid'].includes(process.env.AUTH_MODE) ? process.env.AUTH_MODE : 'entra'
+
+/** True when the email + password login is offered at all. */
+export const LOCAL_LOGIN = AUTH_MODE !== 'entra'
+
+/** Domains whose accounts must sign in with Microsoft (hybrid mode), lowercase. */
+export function entraDomains() {
+  if (AUTH_MODE !== 'hybrid') return []
+  return (process.env.ENTRA_DOMAINS || '')
+    .split(',').map(d => d.trim().toLowerCase().replace(/^@/, '')).filter(Boolean)
+}
+
+/**
+ * Hybrid mode: an account of the tenant has one way in, Microsoft. A local
+ * password next to it would be a second, weaker door (and the ones chosen
+ * during the local-only period, 2026-11-05 → hybrid, stay in the database).
+ */
+export function mustUseMicrosoft(email) {
+  const domain = String(email || '').toLowerCase().split('@')[1] || ''
+  return Boolean(domain) && entraDomains().includes(domain)
+}
 
 const ISSUER = 'kanbanops'
 const AUDIENCE = 'kanbanops-local'
@@ -38,6 +62,11 @@ function secret() {
 
 export function checkLocalConfig() {
   secret()
+  // Hybrid without the list would let tenant accounts in with a password:
+  // fail closed.
+  if (AUTH_MODE === 'hybrid' && entraDomains().length === 0) {
+    throw new Error('AUTH_MODE=hybrid needs ENTRA_DOMAINS (e.g. mauden.com)')
+  }
 }
 
 /** End of the self-activation window as a Date, or null if unset/invalid. */
@@ -128,6 +157,8 @@ export function signToken({ email, name, passwordSetAt }) {
 
 export async function localVerifyToken(token) {
   const decoded = jwt.verify(token, secret(), { algorithms: ['HS256'], issuer: ISSUER, audience: AUDIENCE })
+  // Sessions opened with a password before the switch to hybrid die with it.
+  if (mustUseMicrosoft(decoded.preferred_username)) throw new Error('account must sign in with Microsoft')
   const { rows: [row] } = await pool.query(
     'SELECT password_hash, password_set_at FROM users WHERE email = $1',
     [decoded.preferred_username],

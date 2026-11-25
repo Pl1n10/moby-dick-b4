@@ -1,5 +1,5 @@
 import { PublicClientApplication } from '@azure/msal-browser'
-import { AUTH_ENABLED, LOCAL_AUTH, msalConfig } from './authConfig.js'
+import { MSAL_AUTH, LOCAL_AUTH, msalConfig } from './authConfig.js'
 import { acquireBackendToken } from './backendToken.js'
 import { getSession, clearSession } from './localSession.js'
 
@@ -26,7 +26,7 @@ function getPca() {
 }
 
 async function getAccessToken() {
-  if (!AUTH_ENABLED) return null
+  if (!MSAL_AUTH) return null
   try {
     const pca = await getPca()
     const accounts = pca.getAllAccounts()
@@ -39,13 +39,15 @@ async function getAccessToken() {
 }
 
 export default async function apiFetch(url, options = {}) {
-  const token = LOCAL_AUTH ? (getSession()?.token || null) : await getAccessToken()
+  // Hybrid: a password session, if there is one, else Microsoft.
+  const session = LOCAL_AUTH ? getSession() : null
+  const token = session?.token || await getAccessToken()
   const headers = { ...(options.headers || {}) }
   if (token) headers.Authorization = `Bearer ${token}`
   const res = await fetch(url, { ...options, headers })
   // Local login: a 401 on a request that carried our token means the session
   // is over (password reset by an admin, account deleted, expired). Back to
   // the login screen instead of a board full of errors.
-  if (LOCAL_AUTH && token && res.status === 401 && getSession()?.token === token) clearSession()
+  if (session && res.status === 401 && getSession()?.token === token) clearSession()
   return res
 }

@@ -1,10 +1,15 @@
 import { useEffect, useState } from 'react'
 import S from '../styles.js'
+import Icon from '../components/Icon.jsx'
 import { setSession, lastEmail } from './localSession.js'
 
 // Login screen of the local mode (AUTH_MODE=local): email + password, plus
 // "first access" while the self-activation window is open. The backend's
 // error codes pick what to show; its messages are already in Italian.
+//
+// Hybrid mode (onMicrosoft set): "Accedi con Microsoft" on top for the
+// tenant's accounts, the form below for external ones. An email of a tenant
+// domain is stopped here, before the request (the backend refuses it too).
 
 async function post(path, body) {
   const r = await fetch(path, {
@@ -28,7 +33,7 @@ function formatUntil(iso) {
 const label = { display: 'block', fontSize: '12px', color: 'var(--muted)', margin: '12px 0 4px', fontFamily: S.sans }
 const input = { ...S.inputBase, width: '100%', boxSizing: 'border-box' }
 
-export default function LocalLogin() {
+export default function LocalLogin({ onMicrosoft = null }) {
   const [config, setConfig] = useState(null)
   const [mode, setMode] = useState('login') // 'login' | 'claim'
   const [email, setEmail] = useState(lastEmail)
@@ -46,12 +51,18 @@ export default function LocalLogin() {
 
   const claimOpen = Boolean(config?.claimOpen)
   const min = config?.passwordMin || 10
+  const entraDomains = config?.entraDomains || []
+  const isTenantEmail = (v) => entraDomains.includes((v.trim().toLowerCase().split('@')[1] || ''))
+  const tenantLabel = entraDomains.map(d => `@${d}`).join(', ')
 
   const switchTo = (next) => { setMode(next); setError(null); setPassword(''); setConfirm('') }
 
   const submit = async (e) => {
     e.preventDefault()
     setError(null)
+    if (onMicrosoft && isTenantEmail(email)) {
+      return setError(`Gli account ${tenantLabel} entrano con Microsoft: usa «Accedi con Microsoft» qui sopra.`)
+    }
     if (mode === 'claim') {
       if (password.length < min) return setError(`La password deve avere almeno ${min} caratteri.`)
       if (password !== confirm) return setError('Le due password non coincidono.')
@@ -83,15 +94,33 @@ export default function LocalLogin() {
         <p style={{ margin: '0 0 8px', fontFamily: S.sans, fontSize: '13px', color: 'var(--muted)', textAlign: 'center', lineHeight: 1.5 }}>
           {mode === 'claim'
             ? 'Primo accesso: scegli la tua password.'
-            : 'Accedi con la tua email aziendale e la tua password.'}
+            : onMicrosoft
+              ? `Account ${tenantLabel || 'aziendali'}: accedi con Microsoft.`
+              : 'Accedi con la tua email aziendale e la tua password.'}
         </p>
 
+        {onMicrosoft && mode === 'login' && (
+          <>
+            <button type="button" onClick={onMicrosoft} style={{ ...primaryButton, marginTop: '8px' }}>
+              <Icon name="microsoft" style={{ marginRight: '8px' }} />Accedi con Microsoft
+            </button>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px', margin: '22px 0 4px',
+              fontSize: '12px', color: 'var(--faint)', fontFamily: S.sans,
+            }}>
+              <span style={{ flex: 1, borderTop: '1px solid var(--border-subtle)' }} />
+              altri account: email e password
+              <span style={{ flex: 1, borderTop: '1px solid var(--border-subtle)' }} />
+            </div>
+          </>
+        )}
+
         <label style={label} htmlFor="login-email">Email</label>
-        <input id="login-email" type="email" autoComplete="username" required autoFocus={!email}
-          value={email} onChange={e => setEmail(e.target.value)} placeholder="nome.cognome@mauden.com" style={input} />
+        <input id="login-email" type="email" autoComplete="username" required autoFocus={!onMicrosoft && !email}
+          value={email} onChange={e => setEmail(e.target.value)} placeholder={onMicrosoft ? 'nome.cognome@azienda.com' : 'nome.cognome@mauden.com'} style={input} />
 
         <label style={label} htmlFor="login-password">{mode === 'claim' ? 'Nuova password' : 'Password'}</label>
-        <input id="login-password" type="password" required autoFocus={Boolean(email)}
+        <input id="login-password" type="password" required autoFocus={!onMicrosoft && Boolean(email)}
           autoComplete={mode === 'claim' ? 'new-password' : 'current-password'}
           value={password} onChange={e => setPassword(e.target.value)} style={input} />
 
@@ -114,9 +143,8 @@ export default function LocalLogin() {
         )}
 
         <button type="submit" disabled={busy} style={{
-          marginTop: '18px', padding: '10px 18px', background: '#2563eb', border: '1px solid var(--accent)',
-          borderRadius: '4px', color: '#fff', fontFamily: S.mono, fontSize: '13px',
-          fontWeight: 600, cursor: busy ? 'wait' : 'pointer', width: '100%', opacity: busy ? 0.7 : 1,
+          ...(onMicrosoft ? secondaryButton : primaryButton),
+          marginTop: '18px', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1,
         }}>
           {mode === 'claim' ? 'Attiva e accedi' : 'Accedi'}
         </button>
@@ -137,6 +165,18 @@ export default function LocalLogin() {
       </form>
     </div>
   )
+}
+
+const primaryButton = {
+  padding: '10px 18px', background: '#2563eb', border: '1px solid var(--accent)',
+  borderRadius: '4px', color: '#fff', fontFamily: S.mono, fontSize: '13px',
+  fontWeight: 600, cursor: 'pointer', width: '100%',
+}
+
+// Hybrid: the password form is the second way in, it should not compete
+// with the Microsoft button.
+const secondaryButton = {
+  ...primaryButton, background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)',
 }
 
 const linkButton = {

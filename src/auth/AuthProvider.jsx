@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { PublicClientApplication, EventType } from '@azure/msal-browser'
 import { MsalProvider } from '@azure/msal-react'
-import { AUTH_ENABLED, LOCAL_AUTH, msalConfig } from './authConfig.js'
+import { MSAL_AUTH, msalConfig } from './authConfig.js'
 
 // Single PCA instance per app lifetime (lazy-built only when auth is on).
 let pcaInstance = null
@@ -27,8 +27,8 @@ function getPca() {
  * In demo mode it's a transparent passthrough — no MSAL instance is created.
  */
 export default function AuthProvider({ children }) {
-  // Local login (AUTH_MODE=local) does not use MSAL at all.
-  const pca = useMemo(() => (AUTH_ENABLED && !LOCAL_AUTH ? getPca() : null), [])
-  if (!AUTH_ENABLED || LOCAL_AUTH) return children
+  // Local-only login (AUTH_MODE=local) does not use MSAL at all.
+  const pca = useMemo(() => (MSAL_AUTH ? getPca() : null), [])
+  if (!MSAL_AUTH) return children
   return <MsalProvider instance={pca}>{children}</MsalProvider>
 }
