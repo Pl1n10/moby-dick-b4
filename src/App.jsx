@@ -47,6 +47,17 @@ export default function App() {
   const [filterOwner, setFilterOwner] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
 
+  // Vendor-case tasks (Cohesity…) can crowd a section: a per-board, per-browser
+  // switch hides them all. Not a filter: it survives "Clear" and keeps drag &
+  // drop on (see AGENTS.md "Case vendor sulla lavagna").
+  const hideCasesKey = `kanbanops:hideVendorCases:${slug}`
+  const [hideCases, setHideCases] = useState(() => {
+    try { return localStorage.getItem(hideCasesKey) === '1' } catch { return false }
+  })
+  useEffect(() => {
+    try { localStorage.setItem(hideCasesKey, hideCases ? '1' : '0') } catch { /* storage blocked */ }
+  }, [hideCasesKey, hideCases])
+
   const isStorico = activeGroup === '__storico__'
   // Cross-pillar view of the tasks flagged "info reperibile". Not a copy of
   // them: same task rows, filtered — see CLAUDE.md "Info Reperibile".
@@ -115,7 +126,7 @@ export default function App() {
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
-  const filteredTasks = tasks
+  const viewTasks = tasks
     .filter(t => {
       if (isStorico) {
         if (t.status !== 'Closed') return false
@@ -130,6 +141,15 @@ export default function App() {
       }
       return true
     })
+
+  // Storico keeps its closed cases: they are history. A search shows cases
+  // even when hidden, so looking up a case number never comes back empty.
+  const viewCaseCount = isStorico ? 0 : viewTasks.filter(t => t.vendorCase).length
+  const casesHidden = hideCases && !isStorico && !search
+  const hiddenCaseCount = casesHidden ? viewCaseCount : 0
+
+  const filteredTasks = viewTasks
+    .filter(t => !(casesHidden && t.vendorCase))
     .filter(t => {
       if (search) {
         const q = search.toLowerCase()
@@ -160,7 +180,9 @@ export default function App() {
   const hasActiveFilters = search || filterStatus || filterOwner || (isCrossPillar && filterGroup)
   // Drag & drop only inside a section, for whoever can write it. With a
   // filter on, the grips are hidden (column kept): dropping between two
-  // visible rows would say nothing about the hidden ones in between.
+  // visible rows would say nothing about the hidden ones in between. Hidden
+  // vendor cases do not count: the switch is a lasting view preference, and a
+  // drop still means "right above the next visible task".
   const showDragHandle = canAdd
   const canReorder = showDragHandle && !hasActiveFilters
 
@@ -186,6 +208,9 @@ export default function App() {
           filterOwner={filterOwner} onFilterOwnerChange={setFilterOwner}
           hasActiveFilters={hasActiveFilters} onClearFilters={clearFilters}
           filteredCount={filteredTasks.length} totalCount={totalGroupTasks}
+          showCaseToggle={viewCaseCount > 0}
+          hideCases={hideCases} onToggleHideCases={() => setHideCases(v => !v)}
+          hiddenCaseCount={hiddenCaseCount}
           recurring={recurring} onOpenRecurring={() => setShowRecurringModal(true)}
           onAdd={() => handleAdd(activeGroup, clearFilters, defaultOwner)}
           // Loaded on click: the xlsx writer stays out of the main bundle.
@@ -210,9 +235,11 @@ export default function App() {
           // Inside the Info Reperibile tab every row is flagged: the amber bar
           // and on-call badge would mark everything, i.e. nothing.
           highlightReperibile={!isReperibile}
-          emptyMessage={isReperibile
-            ? 'Nessun task marcato "info reperibile". Spunta la casella Rep. su un task per farlo comparire qui.'
-            : undefined}
+          emptyMessage={hiddenCaseCount > 0
+            ? `Qui ci sono solo case fornitori, nascosti (${hiddenCaseCount}). Premi "Case fornitori" nella barra per vederli.`
+            : isReperibile
+              ? 'Nessun task marcato "info reperibile". Spunta la casella Rep. su un task per farlo comparire qui.'
+              : undefined}
           hasActiveFilters={hasActiveFilters}
           search={search}
           onUpdate={updateTask}

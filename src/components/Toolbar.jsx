@@ -14,6 +14,7 @@ export default function Toolbar({
   filterOwner, onFilterOwnerChange,
   hasActiveFilters, onClearFilters,
   filteredCount, totalCount,
+  showCaseToggle = false, hideCases = false, onToggleHideCases, hiddenCaseCount = 0,
   recurring, onOpenRecurring,
   onAdd, onExport,
   canAdd = false,
@@ -94,6 +95,30 @@ export default function Toolbar({
         <option value="">All owners</option>
         {owners.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
+
+      {/* Vendor cases switch — only where the view has some */}
+      {showCaseToggle && (
+        <button
+          onClick={onToggleHideCases}
+          aria-pressed={hideCases}
+          title={hideCases
+            ? 'I task dei case fornitori sono nascosti (la ricerca li trova comunque). Clicca per mostrarli.'
+            : 'Nascondi i task dei case fornitori (Cohesity…). La scelta resta su questo browser.'}
+          style={{
+            padding: '7px 12px', background: hideCases ? 'var(--accent-bg)' : 'none',
+            border: `1px solid ${hideCases ? 'var(--accent-border)' : 'var(--border)'}`,
+            borderRadius: '6px', color: hideCases ? 'var(--accent)' : 'var(--muted)',
+            fontSize: '13px', fontFamily: S.sans, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}
+        >
+          <Icon name={hideCases ? 'eye-slash' : 'eye'} />
+          Case fornitori
+          {hiddenCaseCount > 0 && (
+            <span style={{ fontSize: '11px', fontFamily: S.mono }}>· {hiddenCaseCount} nascosti</span>
+          )}
+        </button>
+      )}
 
       {/* Clear filters */}
       {hasActiveFilters && (
