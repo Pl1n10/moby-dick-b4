@@ -11,14 +11,9 @@
 // viewer opened, so a new entry must go on top with a later date.
 export const CHANGELOG = [
   {
-    date: '2026-11-27',
-    items: [
-      { type: 'fixed', text: 'Un task con voci della checklist ancora aperte non si può chiudere: ora la board te lo dice subito, invece di mostrarlo chiuso e farlo ricomparire dopo un minuto. Lo stesso vale per qualunque modifica che non viene salvata: torna il valore di prima e un avviso spiega perché.' },
-    ],
-  },
-  {
     date: '2026-11-26',
     items: [
+      { type: 'fixed', text: 'Un task con voci della checklist ancora aperte non si può chiudere: ora la board te lo dice subito, invece di mostrarlo chiuso e farlo ricomparire dopo un minuto. Lo stesso vale per qualunque modifica che non viene salvata: torna il valore di prima e un avviso spiega perché.' },
       { type: 'improved', text: 'Gli admin di una lavagna possono dare la password ai colleghi della propria lavagna dalla gestione dei membri, senza passare dal super admin. Nella gestione utenti c\'è una ricerca per email o nome, con i filtri «Da attivare» e «Senza lavagna».' },
       { type: 'new', text: 'I case aperti sul portale di supporto Cohesity compaiono da soli come task nella sezione scelta, con una linguetta che mostra numero e stato del case e lo apre sul portale. Lo stato del task segue il case; la linguetta diventa gialla quando Cohesity aspetta una risposta da noi.' },
     ],
