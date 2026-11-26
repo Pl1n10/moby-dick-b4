@@ -36,10 +36,32 @@ const rejectOnHttpError = (r) => {
   return r
 }
 
+// Same, but the error carries the server's reason, shown to the user.
+const rejectWithReason = async (r) => {
+  if (!r.ok) throw new Error(await apiErrorReason(r))
+  return r
+}
+
+const closeRefusedMsg = (open) =>
+  open === 1
+    ? 'Non si può chiudere: una voce della checklist è ancora aperta. Spuntala o cancellala, poi chiudi il task.'
+    : `Non si può chiudere: ${open} voci della checklist sono ancora aperte. Spuntale o cancellale, poi chiudi il task.`
+
+// Server refusals in the user's language; anything else as the server says it.
+function refusalMessage(field, reason) {
+  const m = /Cannot close task: (\d+) subtask/.exec(reason)
+  if (m) return closeRefusedMsg(Number(m[1]))
+  return `Modifica non salvata (${FIELD_LABELS[field] || field}): ${reason}`
+}
+
 // Board-scoped: every call goes to /api/t/<slug>. App is remounted on board
 // switch (keyed by slug), so API is stable for the life of the hook.
-export default function useTasks() {
+// `onError(message)` tells the user about a change the server refused (the
+// board has already put the old value back).
+export default function useTasks({ onError } = {}) {
   const API = useBoard().apiBase
+  const onErrorRef = useRef(onError)
+  onErrorRef.current = onError
   const [tasks, setTasks] = useState([])
   const lastUpdateRef = useRef(0)
   const tasksRef = useRef(tasks)
@@ -82,6 +104,14 @@ export default function useTasks() {
   const updateTask = (taskId, field, value) => {
     const before = tasksRef.current.find(t => t.id === taskId)
 
+    // Closing with open checklist items is refused by the server: say it now
+    // instead of showing the task closed until the next refetch. The server
+    // check stays the authority (these counters can be stale).
+    if (field === 'status' && value === 'Closed' && (before?.subtasksOpen ?? 0) > 0) {
+      onErrorRef.current?.(closeRefusedMsg(before.subtasksOpen))
+      return
+    }
+
     lastUpdateRef.current = Date.now()
     const touchesUpdatedAt = !NO_TOUCH_FIELDS.has(field)
     // A task moved to another section lands on top of it (as on the server).
@@ -101,7 +131,7 @@ export default function useTasks() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value }),
-    }).then(rejectOnHttpError)
+    }).then(rejectWithReason)
 
     let discard = null
     if (before && !sameValue(before[field], value)) {
@@ -131,6 +161,18 @@ export default function useTasks() {
     request.catch(err => {
       console.error('Failed to update task:', err)
       discard?.()
+      // Put the old value back right away (unless someone already changed it
+      // again), then resync: without this the refused value stayed on screen
+      // until the next poll and the task looked like it "came back".
+      if (before) {
+        setTasks(prev => prev.map(t => (
+          t.id === taskId && sameValue(t[field], value)
+            ? { ...t, [field]: before[field], updatedAt: before.updatedAt, position: before.position }
+            : t
+        )))
+      }
+      onErrorRef.current?.(refusalMessage(field, err.message))
+      refetchTasks(true)
     })
   }
 

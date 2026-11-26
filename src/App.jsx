@@ -55,7 +55,18 @@ export default function App() {
 
   const clearFilters = () => { setSearch(''); setFilterStatus(''); setFilterOwner(''); setFilterGroup('') }
 
-  const { tasks, setTasks, updateTask, moveTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks()
+  // Bottom-right toast: undo outcomes and changes the server refused.
+  const [undoToast, setUndoToast] = useState(null)
+  const toastTimer = useRef(null)
+  const showToast = useCallback((kind, msg, ms = 4000) => {
+    setUndoToast({ kind, msg })
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setUndoToast(null), ms)
+  }, [])
+
+  const { tasks, setTasks, updateTask, moveTask, handleAdd, handleDelete, updateSubtaskCounters, refetchTasks } = useTasks({
+    onError: (msg) => showToast('warn', msg, 7000),
+  })
   const { recurring, setRecurring, showRecurringModal, setShowRecurringModal } = useRecurring(setTasks)
   const { onCall, loading: onCallLoading, setOnCallPerson } = useOnCall(hasReperibile)
   const userInfo = useUserInfo()
@@ -70,8 +81,6 @@ export default function App() {
   // Pure read-only users never accumulate undoable actions: hide the button.
   const canWriteAnything = role === 'admin' || operatorGroups.length > 0
   const undoState = useUndoState()
-  const [undoToast, setUndoToast] = useState(null)
-  const toastTimer = useRef(null)
 
   const handleUndo = useCallback(async () => {
     const result = await undoLast()
@@ -79,13 +88,11 @@ export default function App() {
     if (result.ok) {
       // Undo mutates server state at API level: resync the board.
       refetchTasks(true)
-      setUndoToast({ kind: 'ok', msg: `Annullato: ${result.label}` })
+      showToast('ok', `Annullato: ${result.label}`)
     } else {
-      setUndoToast({ kind: 'warn', msg: `Undo saltato (${result.label}): ${result.reason}` })
+      showToast('warn', `Undo saltato (${result.label}): ${result.reason}`)
     }
-    clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setUndoToast(null), 4000)
-  }, [refetchTasks])
+  }, [refetchTasks, showToast])
 
   // Ctrl+Z / Cmd+Z, only when not typing: inside text fields the browser's
   // native text undo must keep working. Checkbox/radio/button inputs have no
